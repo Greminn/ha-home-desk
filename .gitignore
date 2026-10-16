@@ -10,3 +10,6 @@ frontend/dev/dist/
 
 # Personal photos pulled in for the dev preview; never committed.
 frontend/dev/local/
+
+# The downloaded brand pack: the extracted home_desk_brand/ folder is the copy kept in git.
+home_desk_brand.zip
