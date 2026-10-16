@@ -8,8 +8,9 @@ URL_BASE = "/home_desk"
 PANEL_FILENAME = "home-desk-panel.js"
 
 SIDEBAR_TITLE = "Home Desk"
-# A standard Material Design icon, so the sidebar entry matches HA's own.
-SIDEBAR_ICON = "mdi:lifebuoy"
+# A standard Material Design icon, so the sidebar entry matches HA's own. The brand pack (home_desk_brand/)
+# recommends mdi:home-alert: there is no house-with-a-tick in the MDI set. The integration's own logo and icon are in brand/.
+SIDEBAR_ICON = "mdi:home-alert"
 FRONTEND_URL_PATH = "home-desk"
 
 # Fired on the HA event bus whenever a ticket changes, so automations can
