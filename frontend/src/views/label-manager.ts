@@ -2,14 +2,14 @@ import { LitElement, html, css, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { safeCustomElement } from "../define";
 import { sharedStyles } from "../styles";
-import { TAG_COLORS } from "../types";
-import type { Tag, TagColor } from "../types";
+import { LABEL_COLORS } from "../types";
+import type { Label, LabelColor } from "../types";
 import type { HaClient } from "../ha-client";
-import { tagColorCss } from "../format";
+import { labelColorCss } from "../format";
 
-/** "Manage tags" dialog: rename, recolour, add and delete tags. The built-in Home Assistant tag is locked. */
-@safeCustomElement("st-tag-manager")
-export class TagManager extends LitElement {
+/** "Manage labels" dialog: rename, recolour, add and delete labels. The built-in Home Assistant label is locked. */
+@safeCustomElement("st-label-manager")
+export class LabelManager extends LitElement {
   static override styles = [
     sharedStyles,
     css`
@@ -146,7 +146,7 @@ export class TagManager extends LitElement {
   ];
 
   @property({ attribute: false }) client!: HaClient;
-  @property({ attribute: false }) tags: Tag[] = [];
+  @property({ attribute: false }) labels: Label[] = [];
 
   @state() private _newName = "";
   @state() private _error = "";
@@ -161,7 +161,7 @@ export class TagManager extends LitElement {
     try {
       await fn();
       this._error = "";
-      this._fire("tags-changed");
+      this._fire("labels-changed");
     } catch (err) {
       this._error =
         err && typeof err === "object" && "message" in err
@@ -173,76 +173,76 @@ export class TagManager extends LitElement {
   private async _add() {
     const name = this._newName.trim();
     if (!name) return;
-    await this._run(() => this.client.createTag(name));
+    await this._run(() => this.client.createLabel(name));
     if (!this._error) this._newName = "";
   }
 
-  private _rename(tag: Tag, e: Event) {
+  private _rename(label: Label, e: Event) {
     const input = e.target as HTMLInputElement;
     const name = input.value.trim();
-    if (!name || name === tag.name) {
-      input.value = tag.name;
+    if (!name || name === label.name) {
+      input.value = label.name;
       return;
     }
-    void this._run(() => this.client.updateTag(tag.id, { name })).then(() => {
-      if (this._error) input.value = tag.name;
+    void this._run(() => this.client.updateLabel(label.id, { name })).then(() => {
+      if (this._error) input.value = label.name;
     });
   }
 
-  private _recolor(tag: Tag, color: TagColor) {
+  private _recolor(label: Label, color: LabelColor) {
     this._palette = null;
-    void this._run(() => this.client.updateTag(tag.id, { color }));
+    void this._run(() => this.client.updateLabel(label.id, { color }));
   }
 
-  private _delete(tag: Tag) {
+  private _delete(label: Label) {
     this._confirm = null;
-    void this._run(() => this.client.deleteTag(tag.id));
+    void this._run(() => this.client.deleteLabel(label.id));
   }
 
   override render() {
     return html`
       <div class="scrim" @click=${(e: Event) => e.target === e.currentTarget && this._fire("close")}
         @keydown=${(e: KeyboardEvent) => e.key === "Escape" && this._fire("close")}>
-        <div class="dialog" role="dialog" aria-label="Manage tags">
-          <h2>Manage tags</h2>
-          <p class="hint">Tags group tickets by system or topic. Home Assistant is built in and can't be changed.</p>
+        <div class="dialog" role="dialog" aria-label="Manage labels">
+          <h2>Manage labels</h2>
+          <p class="hint">Labels say what a ticket is (Bug, Enhancement, Task...) and which system or topic it concerns. The locked ones are built in.</p>
           <div class="rows">
-            ${this.tags.map((tag) => html`
+            ${this.labels.map((label) => html`
               <div class="row">
-                <button class="swatch" style="--c: ${tagColorCss(tag.color)}" ?disabled=${tag.builtin}
-                  title=${tag.builtin ? "Built-in colour" : "Change colour"} aria-label="Colour of ${tag.name}"
-                  @click=${() => (this._palette = this._palette === tag.id ? null : tag.id)}></button>
+                <button class="swatch" style="--c: ${labelColorCss(label.color)}" ?disabled=${label.builtin}
+                  title=${label.builtin ? "Built-in colour" : "Change colour"} aria-label="Colour of ${label.name}"
+                  @click=${() => (this._palette = this._palette === label.id ? null : label.id)}></button>
                 <div class="name">
-                  ${tag.builtin
-                    ? html`<span class="fixed">${tag.name}</span>`
-                    : html`<input type="text" .value=${tag.name} aria-label="Name of ${tag.name}"
-                        @change=${(e: Event) => this._rename(tag, e)}
+                  ${label.builtin
+                    ? html`<span class="fixed" title=${label.description}>${label.name}</span>`
+                    : html`<input type="text" .value=${label.name} aria-label="Name of ${label.name}"
+                        @change=${(e: Event) => this._rename(label, e)}
                         @keydown=${(e: KeyboardEvent) => e.key === "Enter" && (e.target as HTMLElement).blur()} />`}
                 </div>
-                <span class="count">${tag.count} ticket${tag.count === 1 ? "" : "s"}</span>
-                ${tag.builtin
+                <span class="count">${label.count} ticket${label.count === 1 ? "" : "s"}</span>
+                ${label.builtin
                   ? html`<span class="lock" title="Built in: can't be changed or deleted"><ha-icon icon="mdi:lock-outline"></ha-icon></span>`
-                  : html`<button class="icon" title="Delete tag" @click=${() => (this._confirm = tag.id)}><ha-icon icon="mdi:delete-outline"></ha-icon></button>`}
-                ${this._palette === tag.id
+                  : html`<button class="icon" title="Delete label" @click=${() => (this._confirm = label.id)}><ha-icon icon="mdi:delete-outline"></ha-icon></button>`}
+                ${this._palette === label.id
                   ? html`<div class="palette">
-                      ${TAG_COLORS.map((c) => html`<button style="--c: ${tagColorCss(c)}" class=${c === tag.color ? "selected" : ""}
-                        title=${c.replace("-", " ")} aria-label=${c} @click=${() => this._recolor(tag, c)}></button>`)}
+                      ${LABEL_COLORS.map((c) => html`<button style="--c: ${labelColorCss(c)}" class=${c === label.color ? "selected" : ""}
+                        title=${c.replace("-", " ")} aria-label=${c} @click=${() => this._recolor(label, c)}></button>`)}
                     </div>`
                   : nothing}
-                ${this._confirm === tag.id
+                ${this._confirm === label.id
                   ? html`<div class="confirm">
-                      <span class="grow">${tag.count ? `Remove “${tag.name}” from ${tag.count} ticket${tag.count === 1 ? "" : "s"} and delete it?` : `Delete “${tag.name}”?`}</span>
+                      <span class="grow">${label.count ? `Remove “${label.name}” from ${label.count} ticket${label.count === 1 ? "" : "s"} and delete it?` : `Delete “${label.name}”?`}</span>
                       <button @click=${() => (this._confirm = null)}>Cancel</button>
-                      <button class="danger" @click=${() => this._delete(tag)}>Delete</button>
+                      <button class="danger" @click=${() => this._delete(label)}>Delete</button>
                     </div>`
                   : nothing}
               </div>`)}
           </div>
           <div class="add">
-            <input type="text" placeholder="New tag" .value=${this._newName}
+            <input type="text" placeholder="New label" .value=${this._newName}
               @input=${(e: Event) => (this._newName = (e.target as HTMLInputElement).value)}
               @keydown=${(e: KeyboardEvent) => e.key === "Enter" && void this._add()} />
-            <button class="primary" ?disabled=${!this._newName.trim()} @click=${() => void this._add()}>Add tag</button>
+            <button class="primary" ?disabled=${!this._newName.trim()} @click=${() => void this._add()}>Add label</button>
           </div>
           ${this._error ? html`<div class="error">${this._error}</div>` : nothing}
           <div class="actions"><button @click=${() => this._fire("close")}>Done</button></div>
@@ -254,6 +254,6 @@ export class TagManager extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "st-tag-manager": TagManager;
+    "st-label-manager": LabelManager;
   }
 }

@@ -1,21 +1,11 @@
-import type { Priority, Status, Tag, TagColor, TicketType } from "./types";
+import type { Priority, Status, Label, LabelColor } from "./types";
 
 export const STATUS_LABEL: Record<Status, string> = {
   new: "New",
   open: "Open",
   in_progress: "In progress",
-  waiting: "Waiting",
   resolved: "Resolved",
   closed: "Closed",
-};
-
-export const TYPE_LABEL: Record<TicketType, string> = {
-  issue: "Issue",
-  request: "Request",
-  idea: "Idea",
-  task: "Task",
-  question: "Question",
-  log: "History",
 };
 
 export const PRIORITY_LABEL: Record<Priority, string> = {
@@ -25,14 +15,23 @@ export const PRIORITY_LABEL: Record<Priority, string> = {
   urgent: "Urgent",
 };
 
-export const TYPE_ICON: Record<TicketType, string> = {
-  issue: "mdi:alert-circle-outline",
-  request: "mdi:hand-wave-outline",
-  idea: "mdi:lightbulb-outline",
-  task: "mdi:checkbox-marked-circle-outline",
-  question: "mdi:help-circle-outline",
-  log: "mdi:history",
-};
+/** What a ticket is, shown as an icon: the first built-in kind label it carries. */
+const KIND_ICONS: [string, string][] = [
+  ["bug", "mdi:alert-circle-outline"],
+  ["enhancement", "mdi:lightbulb-outline"],
+  ["task", "mdi:checkbox-marked-circle-outline"],
+  ["question", "mdi:help-circle-outline"],
+  ["history", "mdi:history"],
+];
+
+export function kindIcon(labels: string[]): string {
+  return KIND_ICONS.find(([id]) => labels.includes(id))?.[1] ?? "mdi:circle-outline";
+}
+
+export function kindName(labels: string[]): string {
+  const id = KIND_ICONS.find(([k]) => labels.includes(k))?.[0];
+  return id ? id.charAt(0).toUpperCase() + id.slice(1) : "Ticket";
+}
 
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ["year", 31536000],
@@ -72,7 +71,7 @@ export function actorName(actor: string): string {
   return actor.replace(/^ai:/i, "");
 }
 
-const TAG_FALLBACK: Record<TagColor, string> = {
+const LABEL_FALLBACK: Record<LabelColor, string> = {
   primary: "#03a9f4",
   accent: "#ff9800",
   red: "#f44336",
@@ -97,14 +96,14 @@ const TAG_FALLBACK: Record<TagColor, string> = {
   "blue-grey": "#607d8b",
 };
 
-/** CSS colour for a tag colour name: HA's own theme variable, with a fallback. */
-export function tagColorCss(color: TagColor): string {
+/** CSS colour for a label colour name: HA's own theme variable, with a fallback. */
+export function labelColorCss(color: LabelColor): string {
   if (color === "primary") return "var(--primary-color, #03a9f4)";
   if (color === "accent") return "var(--accent-color, #ff9800)";
-  return `var(--${color}-color, ${TAG_FALLBACK[color] ?? "#9e9e9e"})`;
+  return `var(--${color}-color, ${LABEL_FALLBACK[color] ?? "#9e9e9e"})`;
 }
 
-/** A tag id the registry doesn't know (deleted, or from an old event) still needs to render. */
-export function tagOrUnknown(map: Map<string, Tag>, id: string): Tag {
-  return map.get(id) ?? { id, name: id, color: "grey", builtin: false, count: 0 };
+/** A label id the registry doesn't know (deleted, or from an old event) still needs to render. */
+export function labelOrUnknown(map: Map<string, Label>, id: string): Label {
+  return map.get(id) ?? { id, name: id, color: "grey", description: "", builtin: false, count: 0 };
 }

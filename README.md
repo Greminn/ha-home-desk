@@ -2,7 +2,7 @@
 
 A helpdesk for the home, living inside Home Assistant. The manager, household members, AI agents and Home Assistant itself raise tickets; the manager and AI agents work them through to resolution, with the full history kept. Home Assistant is the heart of a smart home, so it's where tickets live, but they can be about anything around it too (the network, the servers, the media box). Tags keep those apart. See [IDEA.md](IDEA.md) for the bigger vision.
 
-**Status: v0.1 ([changelog](custom_components/home_desk/CHANGELOG.md)), a first working slice, in daily use on one install.** Built: the inbox, tags, AI access, import of an existing markdown tracker. Not built yet: daily triage, easy submission for household users (voice, QR, buttons), reporting, notifications beyond the bus event. See [IDEA.md](IDEA.md).
+**Status: v0.1 ([changelog](custom_components/home_desk/CHANGELOG.md)), a first working slice, in daily use on one install.** Built: views and a ticket page in the Home Assistant style, GitHub-style labels, AI access, Home Assistant Repairs as tickets, import of an existing markdown tracker. Not built yet: daily triage, easy submission for household users (voice, QR, buttons), reporting, notifications beyond the bus event. See [IDEA.md](IDEA.md).
 
 *Formerly "Support Tickets" (domain `support_tickets`); see [Upgrading from Support Tickets](#upgrading-from-support-tickets).*
 
@@ -10,27 +10,36 @@ A helpdesk for the home, living inside Home Assistant. The manager, household me
 
 | Part | Where | What it does |
 |---|---|---|
-| Integration | `custom_components/home_desk/` | Stores tickets and tags in `.storage/home_desk.tickets`, WebSocket API for the panel, `home_desk.*` services, a `home_desk_event` on the event bus for every change |
-| Panel | `frontend/` → `www/home-desk-panel.js` | Sidebar inbox (Lit, HA theme variables): views, filters, search, ticket detail with timeline, comments, internal notes, resolve/reopen, coloured tags and a tag manager |
-| AI bridge | `mcp/server.py` | Optional MCP server: list, get, create, update, comment, close, link, tags, stats |
+| Integration | `custom_components/home_desk/` | Stores tickets and labels in `.storage/home_desk.tickets`, WebSocket API for the panel, `home_desk.*` services, a `home_desk_event` on the event bus for every change |
+| Panel | `frontend/` → `www/home-desk-panel.js` | Sidebar app (Lit, HA theme variables): views as sortable tables, a full-page ticket with timeline, comments, internal notes, resolve/reopen, coloured labels and a label manager |
+| AI bridge | `mcp/server.py` | Optional MCP server: list, get, create, update, comment, close, link, labels, stats |
 
 Admins see and change everything. Other HA users can raise tickets and comment on their own, and don't see internal notes or other people's tickets.
 
 ## Using the panel
 
-- **Views** (tabs, with counts): Inbox (active), Needs review, Waiting, Resolved, History, All. The last view you used is remembered per browser.
-- **Find things:** search covers titles, descriptions, comments, resolutions and tag names. Filter by type, priority, assignee and tag.
-- **Work a ticket:** change status, priority, type, assignee and tags inline; comment; add an internal note (admins only, hidden from requesters); **Resolve** with notes, or **Reopen**. Everything is recorded on the ticket's timeline, including who did it (a person, an AI agent, or Home Assistant).
+- **Views** (tabs): **Inbox** (new and open tickets, not enhancements), **In Progress**, **Enhancements** (ideas for the future) and **All** (with a Show filter: Everything, Open, Closed, History). Inbox, In Progress and Enhancements show counts. Each view is a sortable table; click a ticket to open it as a full page (back arrow, or the browser's back button). Every ticket has its own address, `/home-desk/123`. The last view you used is remembered per browser.
+- **Find things:** search covers titles, descriptions, comments, resolutions and label names. Filter by priority and label.
+- **Work a ticket:** change status, priority, assignee and labels inline; comment; add an internal note (admins only, hidden from requesters); **Resolve** with notes, or **Reopen**. Everything is recorded on the ticket's timeline, including who did it (a person, an AI agent, or Home Assistant).
 - **Live:** the panel refreshes when anything changes, including changes made by an AI agent or an automation.
 
-## Tags
+## Labels
 
-Tags group tickets by system or topic. Each tag has a name and a colour (the same colour names HA uses for labels, so they follow your theme).
+Labels work as they do on GitHub: they say what a ticket is, and which system or topic it concerns. Each label has a name, a colour (the same colour names HA uses for its own labels, so they follow your theme) and an optional description.
 
-- **Home Assistant** is built in. Its name and colour can't be changed and it can't be deleted (it shows a lock). New tickets get it by default when no tag is given. You can still remove it from an individual ticket, for example one about the network.
-- Every other tag is yours: **Manage tags** (tag icon in the panel header, admins only) lets you add, rename, recolour and delete. Renaming keeps tickets tagged; deleting removes the tag from every ticket after a confirmation that says how many.
-- Typing a tag name that doesn't exist (in the panel, or an AI agent using it) creates it, with a colour picked automatically. Names match case-insensitively.
-- A suggested scheme, used on the imported tracker: a **system** (Home Assistant, Network, Infrastructure, Media), **topics** (Zigbee, Lighting, Automations, Dashboards, Cameras, Presence, Energy, Voice, Security...) and **workflow** tags (Needs review, Monitoring, Recurring, Side project). Nothing enforces it.
+- **Built-in labels** (locked: they can't be renamed, recoloured or deleted): **Bug** (something isn't working), **Enhancement** (an idea or request for the future), **Task**, **Question**, **History** (a record of past work, hidden from lists unless you ask), **Blocked** (waiting on a person, a part or a fix) and **Home Assistant** (the default when no label is given). The Inbox and Enhancements views rely on these.
+- Every other label is yours: **Manage labels** (in the panel's ⋮ menu, admins only) lets you add, rename, recolour and delete. Renaming keeps tickets labelled; deleting removes the label from every ticket after a confirmation that says how many.
+- Typing a label name that doesn't exist (in the panel, or an AI agent using it) creates it, with a colour picked automatically. Names match case-insensitively.
+- A suggested scheme, used on the imported tracker: a **system** (Home Assistant, Network, Infrastructure, Media), **topics** (Zigbee, Lighting, Automations, Dashboards, Cameras, Presence, Energy, Voice, Security...) and **workflow** labels (Needs review, Monitoring, Recurring, Side project). Nothing enforces it.
+- Household users can pick Bug, Enhancement or Question when raising their own ticket; only admins set other labels and the priority.
+
+## Home Assistant Repairs
+
+Home Desk can open a ticket for every Home Assistant **repair** (Settings → System → Repairs), so they get the history and notes that Repairs lacks. It is on by default; change it under Settings → Devices & services → Home Desk → Configure (turn it off, or list integrations to skip, such as noisy ones).
+
+- One ticket per repair: requester `Home Assistant`, labels Bug, Home Assistant and Repair, priority from the repair's severity (critical → urgent, error → high, warning → normal). The description has the repair's text, the integration, and its "learn more" link.
+- The ticket follows the repair: it **resolves itself** (with the note "Cleared by Home Assistant") when HA clears the repair, **reopens** if the repair comes back, and gets the **Blocked** label while the repair is ignored in HA. Your own changes to its priority and labels are kept.
+- Repairs already present are picked up when Home Assistant starts, including ones that cleared while it was off.
 
 ## Install
 
@@ -56,13 +65,13 @@ What comes in:
 - **Dated Issue Log entries** become closed `History` tickets, linked to the to-do items they mention.
 - Entries under *Low Priority / Monitoring* come in as open monitoring tickets.
 - Original markdown is kept verbatim as the description.
-- Imported tickets arrive with the Home Assistant tag plus a few keyword topic tags; tidy them with Manage tags. The importer no longer adds bookkeeping tags (source, group). Some imported titles are rough where the original heading was terse.
+- Imported tickets arrive with the Home Assistant label, a Bug, Task or History label (from the old item type) plus a few keyword topic labels; tidy them with Manage labels. The importer no longer adds bookkeeping labels (source, group). Some imported titles are rough where the original heading was terse.
 
 ## AI access
 
 The app explains itself to AI agents, so nothing needs adding to a project's own instructions. Any agent connected to your HA (through an HA MCP server, or the REST API) can find the `home_desk.*` services, whose descriptions say what they are for. **`home_desk.get_guide`** returns the full guide ([AGENT_GUIDE.md](custom_components/home_desk/AGENT_GUIDE.md)): fields and statuses, how to review, comment on, update and close tickets, and conventions such as passing `actor` with the agent's own name so its work is attributed to it on the timeline.
 
-Services: `get_guide`, `get_changelog`, `list_tickets`, `get_ticket`, `create_ticket`, `update_ticket`, `add_comment`, `close_ticket`, `link_tickets`, `list_tags`, `get_stats` (and the admin-only `import_file`). Tags can be passed by name or id; managing tag definitions (rename, recolour, delete) is for people, in the panel. They return data, so call them with response enabled (for example `ha_call_service` with `return_response: true` in ha-mcp, or `action:` with `response_variable` in an automation). They work from automations too.
+Services: `get_guide`, `get_changelog`, `list_tickets`, `get_ticket`, `create_ticket`, `update_ticket`, `add_comment`, `close_ticket`, `link_tickets`, `list_labels`, `get_stats` (and the admin-only `import_file`). Labels can be passed by name or id; managing label definitions (rename, recolour, delete) is for people, in the panel. They return data, so call them with response enabled (for example `ha_call_service` with `return_response: true` in ha-mcp, or `action:` with `response_variable` in an automation). They work from automations too.
 
 **Optional dedicated MCP server** (`mcp/server.py`): typed tools wrapping the same services, for setups without a general HA MCP server. Add to `.mcp.json` (keep the token out of git):
 
@@ -99,4 +108,4 @@ Tests (no HA install needed): `python3 -I tests/test_storage.py` and `uv run --w
 
 - Tested without a Home Assistant install (storage logic, the MCP bridge, and the panel in a mock page) and by use on a live install; there is no automated test of the HA wiring itself.
 - Admin-only features rely on HA's own admin flag. Non-admins only see tickets they raised.
-- Tag colours are limited to the 22 theme-aware names, not arbitrary hex values.
+- Label colours are limited to the 22 theme-aware names, not arbitrary hex values.

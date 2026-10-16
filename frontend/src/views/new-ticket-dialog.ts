@@ -2,9 +2,17 @@ import { LitElement, html, css } from "lit";
 import { property, state } from "lit/decorators.js";
 import { safeCustomElement } from "../define";
 import { sharedStyles } from "../styles";
-import { PRIORITIES, TYPES } from "../types";
-import type { Priority, TicketType } from "../types";
-import { PRIORITY_LABEL, TYPE_LABEL } from "../format";
+import { PRIORITIES } from "../types";
+import type { Priority } from "../types";
+import { PRIORITY_LABEL } from "../format";
+
+/** What kind of ticket this is: a built-in label. A household user can pick the first three. */
+const KINDS: { id: string; name: string; admin?: boolean }[] = [
+  { id: "bug", name: "Bug" },
+  { id: "enhancement", name: "Enhancement" },
+  { id: "question", name: "Question" },
+  { id: "task", name: "Task", admin: true },
+];
 
 /** "New ticket" dialog, styled like HA's own dialogs. */
 @safeCustomElement("st-new-ticket-dialog")
@@ -69,7 +77,7 @@ export class NewTicketDialog extends LitElement {
   @property({ type: Boolean }) isAdmin = false;
   @state() private _title = "";
   @state() private _description = "";
-  @state() private _type: TicketType = "issue";
+  @state() private _kind = "bug";
   @state() private _priority: Priority = "normal";
 
   private _fire(name: string, detail?: unknown) {
@@ -81,7 +89,7 @@ export class NewTicketDialog extends LitElement {
     this._fire("create", {
       title: this._title.trim(),
       description: this._description,
-      ticket_type: this._type,
+      labels: [this._kind],
       priority: this._priority,
     });
   }
@@ -105,10 +113,10 @@ export class NewTicketDialog extends LitElement {
           </div>
           <div class="pair field">
             <div>
-              <label for="type">Type</label>
-              <select id="type" .value=${this._type}
-                @change=${(e: Event) => (this._type = (e.target as HTMLSelectElement).value as TicketType)}>
-                ${TYPES.filter((t) => t !== "log").map((t) => html`<option value=${t} ?selected=${t === this._type}>${TYPE_LABEL[t]}</option>`)}
+              <label for="kind">Kind</label>
+              <select id="kind" .value=${this._kind}
+                @change=${(e: Event) => (this._kind = (e.target as HTMLSelectElement).value)}>
+                ${KINDS.filter((k) => !k.admin || this.isAdmin).map((k) => html`<option value=${k.id} ?selected=${k.id === this._kind}>${k.name}</option>`)}
               </select>
             </div>
             ${this.isAdmin

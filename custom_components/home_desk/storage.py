@@ -18,15 +18,17 @@ import re
 
 from .const import (
     ACTIVE_STATUSES,
+    BLOCKED_LABEL_ID,
+    BUILTIN_LABELS,
     DOMAIN,
     EVENT_TICKET,
-    HA_TAG,
-    HA_TAG_ID,
+    HA_LABEL_ID,
+    HISTORY_LABEL_ID,
+    LABEL_AUTO_COLORS,
+    LABEL_COLORS,
+    LEGACY_TYPE_LABELS,
     PRIORITIES,
     STATUSES,
-    TAG_AUTO_COLORS,
-    TAG_COLORS,
-    TYPES,
 )
 
 _STORE_VERSION = 1  # shape changes are migrated in _load, not by bumping this
@@ -34,15 +36,14 @@ _STORE_KEY = f"{DOMAIN}.tickets"
 # This integration was first called Support Tickets (domain support_tickets); its data is picked up once.
 _LEGACY_STORE_KEY = "support_tickets.tickets"
 
-# Fields a caller may change on an existing ticket (besides add/remove_tags).
+# Fields a caller may change on an existing ticket (besides add/remove_labels).
 _EDITABLE = (
     "title",
     "description",
-    "type",
     "status",
     "priority",
     "assignee",
-    "tags",
+    "labels",
     "entities",
     "resolution",
 )
@@ -74,23 +75,29 @@ def _slug(name: str) -> str:
 
 
 def _auto_color(registry: dict[str, Any]) -> str:
-    """The palette colour used by the fewest tags so far (ties go to palette order)."""
+    """The palette colour used by the fewest labels so far (ties go to palette order)."""
     used = [t["color"] for t in registry.values()]
-    return min(TAG_AUTO_COLORS, key=lambda c: used.count(c))
+    return min(LABEL_AUTO_COLORS, key=lambda c: used.count(c))
 
 
-def _add_tag(
-    registry: dict[str, Any], name: str, color: str | None = None, tag_id: str | None = None
+def _add_label(
+    registry: dict[str, Any], name: str, color: str | None = None, label_id: str | None = None
 ) -> dict[str, Any]:
-    tag = {"id": tag_id or _slug(name), "name": name.strip(), "color": color or _auto_color(registry), "builtin": False}
-    registry[tag["id"]] = tag
-    return tag
+    label = {
+        "id": label_id or _slug(name),
+        "name": name.strip(),
+        "color": color or _auto_color(registry),
+        "description": "",
+        "builtin": False,
+    }
+    registry[label["id"]] = label
+    return label
 
 
-def _resolve_tag(data: dict[str, Any], raw: str, *, create: bool = True) -> str | None:
-    """A tag id for what a caller typed: an id, or a name (any case). New names create a tag."""
+def _resolve_label(data: dict[str, Any], raw: str, *, create: bool = True) -> str | None:
+    """A label id for what a caller typed: an id, or a name (any case). New names create a label."""
     raw = (raw or "").strip()
-    registry = data["tag_registry"]
+    registry = data["label_registry"]
     if not raw:
         return None
     if raw in registry:
@@ -98,39 +105,93 @@ def _resolve_tag(data: dict[str, Any], raw: str, *, create: bool = True) -> str 
     slug = _slug(raw)
     if slug in registry:
         return slug
-    for tag in registry.values():
-        if tag["name"].lower() == raw.lower():
-            return tag["id"]
+    for label in registry.values():
+        if label["name"].lower() == raw.lower():
+            return label["id"]
     if not slug:
-        raise TicketError(f"Invalid tag {raw!r}")
+        raise TicketError(f"Invalid label {raw!r}")
     if not create:
         return None
     # A slug-style name ("wall-tablet", as imports and agents often send) reads better spaced out.
     name = raw.replace("-", " ").capitalize() if raw == slug else raw
-    return _add_tag(data["tag_registry"], name, tag_id=slug)["id"]
+    return _add_label(registry, name, label_id=slug)["id"]
 
 
-def _resolve_tags(data: dict[str, Any], raws: list[str] | None) -> list[str]:
-    ids = {i for raw in raws or [] if (i := _resolve_tag(data, raw))}
+def _resolve_labels(data: dict[str, Any], raws: list[str] | None) -> list[str]:
+    ids = {i for raw in raws or [] if (i := _resolve_label(data, raw))}
     return sorted(ids)
 
 
+def upgrade_legacy_fields(fields: dict[str, Any], mode: str) -> dict[str, Any]:
+    """Translate pre-label field names so older callers, agents and import files keep working.
+
+    `mode` is "create" or "update" (label additions go to `labels` or `add_labels`)
+    or "filter" (a list query; `type` becomes a `label` filter). Not applied to new names.
+    """
+    f = dict(fields)
+    add_key = "labels" if mode == "create" else "add_labels"
+    extra: list[str] = []
+    if "tags" in f:
+        f["labels" if mode != "filter" else "label"] = f.pop("tags")
+    for old, new in (("add_tags", "add_labels"), ("remove_tags", "remove_labels"), ("tag", "label")):
+        if old in f:
+            f.setdefault(new, f.pop(old))
+            f.pop(old, None)
+    if "type" in f:
+        label = LEGACY_TYPE_LABELS.get(f.pop("type"))
+        if label and mode == "filter":
+            f.setdefault("label", label)
+        elif label:
+            extra.append(label)
+    if f.get("status") == "waiting":  # the old waiting status is now "open" plus the Blocked label
+        f["status"] = "open"
+        extra.append(BLOCKED_LABEL_ID)
+    if extra and mode != "filter":
+        f[add_key] = [*(f.get(add_key) or []), *extra]
+    return f
+
+
 def _migrate(data: dict[str, Any]) -> bool:
-    """Add the tag registry to data saved before tags had definitions."""
-    if "tag_registry" in data:
-        data["tag_registry"][HA_TAG_ID] = dict(HA_TAG)
-        return False
-    registry: dict[str, Any] = {HA_TAG_ID: dict(HA_TAG)}
-    data["tag_registry"] = registry
+    """Bring older saved data up to the current shape. Returns True if anything changed."""
+    changed = False
+    if "label_registry" not in data:
+        if "tag_registry" not in data:
+            # Oldest shape: tags were plain strings with no definitions.
+            registry: dict[str, Any] = {}
+            data["tag_registry"] = registry
+            for ticket in data["tickets"].values():
+                resolved = []
+                for raw in ticket["tags"]:
+                    slug = _slug(raw)
+                    if slug and slug not in registry:
+                        registry[slug] = {"id": slug, "name": raw.replace("-", " ").capitalize(),
+                                          "color": _auto_color(registry), "builtin": False}
+                    resolved.append(slug)
+                ticket["tags"] = sorted(set(resolved))
+        data["label_registry"] = data.pop("tag_registry")
+        for ticket in data["tickets"].values():
+            ticket["labels"] = ticket.pop("tags", [])
+        changed = True
+    registry = data["label_registry"]
+    for builtin in BUILTIN_LABELS:
+        want = {**builtin, "builtin": True}
+        if registry.get(builtin["id"]) != want:
+            registry[builtin["id"]] = want
+            changed = True
     for ticket in data["tickets"].values():
-        resolved = []
-        for raw in ticket["tags"]:
-            slug = _slug(raw)
-            if slug and slug not in registry:
-                _add_tag(registry, raw.replace("-", " ").capitalize(), tag_id=slug)
-            resolved.append(slug)
-        ticket["tags"] = sorted(set(resolved) | {HA_TAG_ID})
-    return True
+        # Type became a label; the waiting status became the Blocked label.
+        if "type" in ticket:
+            label = LEGACY_TYPE_LABELS.get(ticket.pop("type"))
+            if label and label not in ticket["labels"]:
+                ticket["labels"] = sorted({*ticket["labels"], label})
+            changed = True
+        if ticket["status"] == "waiting":
+            ticket["status"] = "open"
+            ticket["labels"] = sorted({*ticket["labels"], BLOCKED_LABEL_ID})
+            _event(ticket, "Home Desk", "field",
+                   "Status 'waiting' no longer exists: now open with the Blocked label", None)
+            changed = True
+    return changed
 
 
 async def _load(hass: HomeAssistant) -> dict[str, Any]:
@@ -216,12 +277,11 @@ def _new_ticket(
     *,
     title: str,
     description: str = "",
-    type: str = "issue",
     status: str = "new",
     priority: str = "normal",
     requester: str = "unknown",
     assignee: str | None = None,
-    tags: list[str] | None = None,
+    labels: list[str] | None = None,
     entities: list[str] | None = None,
     actor: str | None = None,
     legacy_ref: str | None = None,
@@ -235,23 +295,21 @@ def _new_ticket(
     title = (title or "").strip()
     if not title:
         raise TicketError("A ticket needs a title")
-    _check(type, TYPES, "type")
     _check(status, STATUSES, "status")
     _check(priority, PRIORITIES, "priority")
     ts = created_at or _now()
-    tag_ids = _resolve_tags(data, tags) or [HA_TAG_ID]
+    label_ids = _resolve_labels(data, labels) or [HA_LABEL_ID]
     tid = data["next_id"]
     data["next_id"] = tid + 1
     ticket: dict[str, Any] = {
         "id": tid,
         "title": title,
         "description": description or "",
-        "type": type,
         "status": status,
         "priority": priority,
         "requester": requester,
         "assignee": assignee or None,
-        "tags": tag_ids,
+        "labels": label_ids,
         "entities": sorted(set(entities or [])),
         "links": [],
         "legacy_ref": legacy_ref,
@@ -278,13 +336,14 @@ def _get(data: dict[str, Any], ticket_id: int) -> dict[str, Any]:
 def _apply_update(data: dict[str, Any], ticket: dict[str, Any], actor: str, fields: dict[str, Any]) -> bool:
     """Apply field changes, recording one timeline event per real change."""
     fields = dict(fields)
-    add_tags, remove_tags = fields.pop("add_tags", None), fields.pop("remove_tags", None)
-    if add_tags or remove_tags:
-        current = set(ticket["tags"]) | set(_resolve_tags(data, add_tags))
-        removing = {i for raw in remove_tags or [] if (i := _resolve_tag(data, raw, create=False))}
-        fields["tags"] = sorted(current - removing)
-    elif fields.get("tags") is not None:
-        fields["tags"] = _resolve_tags(data, fields["tags"])
+    add_labels, remove_labels = fields.pop("add_labels", None), fields.pop("remove_labels", None)
+    if add_labels or remove_labels:
+        current = set(fields["labels"] if fields.get("labels") is not None else ticket["labels"])
+        current |= set(_resolve_labels(data, add_labels))
+        removing = {i for raw in remove_labels or [] if (i := _resolve_label(data, raw, create=False))}
+        fields["labels"] = sorted(current - removing)
+    elif fields.get("labels") is not None:
+        fields["labels"] = _resolve_labels(data, fields["labels"])
     ts = _now()
     changed = False
     for key, new in fields.items():
@@ -294,8 +353,6 @@ def _apply_update(data: dict[str, Any], ticket: dict[str, Any], actor: str, fiel
             continue
         if key == "assignee":
             new = new or None
-        elif key == "type":
-            _check(new, TYPES, "type")
         elif key == "status":
             _check(new, STATUSES, "status")
         elif key == "priority":
@@ -340,11 +397,10 @@ async def async_list_tickets(
     *,
     status: str | None = None,
     q: str | None = None,
-    type: str | None = None,
     priority: str | None = None,
     assignee: str | None = None,
     requester: str | None = None,
-    tag: str | None = None,
+    label: str | None = None,
     include_history: bool = True,
     limit: int = 500,
     offset: int = 0,
@@ -356,17 +412,15 @@ async def async_list_tickets(
     async with _lock(hass):
         data = await _load(hass)
     needle = (q or "").lower()
-    tag_id = None
-    if tag:
-        tag_id = _resolve_tag(data, tag, create=False) or "\0"
+    label_id = None
+    if label:
+        label_id = _resolve_label(data, label, create=False) or "\0"
     rows = []
     for t in data["tickets"].values():
         if status == "active":
             if t["status"] not in ACTIVE_STATUSES:
                 continue
         elif status and status != "all" and t["status"] not in status.split(","):
-            continue
-        if type and t["type"] != type:
             continue
         if priority and t["priority"] != priority:
             continue
@@ -377,9 +431,9 @@ async def async_list_tickets(
             continue
         if requester and t["requester"] != requester:
             continue
-        if tag_id and tag_id not in t["tags"]:
+        if label_id and label_id not in t["labels"]:
             continue
-        if not include_history and t["type"] == "log":
+        if not include_history and HISTORY_LABEL_ID in t["labels"]:
             continue
         if needle:
             hay = " ".join(
@@ -388,7 +442,7 @@ async def async_list_tickets(
                     t["description"],
                     t.get("resolution") or "",
                     t.get("legacy_ref") or "",
-                    " ".join(data["tag_registry"][i]["name"] for i in t["tags"] if i in data["tag_registry"]),
+                    " ".join(data["label_registry"][i]["name"] for i in t["labels"] if i in data["label_registry"]),
                     " ".join(t["entities"]),
                     " ".join(e["body"] or "" for e in t["events"]),
                 ]
@@ -499,14 +553,14 @@ async def async_stats(hass: HomeAssistant) -> dict[str, Any]:
     by_status: dict[str, int] = {}
     for t in tickets:
         by_status[t["status"]] = by_status.get(t["status"], 0) + 1
-    tags = _tag_list(data)
+    labels = _label_list(data)
     return {
         "total": len(tickets),
         "active": len(active),
         "by_status": by_status,
         "urgent": sum(1 for t in active if t["priority"] == "urgent"),
         "unassigned": sum(1 for t in active if not t["assignee"]),
-        "tags": tags,
+        "labels": labels,
     }
 
 
@@ -524,13 +578,13 @@ async def async_import_tickets(
         by_key = {t["source_key"]: t for t in data["tickets"].values() if t.get("source_key")}
         pending_links: list[tuple[dict[str, Any], list[str]]] = []
         for item in items:
-            item = dict(item)
+            item = upgrade_legacy_fields(item, "create")
             related = item.pop("related_keys", None) or []
             key = item.get("source_key")
             if key and key in by_key:
                 skipped += 1
                 continue
-            item["tags"] = [*(item.get("tags") or []), HA_TAG_ID]
+            item["labels"] = [*(item.get("labels") or []), HA_LABEL_ID]
             ticket = _new_ticket(data, actor=actor, **item)
             if key:
                 by_key[key] = ticket
@@ -550,80 +604,193 @@ async def async_import_tickets(
     return {"created": created, "skipped": skipped, "links": linked}
 
 
-# ------------------------------------------------------------------ tag registry
+# ------------------------------------------------------------------ repairs
+
+REPAIR_SOURCE = "Home Assistant Repairs"
+REPAIR_ACTOR = "Home Assistant"
+REPAIR_PREFIX = "repair:"
 
 
-def _tag_list(data: dict[str, Any]) -> list[dict[str, Any]]:
+def repair_key(domain: str, issue_id: str) -> str:
+    return f"{REPAIR_PREFIX}{domain}:{issue_id}"
+
+
+async def async_open_repair_keys(hass: HomeAssistant) -> list[tuple[str, str]]:
+    """(domain, issue_id) of every repair ticket that is still open."""
+    async with _lock(hass):
+        data = await _load(hass)
+    out = []
+    for t in data["tickets"].values():
+        key = t.get("source_key") or ""
+        if key.startswith(REPAIR_PREFIX) and t["status"] in ACTIVE_STATUSES:
+            domain, _, issue_id = key[len(REPAIR_PREFIX):].partition(":")
+            out.append((domain, issue_id))
+    return out
+
+
+async def async_sync_repair(
+    hass: HomeAssistant,
+    *,
+    domain: str,
+    issue_id: str,
+    active: bool,
+    ignored: bool = False,
+    title: str = "",
+    description: str = "",
+    priority: str = "normal",
+) -> str | None:
+    """Make the ticket for one Home Assistant repair match the repair's state.
+
+    One ticket per repair, found by its source key, so this is safe to call as often as
+    you like. A new active repair opens a ticket; a repair that comes back after its ticket
+    was closed reopens it; a repair that clears resolves it; an ignored repair gets the
+    Blocked label while it is ignored. Returns what happened ("created", "reopened",
+    "updated", "resolved") or None if nothing changed.
+    """
+    key = repair_key(domain, issue_id)
+    kind: str | None = None
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = next((t for t in data["tickets"].values() if t.get("source_key") == key), None)
+        if ticket is None:
+            if not active:
+                return None
+            ticket = _new_ticket(
+                data,
+                title=title or f"{domain}: {issue_id}",
+                description=description,
+                priority=priority,
+                requester=REPAIR_ACTOR,
+                labels=["Home Assistant", "Bug", "Repair"],
+                source=REPAIR_SOURCE,
+                source_key=key,
+                actor=REPAIR_ACTOR,
+            )
+            if ignored:
+                _apply_update(data, ticket, REPAIR_ACTOR, {"add_labels": [BLOCKED_LABEL_ID]})
+                ticket["repair_blocked"] = True
+            kind = "created"
+        elif active:
+            changed = False
+            was_closed = ticket["status"] in ("resolved", "closed")
+            fields: dict[str, Any] = {}
+            if was_closed:
+                fields["status"] = "open"
+            if description and description != ticket["description"]:
+                fields["description"] = description
+            if ignored and BLOCKED_LABEL_ID not in ticket["labels"]:
+                fields["add_labels"] = [BLOCKED_LABEL_ID]
+                ticket["repair_blocked"] = True
+            elif not ignored and ticket.get("repair_blocked"):
+                fields["remove_labels"] = [BLOCKED_LABEL_ID]
+                ticket["repair_blocked"] = False
+            if fields:
+                changed = _apply_update(data, ticket, REPAIR_ACTOR, fields)
+            if was_closed:
+                _event(ticket, REPAIR_ACTOR, "comment",
+                       "Home Assistant is reporting this repair again, so the ticket was reopened.")
+                kind = "reopened"
+            elif changed:
+                kind = "updated"
+        elif ticket["status"] in ACTIVE_STATUSES:
+            resolution = "Cleared by Home Assistant: this repair is no longer reported."
+            _apply_update(data, ticket, REPAIR_ACTOR, {"status": "resolved", "resolution": resolution})
+            _event(ticket, REPAIR_ACTOR, "comment", f"**Resolution:** {resolution}")
+            kind = "resolved"
+        if kind:
+            ticket["updated_at"] = _now()
+            await _save(hass, data)
+    if kind:
+        _fire(hass, ticket, "closed" if kind == "resolved" else kind if kind == "created" else "updated", REPAIR_ACTOR)
+    return kind
+
+
+# ------------------------------------------------------------------ label registry
+
+
+def _label_list(data: dict[str, Any]) -> list[dict[str, Any]]:
     counts: dict[str, int] = {}
     for t in data["tickets"].values():
-        for i in t["tags"]:
+        for i in t["labels"]:
             counts[i] = counts.get(i, 0) + 1
-    tags = [{**tag, "count": counts.get(tag["id"], 0)} for tag in data["tag_registry"].values()]
-    return sorted(tags, key=lambda t: (not t["builtin"], t["name"].lower()))
+    labels = [{**label, "count": counts.get(label["id"], 0)} for label in data["label_registry"].values()]
+    # Built-ins first in their defined order, then the rest by name.
+    order = {b["id"]: n for n, b in enumerate(BUILTIN_LABELS)}
+    return sorted(labels, key=lambda x: (order.get(x["id"], len(order)), x["name"].lower()))
 
 
 def _check_color(color: str) -> str:
-    if color not in TAG_COLORS:
-        raise TicketError(f"Invalid colour {color!r}; must be one of {TAG_COLORS}")
+    if color not in LABEL_COLORS:
+        raise TicketError(f"Invalid colour {color!r}; must be one of {LABEL_COLORS}")
     return color
 
 
-async def async_list_tags(hass: HomeAssistant) -> list[dict[str, Any]]:
+async def async_list_labels(hass: HomeAssistant) -> list[dict[str, Any]]:
     async with _lock(hass):
-        return _tag_list(await _load(hass))
+        return _label_list(await _load(hass))
 
 
-async def async_create_tag(hass: HomeAssistant, *, name: str, color: str | None = None) -> dict[str, Any]:
+async def async_create_label(
+    hass: HomeAssistant, *, name: str, color: str | None = None, description: str = ""
+) -> dict[str, Any]:
     name = (name or "").strip()
     if not name or not _slug(name):
-        raise TicketError("A tag needs a name")
+        raise TicketError("A label needs a name")
     async with _lock(hass):
         data = await _load(hass)
-        if _resolve_tag(data, name, create=False):
-            raise TicketError(f"A tag named {name!r} already exists")
-        tag = _add_tag(data["tag_registry"], name, _check_color(color) if color else None)
+        if _resolve_label(data, name, create=False):
+            raise TicketError(f"A label named {name!r} already exists")
+        label = _add_label(data["label_registry"], name, _check_color(color) if color else None)
+        label["description"] = description.strip()
         await _save(hass, data)
-    return tag
+    return label
 
 
-async def async_update_tag(
-    hass: HomeAssistant, tag_id: str, *, name: str | None = None, color: str | None = None
+async def async_update_label(
+    hass: HomeAssistant,
+    label_id: str,
+    *,
+    name: str | None = None,
+    color: str | None = None,
+    description: str | None = None,
 ) -> dict[str, Any]:
     async with _lock(hass):
         data = await _load(hass)
-        tag = data["tag_registry"].get(tag_id)
-        if tag is None:
-            raise TicketError(f"Tag {tag_id!r} not found")
-        if tag["builtin"]:
-            raise TicketError(f"{tag['name']} is a built-in tag and can't be changed")
+        label = data["label_registry"].get(label_id)
+        if label is None:
+            raise TicketError(f"Label {label_id!r} not found")
+        if label["builtin"]:
+            raise TicketError(f"{label['name']} is a built-in label and can't be changed")
         if name is not None:
             name = name.strip()
-            other = _resolve_tag(data, name, create=False)
+            other = _resolve_label(data, name, create=False)
             if not name or not _slug(name):
-                raise TicketError("A tag needs a name")
-            if other and other != tag_id:
-                raise TicketError(f"A tag named {name!r} already exists")
-            tag["name"] = name  # the id stays put, so tickets keep their tags
+                raise TicketError("A label needs a name")
+            if other and other != label_id:
+                raise TicketError(f"A label named {name!r} already exists")
+            label["name"] = name  # the id stays put, so tickets keep their labels
         if color is not None:
-            tag["color"] = _check_color(color)
+            label["color"] = _check_color(color)
+        if description is not None:
+            label["description"] = description.strip()
         await _save(hass, data)
-    return tag
+    return label
 
 
-async def async_delete_tag(hass: HomeAssistant, tag_id: str) -> int:
-    """Delete a tag and remove it from every ticket. Returns how many tickets lost it."""
+async def async_delete_label(hass: HomeAssistant, label_id: str) -> int:
+    """Delete a label and remove it from every ticket. Returns how many tickets lost it."""
     async with _lock(hass):
         data = await _load(hass)
-        tag = data["tag_registry"].get(tag_id)
-        if tag is None:
-            raise TicketError(f"Tag {tag_id!r} not found")
-        if tag["builtin"]:
-            raise TicketError(f"{tag['name']} is a built-in tag and can't be deleted")
+        label = data["label_registry"].get(label_id)
+        if label is None:
+            raise TicketError(f"Label {label_id!r} not found")
+        if label["builtin"]:
+            raise TicketError(f"{label['name']} is a built-in label and can't be deleted")
         removed = 0
         for t in data["tickets"].values():
-            if tag_id in t["tags"]:
-                t["tags"] = [i for i in t["tags"] if i != tag_id]
+            if label_id in t["labels"]:
+                t["labels"] = [i for i in t["labels"] if i != label_id]
                 removed += 1
-        del data["tag_registry"][tag_id]
+        del data["label_registry"][label_id]
         await _save(hass, data)
     return removed

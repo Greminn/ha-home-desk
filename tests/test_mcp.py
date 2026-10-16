@@ -29,8 +29,8 @@ assert path == "/api/services/home_desk/close_ticket?return_response" and auth =
 assert body == {"ticket_id": 7, "resolution": "Restarted Z2M", "status": "resolved", "actor": "claude"}, body
 import json as _j
 assert m.mcp._tool_manager.get_tool("get_guide") is not None
-m.list_tickets(query="zigbee"); assert calls[-1][2]["query"] == "zigbee" and "tag" not in calls[-1][2]
-m.update_ticket(3, add_tags=["x"]); assert calls[-1][2] == {"ticket_id": 3, "add_tags": ["x"], "actor": "claude"}
+m.list_tickets(query="zigbee"); assert calls[-1][2]["query"] == "zigbee" and "label" not in calls[-1][2]
+m.update_ticket(3, add_labels=["x"]); assert calls[-1][2] == {"ticket_id": 3, "add_labels": ["x"], "actor": "claude"}
 assert m.get_ticket(1)["big"]  # reads return everything
 try:
     m.get_ticket(404); raise SystemExit("expected error")

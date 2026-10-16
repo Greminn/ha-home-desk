@@ -27,8 +27,7 @@ HA_URL = os.environ.get("HA_URL", "").rstrip("/")
 HA_TOKEN = os.environ.get("HA_TOKEN", "")
 ACTOR = os.environ.get("HOMEDESK_ACTOR", "claude")
 
-Status = Literal["new", "open", "in_progress", "waiting", "resolved", "closed"]
-Type = Literal["issue", "request", "idea", "task", "question", "log"]
+Status = Literal["new", "open", "in_progress", "resolved", "closed"]
 Priority = Literal["low", "normal", "high", "urgent"]
 
 mcp = FastMCP(
@@ -58,7 +57,7 @@ def _call(service: str, data: dict[str, Any]) -> Any:
 
 def _brief(ticket: dict[str, Any]) -> dict[str, Any]:
     """Drop bulky fields from a write response; callers can get_ticket for the lot."""
-    keep = ("id", "title", "type", "status", "priority", "assignee", "requester", "tags", "updated_at", "resolution")
+    keep = ("id", "title", "status", "priority", "assignee", "requester", "labels", "updated_at", "resolution")
     return {k: ticket.get(k) for k in keep}
 
 
@@ -78,19 +77,19 @@ def get_changelog(since: str | None = None) -> dict[str, Any]:
 def list_tickets(
     status: str = "active",
     query: str | None = None,
-    type: Type | None = None,
     priority: Priority | None = None,
     assignee: str | None = None,
-    tag: str | None = None,
+    label: str | None = None,
     include_history: bool = False,
     limit: int = 50,
 ) -> dict[str, Any]:
     """List tickets (summaries, no body). status: a status, comma list, 'active' (default) or 'all'.
-    `query` searches titles, descriptions, comments and resolutions. Tag `needs-review` marks imported
-    open items whose real state still needs checking."""
+    `query` searches titles, descriptions, comments and resolutions. Label `needs-review` marks imported
+    open items whose real state still needs checking. Filter by `label` (Bug, Enhancement, Blocked...);
+    tickets labelled History are left out unless include_history=True."""
     return _call("list_tickets", {
-        "status": status, "query": query, "type": type, "priority": priority, "assignee": assignee,
-        "tag": tag, "include_history": include_history, "limit": limit,
+        "status": status, "query": query, "priority": priority, "assignee": assignee,
+        "label": label, "include_history": include_history, "limit": limit,
     })
 
 
@@ -104,17 +103,17 @@ def get_ticket(ticket_id: int) -> dict[str, Any]:
 def create_ticket(
     title: str,
     description: str = "",
-    type: Type = "issue",
     priority: Priority = "normal",
-    tags: list[str] | None = None,
+    labels: list[str] | None = None,
     entities: list[str] | None = None,
     assignee: str | None = None,
 ) -> dict[str, Any]:
     """Create a ticket. Search first (list_tickets with a query) so you don't file a duplicate.
-    Description is markdown; list affected HA entity ids in `entities`."""
+    Description is markdown; list affected HA entity ids in `entities`. Label it Bug (something is
+    broken), Enhancement (an idea or request), Task or Question; see list_labels."""
     return _brief(_call("create_ticket", {
-        "title": title, "description": description, "type": type, "priority": priority,
-        "tags": tags, "entities": entities, "assignee": assignee, "actor": ACTOR,
+        "title": title, "description": description, "priority": priority,
+        "labels": labels, "entities": entities, "assignee": assignee, "actor": ACTOR,
     }))
 
 
@@ -126,16 +125,16 @@ def update_ticket(
     assignee: str | None = None,
     title: str | None = None,
     description: str | None = None,
-    type: Type | None = None,
-    add_tags: list[str] | None = None,
-    remove_tags: list[str] | None = None,
+    add_labels: list[str] | None = None,
+    remove_labels: list[str] | None = None,
     entities: list[str] | None = None,
 ) -> dict[str, Any]:
     """Change a ticket's fields. Only pass what should change; each change is logged on the timeline.
-    To close a ticket use close_ticket so the resolution is recorded."""
+    To close a ticket use close_ticket so the resolution is recorded. To mark a ticket as waiting on
+    something, add the Blocked label."""
     return _brief(_call("update_ticket", {
         "ticket_id": ticket_id, "status": status, "priority": priority, "assignee": assignee, "title": title,
-        "description": description, "type": type, "add_tags": add_tags, "remove_tags": remove_tags,
+        "description": description, "add_labels": add_labels, "remove_labels": remove_labels,
         "entities": entities, "actor": ACTOR,
     }))
 
@@ -161,14 +160,14 @@ def link_tickets(ticket_id: int, other_id: int) -> dict[str, Any]:
 
 
 @mcp.tool()
-def list_tags() -> dict[str, Any]:
-    """Every tag with id, name, colour and ticket count. Prefer an existing tag; an unknown name is created."""
-    return _call("list_tags", {})
+def list_labels() -> dict[str, Any]:
+    """Every label with id, name, colour and ticket count. Prefer an existing label; an unknown name is created."""
+    return _call("list_labels", {})
 
 
 @mcp.tool()
 def get_stats() -> dict[str, Any]:
-    """Counts by status, urgent and unassigned counts, and every tag in use."""
+    """Counts by status, urgent and unassigned counts, and every label in use."""
     return _call("get_stats", {})
 
 

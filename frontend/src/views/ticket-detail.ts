@@ -3,18 +3,17 @@ import { property, state } from "lit/decorators.js";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { safeCustomElement } from "../define";
 import { sharedStyles } from "../styles";
-import { PRIORITIES, STATUSES, TYPES } from "../types";
-import type { Priority, Status, Tag, Ticket, TicketEvent, TicketPatch, TicketType } from "../types";
+import { PRIORITIES, STATUSES } from "../types";
+import type { Priority, Status, Label, Ticket, TicketEvent, TicketPatch } from "../types";
 import {
   PRIORITY_LABEL,
   STATUS_LABEL,
-  TYPE_LABEL,
   actorIcon,
   actorName,
   fullTime,
   relativeTime,
-  tagColorCss,
-  tagOrUnknown,
+  labelColorCss,
+  labelOrUnknown,
 } from "../format";
 import { renderMarkdown } from "../markdown";
 
@@ -30,20 +29,39 @@ export class TicketDetail extends LitElement {
         display: block;
         overflow-y: auto;
         overflow-x: hidden;
+        /* Clearance so the page's floating "New ticket" button never covers the end of a ticket. */
+        padding-bottom: 88px;
       }
       .wrap {
         min-width: 0;
-        max-width: 880px;
+        max-width: 1200px;
         margin: 0 auto;
         padding: 16px 24px 48px;
       }
-      .back {
-        display: none;
+      /* Conversation on the left, properties on the right (stacked on narrow screens). */
+      .page {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 24px;
+        align-items: start;
       }
-      @media (max-width: 870px) {
-        .back {
-          display: inline-flex;
-          margin: 0 0 4px -12px;
+      .main {
+        min-width: 0;
+      }
+      .side {
+        position: sticky;
+        top: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      @media (max-width: 900px) {
+        .page {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .side {
+          position: static;
+          order: -1;
         }
         .wrap {
           padding: 8px 16px 40px;
@@ -72,12 +90,16 @@ export class TicketDetail extends LitElement {
         font-size: var(--st-fs-small);
         color: var(--st-fg-secondary);
       }
+      .sub .who {
+        --mdc-icon-size: 16px;
+        vertical-align: text-bottom;
+        margin: 0 2px;
+      }
       .props {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        display: flex;
+        flex-direction: column;
         gap: 12px;
         padding: 16px;
-        margin-bottom: 16px;
         border: 1px solid var(--st-divider);
         border-radius: var(--ha-card-border-radius, 12px);
         background: var(--st-surface);
@@ -115,7 +137,7 @@ export class TicketDetail extends LitElement {
         color: var(--st-fg);
         background: color-mix(in srgb, var(--st-fg) 10%, transparent);
       }
-      .tag button {
+      .label button {
         all: unset;
         display: inline-flex;
         cursor: pointer;
@@ -123,7 +145,7 @@ export class TicketDetail extends LitElement {
         padding: 0 4px;
         color: var(--st-fg-secondary);
       }
-      .tag button ha-icon {
+      .label button ha-icon {
         --mdc-icon-size: 14px;
       }
       .chip.link {
@@ -221,7 +243,7 @@ export class TicketDetail extends LitElement {
         background: color-mix(in srgb, var(--st-warning) 14%, var(--st-surface));
         border-color: color-mix(in srgb, var(--st-warning) 45%, transparent);
       }
-      .ev .tag {
+      .ev .label {
         margin-left: 6px;
         padding: 0 6px;
         border-radius: 6px;
@@ -275,7 +297,7 @@ export class TicketDetail extends LitElement {
   @property({ type: Boolean }) narrow = false;
   @property() language: string | undefined = undefined;
   @property({ attribute: false }) assignees: string[] = [];
-  @property({ attribute: false }) tagMap: Map<string, Tag> = new Map();
+  @property({ attribute: false }) labelMap: Map<string, Label> = new Map();
 
   @state() private _editingTitle = false;
   @state() private _titleDraft = "";
@@ -284,7 +306,7 @@ export class TicketDetail extends LitElement {
   @state() private _internal = false;
   @state() private _resolving = false;
   @state() private _resolution = "";
-  @state() private _tagDraft = "";
+  @state() private _labelDraft = "";
 
   override willUpdate(changed: Map<string, unknown>) {
     if (changed.has("ticket")) {
@@ -296,7 +318,7 @@ export class TicketDetail extends LitElement {
         this._internal = false;
         this._resolving = false;
         this._resolution = "";
-        this._tagDraft = "";
+        this._labelDraft = "";
       }
     }
   }
@@ -309,14 +331,14 @@ export class TicketDetail extends LitElement {
     this._fire("patch-ticket", patch);
   }
 
-  private _addTag() {
-    const typed = this._tagDraft.trim();
-    this._tagDraft = "";
+  private _addLabel() {
+    const typed = this._labelDraft.trim();
+    this._labelDraft = "";
     if (!typed || !this.ticket) return;
-    // The backend matches a typed name (any case) to an existing tag, or creates a new one.
-    const known = [...this.tagMap.values()].find((x) => x.name.toLowerCase() === typed.toLowerCase() || x.id === typed);
-    if (known && this.ticket.tags.includes(known.id)) return;
-    this._patch({ tags: [...this.ticket.tags, known ? known.id : typed] });
+    // The backend matches a typed name (any case) to an existing label, or creates a new one.
+    const known = [...this.labelMap.values()].find((x) => x.name.toLowerCase() === typed.toLowerCase() || x.id === typed);
+    if (known && this.ticket.labels.includes(known.id)) return;
+    this._patch({ labels: [...this.ticket.labels, known ? known.id : typed] });
   }
 
   private _submitComment() {
@@ -337,7 +359,7 @@ export class TicketDetail extends LitElement {
   private _change(e: TicketEvent): string {
     const d = (e.data ?? {}) as { field?: string; from?: unknown; to?: unknown };
     const show = (v: unknown) =>
-      Array.isArray(v) ? v.map((x) => (d.field === "tags" ? tagOrUnknown(this.tagMap, String(x)).name : String(x))).join(", ") || "none" : v === null || v === undefined || v === "" ? "none" : String(v);
+      Array.isArray(v) ? v.map((x) => (d.field === "labels" ? labelOrUnknown(this.labelMap, String(x)).name : String(x))).join(", ") || "none" : v === null || v === undefined || v === "" ? "none" : String(v);
     switch (e.kind) {
       case "created":
         return "created this ticket";
@@ -352,7 +374,7 @@ export class TicketDetail extends LitElement {
       case "field":
         return d.field === "description"
           ? "edited the description"
-          : `changed ${String(d.field)}${d.field === "tags" || d.field === "entities" ? ` to ${show(d.to)}` : ""}`;
+          : `changed ${String(d.field)}${d.field === "labels" || d.field === "entities" ? ` to ${show(d.to)}` : ""}`;
       default:
         return e.kind;
     }
@@ -365,7 +387,7 @@ export class TicketDetail extends LitElement {
         <div class="ev">
           <ha-icon .icon=${actorIcon(e.actor)}></ha-icon>
           <div>
-            <div class="who"><b>${actorName(e.actor)}</b> · ${when}${e.kind === "note" ? html`<span class="tag">internal note</span>` : nothing}</div>
+            <div class="who"><b>${actorName(e.actor)}</b> · ${when}${e.kind === "note" ? html`<span class="label">internal note</span>` : nothing}</div>
             <div class="bubble md ${e.kind === "note" ? "note" : ""}">${unsafeHTML(renderMarkdown(e.body ?? ""))}</div>
           </div>
         </div>`;
@@ -386,9 +408,6 @@ export class TicketDetail extends LitElement {
     const done = t.status === "resolved" || t.status === "closed";
     return html`
       <div class="wrap">
-        ${this.narrow
-          ? html`<button class="icon back" title="Back" @click=${() => this._fire("back")}><ha-icon icon="mdi:arrow-left"></ha-icon></button>`
-          : nothing}
         <div class="head">
           ${this._editingTitle
             ? html`<input class="title-input" type="text" .value=${this._titleDraft}
@@ -405,78 +424,21 @@ export class TicketDetail extends LitElement {
             : nothing}
         </div>
         <div class="sub">
-          #${t.id}${t.legacy_ref ? html` · ${t.legacy_ref}` : nothing} · raised by ${actorName(t.requester)}
-          ${relativeTime(t.created_at, this.language)}${t.source ? html` · imported from ${t.source}` : nothing}
+          #${t.id}${t.legacy_ref ? html` · ${t.legacy_ref}` : nothing} · raised by <ha-icon class="who" .icon=${actorIcon(t.requester)}></ha-icon>${actorName(t.requester)}
+          ${relativeTime(t.created_at, this.language)}${t.source ? html` · ${t.source === "Home Assistant Repairs" ? "from" : "imported from"} ${t.source}` : nothing}
         </div>
 
-        <div class="props">
-          <div>
-            <label>Status</label>
-            ${this.isAdmin
-              ? html`<select @change=${(e: Event) => this._patch({ status: (e.target as HTMLSelectElement).value as Status })}>
-                  ${STATUSES.map((s) => html`<option value=${s} ?selected=${s === t.status}>${STATUS_LABEL[s]}</option>`)}
-                </select>`
-              : html`<div class="ro">${STATUS_LABEL[t.status]}</div>`}
-          </div>
-          <div>
-            <label>Priority</label>
-            ${this.isAdmin
-              ? html`<select @change=${(e: Event) => this._patch({ priority: (e.target as HTMLSelectElement).value as Priority })}>
-                  ${PRIORITIES.map((p) => html`<option value=${p} ?selected=${p === t.priority}>${PRIORITY_LABEL[p]}</option>`)}
-                </select>`
-              : html`<div class="ro">${PRIORITY_LABEL[t.priority]}</div>`}
-          </div>
-          <div>
-            <label>Type</label>
-            ${this.isAdmin
-              ? html`<select @change=${(e: Event) => this._patch({ ticket_type: (e.target as HTMLSelectElement).value as TicketType })}>
-                  ${TYPES.map((x) => html`<option value=${x} ?selected=${x === t.type}>${TYPE_LABEL[x]}</option>`)}
-                </select>`
-              : html`<div class="ro">${TYPE_LABEL[t.type]}</div>`}
-          </div>
-          <div>
-            <label>Assignee</label>
-            ${this.isAdmin
-              ? html`<input type="text" list="assignees" .value=${t.assignee ?? ""} placeholder="Unassigned"
-                  @change=${(e: Event) => this._patch({ assignee: (e.target as HTMLInputElement).value.trim() || null })} />
-                <datalist id="assignees">${this.assignees.map((a) => html`<option value=${a}></option>`)}</datalist>`
-              : html`<div class="ro">${t.assignee ?? "Unassigned"}</div>`}
-          </div>
-        </div>
-
-        ${t.tags.length || this.isAdmin
-          ? html`<div class="chips">
-              ${t.tags.map((id) => {
-                const tag = tagOrUnknown(this.tagMap, id);
-                return html`<span class="tag" style="--tag-color: ${tagColorCss(tag.color)}">${tag.name}${this.isAdmin
-                  ? html`<button title="Remove tag" @click=${() => this._patch({ tags: t.tags.filter((x) => x !== id) })}><ha-icon icon="mdi:close"></ha-icon></button>`
-                  : nothing}</span>`;
-              })}
-              ${this.isAdmin
-                ? html`<input type="text" placeholder="Add tag" list="tag-options" .value=${this._tagDraft}
-                    @input=${(e: Event) => (this._tagDraft = (e.target as HTMLInputElement).value)}
-                    @keydown=${(e: KeyboardEvent) => e.key === "Enter" && this._addTag()}
-                    @change=${() => this._addTag()} />
-                  <datalist id="tag-options">${[...this.tagMap.values()].filter((x) => !t.tags.includes(x.id)).map((x) => html`<option value=${x.name}></option>`)}</datalist>`
-                : nothing}
-            </div>`
-          : nothing}
-
+        <div class="page"><div class="main">
         ${t.description
           ? html`<div class="card">
               <h3>Description</h3>
               <div class="md ${long && !this._expanded ? "clamp" : ""}">${unsafeHTML(renderMarkdown(t.description))}</div>
               ${long ? html`<button class="more" @click=${() => (this._expanded = !this._expanded)}>${this._expanded ? "Show less" : "Show all"}</button>` : nothing}
-              ${t.entities.length ? html`<div class="entities">${t.entities.map((x) => html`<code>${x}</code>`)}</div>` : nothing}
             </div>`
           : nothing}
 
         ${t.resolution
           ? html`<div class="card resolution"><h3>Resolution</h3><div class="md">${unsafeHTML(renderMarkdown(t.resolution))}</div></div>`
-          : nothing}
-
-        ${t.related?.length
-          ? html`<div class="chips"><span class="who">Related</span>${t.related.map((r) => html`<span class="chip link" title=${r.title} @click=${() => this._fire("open-ticket", r.id)}>#${r.id} ${r.title.length > 40 ? r.title.slice(0, 40) + "…" : r.title}</span>`)}</div>`
           : nothing}
 
         <div class="timeline">
@@ -515,6 +477,61 @@ export class TicketDetail extends LitElement {
             : nothing}
         </div>
       </div>
+      <aside class="side">
+        <div class="props">
+          <div>
+            <label>Status</label>
+            ${this.isAdmin
+              ? html`<select @change=${(e: Event) => this._patch({ status: (e.target as HTMLSelectElement).value as Status })}>
+                  ${STATUSES.map((s) => html`<option value=${s} ?selected=${s === t.status}>${STATUS_LABEL[s]}</option>`)}
+                </select>`
+              : html`<div class="ro">${STATUS_LABEL[t.status]}</div>`}
+          </div>
+          <div>
+            <label>Priority</label>
+            ${this.isAdmin
+              ? html`<select @change=${(e: Event) => this._patch({ priority: (e.target as HTMLSelectElement).value as Priority })}>
+                  ${PRIORITIES.map((p) => html`<option value=${p} ?selected=${p === t.priority}>${PRIORITY_LABEL[p]}</option>`)}
+                </select>`
+              : html`<div class="ro">${PRIORITY_LABEL[t.priority]}</div>`}
+          </div>
+          <div>
+            <label>Assignee</label>
+            ${this.isAdmin
+              ? html`<input type="text" list="assignees" .value=${t.assignee ?? ""} placeholder="Unassigned"
+                  @change=${(e: Event) => this._patch({ assignee: (e.target as HTMLInputElement).value.trim() || null })} />
+                <datalist id="assignees">${this.assignees.map((a) => html`<option value=${a}></option>`)}</datalist>`
+              : html`<div class="ro">${t.assignee ?? "Unassigned"}</div>`}
+          </div>
+          ${t.labels.length || this.isAdmin
+            ? html`<div>
+                <label>Labels</label>
+                <div class="chips">
+                  ${t.labels.map((id) => {
+                    const label = labelOrUnknown(this.labelMap, id);
+                    return html`<span class="label" style="--label-color: ${labelColorCss(label.color)}">${label.name}${this.isAdmin
+                      ? html`<button title="Remove label" @click=${() => this._patch({ labels: t.labels.filter((x) => x !== id) })}><ha-icon icon="mdi:close"></ha-icon></button>`
+                      : nothing}</span>`;
+                  })}
+                  ${this.isAdmin
+                    ? html`<input type="text" placeholder="Add label" list="label-options" .value=${this._labelDraft}
+                        @input=${(e: Event) => (this._labelDraft = (e.target as HTMLInputElement).value)}
+                        @keydown=${(e: KeyboardEvent) => e.key === "Enter" && this._addLabel()}
+                        @change=${() => this._addLabel()} />
+                      <datalist id="label-options">${[...this.labelMap.values()].filter((x) => !t.labels.includes(x.id)).map((x) => html`<option value=${x.name}></option>`)}</datalist>`
+                    : nothing}
+                </div>
+              </div>`
+            : nothing}
+          ${t.entities.length
+            ? html`<div><label>Entities</label><div class="entities">${t.entities.map((x) => html`<code>${x}</code>`)}</div></div>`
+            : nothing}
+          ${t.related?.length
+            ? html`<div><label>Related</label><div class="chips">${t.related.map((r) => html`<span class="chip link" title=${r.title} @click=${() => this._fire("open-ticket", r.id)}>#${r.id} ${r.title.length > 32 ? r.title.slice(0, 32) + "…" : r.title}</span>`)}</div></div>`
+            : nothing}
+        </div>
+      </aside>
+      </div></div>
     `;
   }
 }

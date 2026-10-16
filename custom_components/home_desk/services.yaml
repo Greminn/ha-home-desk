@@ -10,29 +10,25 @@ get_changelog:
       description: "Only include releases newer than this version. The Unreleased section is always included."
       example: "0.1.0"
       selector: {"text": {}}
-list_tags:
-  name: "List tags"
-  description: "Return every tag with its id, name, colour and how many tickets use it. Prefer an existing tag over inventing a new one; a tag name you use that doesn't exist is created automatically."
+list_labels:
+  name: "List labels"
+  description: "Return every label with its id, name, colour, description and how many tickets use it. Prefer an existing label over inventing a new one; a label name you use that doesn't exist is created automatically. Built-in labels: Bug, Enhancement, Task, Question, History, Blocked and Home Assistant."
 get_stats:
   name: "Get stats"
-  description: "Return ticket counts by status, urgent and unassigned counts, and every tag (with colour and count). A good first call to see what needs attention."
+  description: "Return ticket counts by status, urgent and unassigned counts, and every label (with colour and count). A good first call to see what needs attention."
 list_tickets:
   name: "List tickets"
-  description: "List ticket summaries (no bodies); use get_ticket for the full ticket. Defaults to active tickets, excluding history. Tag `needs-review` marks tickets whose state has not been verified yet."
+  description: "List ticket summaries (no bodies); use get_ticket for the full ticket. Defaults to active tickets, excluding those labelled History. Label `needs-review` marks tickets whose state has not been verified yet."
   fields:
     status:
       name: "Status"
-      description: "A status, a comma-separated list, `active` (new, open, in_progress, waiting; the default) or `all`."
+      description: "A status, a comma-separated list, `active` (new, open, in_progress; the default) or `all`."
       example: "active"
       selector: {"text": {}}
     query:
       name: "Query"
-      description: "Search text across title, description, comments, resolution, tags and entities."
+      description: "Search text across title, description, comments, resolution, labels and entities."
       selector: {"text": {}}
-    type:
-      name: "Type"
-      description: "Only this type."
-      selector: {"select": {"options": ["issue", "request", "idea", "task", "question", "log"]}}
     priority:
       name: "Priority"
       description: "Only this priority."
@@ -45,13 +41,13 @@ list_tickets:
       name: "Requester"
       description: "Only tickets raised by this person."
       selector: {"text": {}}
-    tag:
-      name: "Tag"
-      description: "Only tickets with this tag (name or id)."
+    label:
+      name: "Label"
+      description: "Only tickets with this label (name or id), e.g. Bug, Enhancement or Blocked."
       selector: {"text": {}}
     include_history:
       name: "Include history"
-      description: "Include `log` (historical record) tickets. Default false."
+      description: "Include tickets labelled History (records of past work). Default false."
       selector: {"boolean": {}}
     limit:
       name: "Limit"
@@ -59,7 +55,7 @@ list_tickets:
       selector: {"number": {"min": 1, "max": 1000, "mode": "box"}}
 get_ticket:
   name: "Get ticket"
-  description: "Return one ticket in full: description, resolution, tags, entities, timeline of comments and changes, and related tickets."
+  description: "Return one ticket in full: description, resolution, labels, entities, timeline of comments and changes, and related tickets."
   fields:
     ticket_id:
       name: "Ticket ID"
@@ -80,10 +76,6 @@ create_ticket:
       name: "Description"
       description: "Details in markdown: what happened, evidence, what was expected."
       selector: {"text": {"multiline": true}}
-    type:
-      name: "Type"
-      description: "issue, request, idea, task, question or log (history record)."
-      selector: {"select": {"options": ["issue", "request", "idea", "task", "question", "log"]}}
     priority:
       name: "Priority"
       description: "low, normal, high or urgent (urgent = safety, security or whole-house outage)."
@@ -96,9 +88,9 @@ create_ticket:
       name: "Assignee"
       description: "Who should work on it. Leave empty for unassigned."
       selector: {"text": {}}
-    tags:
-      name: "Tags"
-      description: "Tag names or ids. Names that don't exist yet are created. Defaults to Home Assistant when omitted."
+    labels:
+      name: "Labels"
+      description: "Label names or ids, e.g. Bug, Enhancement, Task, Question. Names that don't exist yet are created. Defaults to Home Assistant when omitted."
       selector: {"text": {"multiple": true}}
     entities:
       name: "Entities"
@@ -125,14 +117,10 @@ update_ticket:
       name: "Description"
       description: "New description (markdown)."
       selector: {"text": {"multiline": true}}
-    type:
-      name: "Type"
-      description: "New type."
-      selector: {"select": {"options": ["issue", "request", "idea", "task", "question", "log"]}}
     status:
       name: "Status"
-      description: "new, open, in_progress, waiting, resolved or closed."
-      selector: {"select": {"options": ["new", "open", "in_progress", "waiting", "resolved", "closed"]}}
+      description: "new, open, in_progress, resolved or closed. To mark a ticket as waiting on something, add the Blocked label."
+      selector: {"select": {"options": ["new", "open", "in_progress", "resolved", "closed"]}}
     priority:
       name: "Priority"
       description: "New priority."
@@ -141,17 +129,17 @@ update_ticket:
       name: "Assignee"
       description: "New assignee; empty to unassign."
       selector: {"text": {}}
-    tags:
-      name: "Tags"
-      description: "Replace all tags with this list."
+    labels:
+      name: "Labels"
+      description: "Replace all labels with this list."
       selector: {"text": {"multiple": true}}
-    add_tags:
-      name: "Add tags"
-      description: "Tag names or ids to add. Unknown names are created."
+    add_labels:
+      name: "Add labels"
+      description: "Label names or ids to add. Unknown names are created."
       selector: {"text": {"multiple": true}}
-    remove_tags:
-      name: "Remove tags"
-      description: "Tag names or ids to remove."
+    remove_labels:
+      name: "Remove labels"
+      description: "Label names or ids to remove."
       selector: {"text": {"multiple": true}}
     entities:
       name: "Entities"

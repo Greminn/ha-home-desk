@@ -10,6 +10,21 @@
       "single_instance_allowed": "Home Desk is already set up."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Repairs",
+        "description": "Home Desk can open a ticket for each Home Assistant repair, resolve it when Home Assistant clears the repair, and reopen it if the repair comes back.",
+        "data": {
+          "repairs_to_tickets": "Create tickets from Home Assistant repairs",
+          "repairs_ignored_domains": "Integrations to skip"
+        },
+        "data_description": {
+          "repairs_ignored_domains": "Integration domains (for example `hacs`) whose repairs should not become tickets. Useful for noisy ones."
+        }
+      }
+    }
+  },
   "services": {
     "get_guide": {
       "name": "Get guide",
@@ -25,29 +40,25 @@
         }
       }
     },
-    "list_tags": {
-      "name": "List tags",
-      "description": "Return every tag with its id, name, colour and how many tickets use it. Prefer an existing tag over inventing a new one; a tag name you use that doesn't exist is created automatically."
+    "list_labels": {
+      "name": "List labels",
+      "description": "Return every label with its id, name, colour, description and how many tickets use it. Prefer an existing label over inventing a new one; a label name you use that doesn't exist is created automatically. Built-in labels: Bug, Enhancement, Task, Question, History, Blocked and Home Assistant."
     },
     "get_stats": {
       "name": "Get stats",
-      "description": "Return ticket counts by status, urgent and unassigned counts, and every tag (with colour and count). A good first call to see what needs attention."
+      "description": "Return ticket counts by status, urgent and unassigned counts, and every label (with colour and count). A good first call to see what needs attention."
     },
     "list_tickets": {
       "name": "List tickets",
-      "description": "List ticket summaries (no bodies); use get_ticket for the full ticket. Defaults to active tickets, excluding history. Tag `needs-review` marks tickets whose state has not been verified yet.",
+      "description": "List ticket summaries (no bodies); use get_ticket for the full ticket. Defaults to active tickets, excluding those labelled History. Label `needs-review` marks tickets whose state has not been verified yet.",
       "fields": {
         "status": {
           "name": "Status",
-          "description": "A status, a comma-separated list, `active` (new, open, in_progress, waiting; the default) or `all`."
+          "description": "A status, a comma-separated list, `active` (new, open, in_progress; the default) or `all`."
         },
         "query": {
           "name": "Query",
-          "description": "Search text across title, description, comments, resolution, tags and entities."
-        },
-        "type": {
-          "name": "Type",
-          "description": "Only this type."
+          "description": "Search text across title, description, comments, resolution, labels and entities."
         },
         "priority": {
           "name": "Priority",
@@ -61,13 +72,13 @@
           "name": "Requester",
           "description": "Only tickets raised by this person."
         },
-        "tag": {
-          "name": "Tag",
-          "description": "Only tickets with this tag (name or id)."
+        "label": {
+          "name": "Label",
+          "description": "Only tickets with this label (name or id), e.g. Bug, Enhancement or Blocked."
         },
         "include_history": {
           "name": "Include history",
-          "description": "Include `log` (historical record) tickets. Default false."
+          "description": "Include tickets labelled History (records of past work). Default false."
         },
         "limit": {
           "name": "Limit",
@@ -77,7 +88,7 @@
     },
     "get_ticket": {
       "name": "Get ticket",
-      "description": "Return one ticket in full: description, resolution, tags, entities, timeline of comments and changes, and related tickets.",
+      "description": "Return one ticket in full: description, resolution, labels, entities, timeline of comments and changes, and related tickets.",
       "fields": {
         "ticket_id": {
           "name": "Ticket ID",
@@ -97,10 +108,6 @@
           "name": "Description",
           "description": "Details in markdown: what happened, evidence, what was expected."
         },
-        "type": {
-          "name": "Type",
-          "description": "issue, request, idea, task, question or log (history record)."
-        },
         "priority": {
           "name": "Priority",
           "description": "low, normal, high or urgent (urgent = safety, security or whole-house outage)."
@@ -113,9 +120,9 @@
           "name": "Assignee",
           "description": "Who should work on it. Leave empty for unassigned."
         },
-        "tags": {
-          "name": "Tags",
-          "description": "Tag names or ids. Names that don't exist yet are created. Defaults to Home Assistant when omitted."
+        "labels": {
+          "name": "Labels",
+          "description": "Label names or ids, e.g. Bug, Enhancement, Task, Question. Names that don't exist yet are created. Defaults to Home Assistant when omitted."
         },
         "entities": {
           "name": "Entities",
@@ -143,13 +150,9 @@
           "name": "Description",
           "description": "New description (markdown)."
         },
-        "type": {
-          "name": "Type",
-          "description": "New type."
-        },
         "status": {
           "name": "Status",
-          "description": "new, open, in_progress, waiting, resolved or closed."
+          "description": "new, open, in_progress, resolved or closed. To mark a ticket as waiting on something, add the Blocked label."
         },
         "priority": {
           "name": "Priority",
@@ -159,17 +162,17 @@
           "name": "Assignee",
           "description": "New assignee; empty to unassign."
         },
-        "tags": {
-          "name": "Tags",
-          "description": "Replace all tags with this list."
+        "labels": {
+          "name": "Labels",
+          "description": "Replace all labels with this list."
         },
-        "add_tags": {
-          "name": "Add tags",
-          "description": "Tag names or ids to add. Unknown names are created."
+        "add_labels": {
+          "name": "Add labels",
+          "description": "Label names or ids to add. Unknown names are created."
         },
-        "remove_tags": {
-          "name": "Remove tags",
-          "description": "Tag names or ids to remove."
+        "remove_labels": {
+          "name": "Remove labels",
+          "description": "Label names or ids to remove."
         },
         "entities": {
           "name": "Entities",

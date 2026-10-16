@@ -1,18 +1,18 @@
 import type {
   HomeAssistant,
-  Tag,
-  TagColor,
+  Label,
+  LabelColor,
   Ticket,
   TicketPatch,
   TicketSummary,
-  TicketType,
   Priority,
 } from "./types";
 
 export interface NewTicket {
   title: string;
   description: string;
-  ticket_type: TicketType;
+  /** Label ids; a household user may only pick Bug, Enhancement or Question. */
+  labels: string[];
   priority: Priority;
 }
 
@@ -35,23 +35,23 @@ export class HaClient {
     return res.tickets;
   }
 
-  async tags(): Promise<Tag[]> {
-    return (await this.send<{ tags: Tag[] }>("tags")).tags;
+  async labels(): Promise<Label[]> {
+    return (await this.send<{ labels: Label[] }>("labels")).labels;
   }
 
-  createTag(name: string, color?: TagColor): Promise<Tag> {
-    return this.send("tag_create", { name, ...(color ? { color } : {}) });
+  createLabel(name: string, color?: LabelColor): Promise<Label> {
+    return this.send("label_create", { name, ...(color ? { color } : {}) });
   }
 
-  updateTag(
-    tagId: string,
-    patch: { name?: string; color?: TagColor },
-  ): Promise<Tag> {
-    return this.send("tag_update", { tag_id: tagId, ...patch });
+  updateLabel(
+    labelId: string,
+    patch: { name?: string; color?: LabelColor },
+  ): Promise<Label> {
+    return this.send("label_update", { label_id: labelId, ...patch });
   }
 
-  deleteTag(tagId: string): Promise<{ removed_from: number }> {
-    return this.send("tag_delete", { tag_id: tagId });
+  deleteLabel(labelId: string): Promise<{ removed_from: number }> {
+    return this.send("label_delete", { label_id: labelId });
   }
 
   get(ticketId: number): Promise<Ticket> {

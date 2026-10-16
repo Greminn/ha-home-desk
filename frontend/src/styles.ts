@@ -120,9 +120,9 @@ export const sharedStyles = css`
   ha-icon {
     --mdc-icon-size: 20px;
   }
-  /* Tag chip: a tinted background with a solid dot in the tag's colour. */
-  .tag {
-    --tag-color: var(--st-fg-secondary);
+  /* Label chip: a tinted background with a solid dot in the label's colour. */
+  .label {
+    --label-color: var(--st-fg-secondary);
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -132,15 +132,15 @@ export const sharedStyles = css`
     font-size: var(--st-fs-caption);
     font-weight: 400;
     color: var(--st-fg);
-    background: color-mix(in srgb, var(--tag-color) 22%, transparent);
+    background: color-mix(in srgb, var(--label-color) 22%, transparent);
     white-space: nowrap;
   }
-  .tag::before {
+  .label::before {
     content: "";
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--tag-color);
+    background: var(--label-color);
     flex: none;
   }
   /* Rendered markdown (descriptions and comments). */

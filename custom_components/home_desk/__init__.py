@@ -13,8 +13,10 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.start import async_at_started
 
 from .frontend import async_register_sidebar_panel, async_register_static_paths
+from .repairs import async_setup_repairs
 from .services import async_setup_services
 from .websocket_api import async_register_commands
 
@@ -36,10 +38,27 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Nothing per-entry to do — everything lives in async_setup."""
+    """Mirror Home Assistant Repairs into tickets (options on the entry), until unloaded."""
+    entry.async_on_unload(entry.add_update_listener(_options_updated))
+
+    async def _start(_: HomeAssistant) -> None:
+        try:
+            stop = await async_setup_repairs(hass, dict(entry.options))
+        except Exception:  # noqa: BLE001 - never block setup over the repairs feature
+            _LOGGER.warning("Could not start Repairs-to-tickets", exc_info=True)
+            return
+        entry.async_on_unload(stop)
+
+    # Issues are registered as integrations load, so wait until HA has finished starting
+    # (this runs straight away if it already has).
+    entry.async_on_unload(async_at_started(hass, _start))
     return True
 
 
+async def _options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Nothing per-entry to tear down."""
+    """Everything registered through the entry is removed by async_on_unload."""
     return True

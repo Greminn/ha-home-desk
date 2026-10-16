@@ -20,7 +20,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
 from .changelog import changelog_since
-from .const import DOMAIN, PRIORITIES, STATUSES, TYPES
+from .const import DOMAIN, LEGACY_TYPE_LABELS, PRIORITIES, STATUSES
 from .storage import (
     TicketError,
     async_add_comment,
@@ -28,11 +28,12 @@ from .storage import (
     async_create_ticket,
     async_get_ticket,
     async_import_tickets,
-    async_list_tags,
+    async_list_labels,
     async_link_tickets,
     async_list_tickets,
     async_stats,
     async_update_ticket,
+    upgrade_legacy_fields,
 )
 
 GUIDE_PATH = Path(__file__).parent / "AGENT_GUIDE.md"
@@ -41,7 +42,13 @@ MANIFEST_PATH = Path(__file__).parent / "manifest.json"
 
 _ACTOR = {vol.Optional("actor"): cv.string}
 _ID = {vol.Required("ticket_id"): vol.Coerce(int)}
-_TAGS = vol.All(cv.ensure_list, [cv.string])
+_LABELS = vol.All(cv.ensure_list, [cv.string])
+# Pre-label names still accepted (and translated) so older callers keep working. Not documented.
+_LEGACY_STATUS = vol.In([*STATUSES, "waiting"])
+_LEGACY = {
+    vol.Optional("type"): vol.In(list(LEGACY_TYPE_LABELS)),
+    vol.Optional("tags"): _LABELS,
+}
 
 
 async def _actor(hass: HomeAssistant, call: ServiceCall) -> str:
@@ -67,16 +74,15 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def create(call: ServiceCall) -> dict[str, Any]:
         actor = await _actor(hass, call)
-        d = call.data
+        d = upgrade_legacy_fields(dict(call.data), "create")
         return await async_create_ticket(
             hass,
             title=d["title"],
             description=d.get("description", ""),
-            type=d.get("type", "issue"),
             priority=d.get("priority", "normal"),
             requester=d.get("requester", actor),
             assignee=d.get("assignee"),
-            tags=d.get("tags"),
+            labels=d.get("labels"),
             entities=d.get("entities"),
             actor=actor,
         )
@@ -85,22 +91,21 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         return await async_get_ticket(hass, call.data["ticket_id"])
 
     async def list_(call: ServiceCall) -> dict[str, Any]:
-        d = call.data
+        d = upgrade_legacy_fields(dict(call.data), "filter")
         return await async_list_tickets(
             hass,
             status=d.get("status", "active"),
             q=d.get("query"),
-            type=d.get("type"),
             priority=d.get("priority"),
             assignee=d.get("assignee"),
             requester=d.get("requester"),
-            tag=d.get("tag"),
+            label=d.get("label"),
             include_history=d.get("include_history", False),
             limit=d.get("limit", 100),
         )
 
     async def update(call: ServiceCall) -> dict[str, Any]:
-        d = dict(call.data)
+        d = upgrade_legacy_fields(dict(call.data), "update")
         actor = await _actor(hass, call)
         ticket_id = d.pop("ticket_id")
         d.pop("actor", None)
@@ -129,8 +134,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             hass, call.data["ticket_id"], call.data["other_id"], actor=await _actor(hass, call)
         )
 
-    async def list_tags(call: ServiceCall) -> dict[str, Any]:
-        return {"tags": await async_list_tags(hass)}
+    async def list_labels(call: ServiceCall) -> dict[str, Any]:
+        return {"labels": await async_list_labels(hass)}
 
     async def stats(call: ServiceCall) -> dict[str, Any]:
         return await async_stats(hass)
@@ -173,38 +178,41 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     s(DOMAIN, "create_ticket", _wrap(create), vol.Schema({
         vol.Required("title"): cv.string,
         vol.Optional("description"): cv.string,
-        vol.Optional("type"): vol.In(TYPES),
         vol.Optional("priority"): vol.In(PRIORITIES),
         vol.Optional("requester"): cv.string,
         vol.Optional("assignee"): vol.Any(cv.string, None),
-        vol.Optional("tags"): _TAGS,
-        vol.Optional("entities"): _TAGS,
+        vol.Optional("labels"): _LABELS,
+        vol.Optional("entities"): _LABELS,
+        **_LEGACY,
         **_ACTOR,
     }), supports_response=both)
     s(DOMAIN, "get_ticket", _wrap(get), vol.Schema(_ID), supports_response=SupportsResponse.ONLY)
     s(DOMAIN, "list_tickets", _wrap(list_), vol.Schema({
         vol.Optional("status"): cv.string,
         vol.Optional("query"): cv.string,
-        vol.Optional("type"): vol.In(TYPES),
         vol.Optional("priority"): vol.In(PRIORITIES),
         vol.Optional("assignee"): cv.string,
         vol.Optional("requester"): cv.string,
-        vol.Optional("tag"): cv.string,
+        vol.Optional("label"): cv.string,
         vol.Optional("include_history"): cv.boolean,
+        vol.Optional("type"): vol.In(list(LEGACY_TYPE_LABELS)),
+        vol.Optional("tag"): cv.string,
         vol.Optional("limit"): vol.All(vol.Coerce(int), vol.Range(min=1, max=1000)),
     }), supports_response=SupportsResponse.ONLY)
     s(DOMAIN, "update_ticket", _wrap(update), vol.Schema({
         **_ID,
         vol.Optional("title"): cv.string,
         vol.Optional("description"): cv.string,
-        vol.Optional("type"): vol.In(TYPES),
-        vol.Optional("status"): vol.In(STATUSES),
+        vol.Optional("status"): _LEGACY_STATUS,
         vol.Optional("priority"): vol.In(PRIORITIES),
         vol.Optional("assignee"): vol.Any(cv.string, None),
-        vol.Optional("tags"): _TAGS,
-        vol.Optional("add_tags"): _TAGS,
-        vol.Optional("remove_tags"): _TAGS,
-        vol.Optional("entities"): _TAGS,
+        vol.Optional("labels"): _LABELS,
+        vol.Optional("add_labels"): _LABELS,
+        vol.Optional("remove_labels"): _LABELS,
+        vol.Optional("entities"): _LABELS,
+        vol.Optional("add_tags"): _LABELS,
+        vol.Optional("remove_tags"): _LABELS,
+        **_LEGACY,
         vol.Optional("resolution"): vol.Any(cv.string, None),
         **_ACTOR,
     }), supports_response=both)
@@ -225,7 +233,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Required("other_id"): vol.Coerce(int),
         **_ACTOR,
     }), supports_response=both)
-    s(DOMAIN, "list_tags", _wrap(list_tags), vol.Schema({}), supports_response=SupportsResponse.ONLY)
+    s(DOMAIN, "list_labels", _wrap(list_labels), vol.Schema({}), supports_response=SupportsResponse.ONLY)
     s(DOMAIN, "get_stats", _wrap(stats), vol.Schema({}), supports_response=SupportsResponse.ONLY)
     s(DOMAIN, "import_file", _wrap(import_file), vol.Schema({
         vol.Required("path"): cv.string,

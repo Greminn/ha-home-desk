@@ -2,25 +2,15 @@ export const STATUSES = [
   "new",
   "open",
   "in_progress",
-  "waiting",
   "resolved",
   "closed",
-] as const;
-export const TYPES = [
-  "issue",
-  "request",
-  "idea",
-  "task",
-  "question",
-  "log",
 ] as const;
 export const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 
 export type Status = (typeof STATUSES)[number];
-export type TicketType = (typeof TYPES)[number];
 export type Priority = (typeof PRIORITIES)[number];
 
-export const TAG_COLORS = [
+export const LABEL_COLORS = [
   "primary",
   "accent",
   "red",
@@ -44,13 +34,14 @@ export const TAG_COLORS = [
   "grey",
   "blue-grey",
 ] as const;
-export type TagColor = (typeof TAG_COLORS)[number];
+export type LabelColor = (typeof LABEL_COLORS)[number];
 
-export interface Tag {
+export interface Label {
   id: string;
   name: string;
-  color: TagColor;
-  /** The built-in Home Assistant tag: its name and colour can't change and it can't be deleted. */
+  color: LabelColor;
+  description: string;
+  /** Built-in labels (Bug, Enhancement, Blocked, ...): can't be renamed, recoloured or deleted. */
   builtin: boolean;
   count: number;
 }
@@ -59,18 +50,22 @@ export const ACTIVE: readonly Status[] = [
   "new",
   "open",
   "in_progress",
-  "waiting",
 ];
+
+/** Built-in label ids the panel's views rely on. */
+export const BUG = "bug";
+export const ENHANCEMENT = "enhancement";
+export const HISTORY = "history";
+export const BLOCKED = "blocked";
 
 export interface TicketSummary {
   id: number;
   title: string;
-  type: TicketType;
   status: Status;
   priority: Priority;
   requester: string;
   assignee: string | null;
-  tags: string[];
+  labels: string[];
   entities: string[];
   links: number[];
   legacy_ref: string | null;
@@ -109,11 +104,10 @@ export interface Ticket extends TicketSummary {
 export interface TicketPatch {
   title?: string;
   description?: string;
-  ticket_type?: TicketType;
   status?: Status;
   priority?: Priority;
   assignee?: string | null;
-  tags?: string[];
+  labels?: string[];
   resolution?: string | null;
 }
 
