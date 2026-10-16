@@ -72,6 +72,23 @@ export class TicketTags extends LitElement {
         margin-right: -6px;
         opacity: 1;
       }
+      /* Keyboard focus opens a badge the way pointing at it does. */
+      .badge:focus-within {
+        padding-right: 10px;
+        background: var(--label-color);
+        color: var(--label-fg);
+      }
+      .badge:focus-within .name {
+        max-width: 160px;
+        margin-left: 6px;
+        opacity: 1;
+      }
+      .badge:focus-within .x {
+        max-width: 18px;
+        margin-left: 4px;
+        margin-right: -6px;
+        opacity: 1;
+      }
       .badge:hover {
         padding-right: 10px;
         background: var(--label-color);
@@ -231,7 +248,7 @@ export class TicketTags extends LitElement {
   private _badges(t: TicketSummary) {
     const labels = t.labels.filter((id) => id !== "home-assistant").map((id) => labelOrUnknown(this.labelMap, id));
     return html`${labels.slice(0, this.maxBadges).map(
-      (l) => html`<span class="badge" role="img" aria-label=${l.name}
+      (l) => html`<span class="badge" role=${this.isAdmin ? "group" : "img"} aria-label=${l.name}
         style="--label-color: ${labelColorCss(l.color)}; --label-fg: ${labelTextColor(l.color)}"><ha-icon .icon=${l.icon || "mdi:label-outline"}></ha-icon><span class="name">${l.name}</span>${this.isAdmin
           ? html`<span class="x" role="button" tabindex="0" aria-label="Remove ${l.name} from this ticket"
               @click=${(e: Event) => this._askRemove(e, t, l)}

@@ -69,6 +69,17 @@ export const sharedStyles = css`
   button:hover:not(:disabled):not(.primary) {
     background-image: linear-gradient(var(--st-hover), var(--st-hover));
   }
+  /* People who ask for less motion get none: no sliding, fading or shaking. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
   button:focus-visible {
     outline: 2px solid var(--st-accent);
     outline-offset: 2px;

@@ -167,7 +167,7 @@ export class CategoryDialog extends LitElement {
   override render() {
     return html`<div class="scrim" @click=${(e: Event) => e.target === e.currentTarget && this._tryClose()}
       @keydown=${(e: KeyboardEvent) => e.key === "Escape" && this._tryClose()}>
-      <div class="dialog ${this._shake ? "shake" : ""}" role="dialog" aria-label="New Category">
+      <div class="dialog ${this._shake ? "shake" : ""}" role="dialog" aria-modal="true" aria-label="New Category">
         <div class="head">
           <button class="icon" title="Close" @click=${() => this._fire("close")}><ha-icon icon="mdi:close"></ha-icon></button>
           <h2>New Category</h2>

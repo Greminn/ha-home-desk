@@ -181,7 +181,7 @@ export class TicketList extends LitElement {
           class="row s-${t.status} ${done ? "done" : ""} ${t.id === this.selectedId ? "selected" : ""}"
           @click=${() => this._select(t.id)}
         >
-          <ha-icon class="state" .icon=${STATE_ICON[t.status]} aria-label=${STATUS_LABEL[t.status]}></ha-icon>
+          <ha-icon class="state" .icon=${STATE_ICON[t.status]} role="img" aria-label=${STATUS_LABEL[t.status]}></ha-icon>
           <div class="body">
             <div class="title">${t.title}</div>
             <div class="meta">

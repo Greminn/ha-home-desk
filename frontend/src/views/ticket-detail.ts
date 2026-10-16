@@ -744,6 +744,12 @@ export class TicketDetail extends LitElement {
     else if (this._descCollapsed && top <= 0) this._setDescCollapsed(false);
   }
 
+  private _expandDescription = () => {
+    if (!this._descCollapsed) return;
+    this._setDescCollapsed(false);
+    this.renderRoot.querySelector<HTMLElement>(".scroll")?.scrollTo({ top: 0 });
+  };
+
   private _setDescCollapsed(on: boolean) {
     this._descCollapsed = on;
     this._descSettle = Date.now() + 400;
@@ -1092,11 +1098,10 @@ export class TicketDetail extends LitElement {
         <div class="wrap">
         ${t.description
           ? html`<div class="desc-sticky ${this._descCollapsed ? "one" : ""}"
-              @click=${() => {
-                if (!this._descCollapsed) return;
-                this._setDescCollapsed(false);
-                this.renderRoot.querySelector<HTMLElement>(".scroll")?.scrollTo({ top: 0 });
-              }}>
+              role=${this._descCollapsed ? "button" : nothing} tabindex=${this._descCollapsed ? 0 : nothing}
+              aria-label=${this._descCollapsed ? "Show the full description" : nothing}
+              @click=${this._expandDescription}
+              @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && this._descCollapsed && (e.preventDefault(), this._expandDescription())}>
               <div class="card desc">
                 <div class="md ${long && !this._expanded ? "clamp" : ""}">${unsafeHTML(renderMarkdown(t.description))}</div>
                 ${long ? html`<button class="more" @click=${() => (this._expanded = !this._expanded)}>${this._expanded ? "Show Less" : "Show All"}</button>` : nothing}
@@ -1114,7 +1119,7 @@ export class TicketDetail extends LitElement {
           ? html`<div class="chips"><span class="sect">Related</span>${t.related.map((r) => html`<span class="chip link" title=${r.title} @click=${() => this._fire("open-ticket", r.id)}>#${r.id} ${r.title.length > 40 ? r.title.slice(0, 40) + "…" : r.title}</span>`)}</div>`
           : nothing}
 
-        <div class="timeline">
+        <div class="timeline" aria-live="polite" aria-relevant="additions">
           <h2>${this._showHistory ? "Activity" : "Comments"}</h2>
           ${t.events
             .filter((e) => this._showHistory || e.kind === "comment" || e.kind === "note")

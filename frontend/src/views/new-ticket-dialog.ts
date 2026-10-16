@@ -101,7 +101,7 @@ export class NewTicketDialog extends LitElement {
     return html`
       <div class="scrim" @click=${(e: Event) => e.target === e.currentTarget && this._fire("close")}
         @keydown=${(e: KeyboardEvent) => e.key === "Escape" && this._fire("close")}>
-        <div class="dialog" role="dialog" aria-label="New Ticket">
+        <div class="dialog" role="dialog" aria-modal="true" aria-label="New Ticket">
           <h2>New Ticket</h2>
           <div class="field">
             <label for="title">Title</label>

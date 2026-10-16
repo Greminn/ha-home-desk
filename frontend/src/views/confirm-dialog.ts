@@ -75,7 +75,7 @@ export class ConfirmDialog extends LitElement {
   override render() {
     return html`<div class="scrim" @click=${(e: Event) => e.target === e.currentTarget && this._fire("cancel")}
       @keydown=${(e: KeyboardEvent) => e.key === "Escape" && this._fire("cancel")}>
-      <div class="dialog" role="alertdialog" aria-label=${this.heading}>
+      <div class="dialog" role="alertdialog" aria-modal="true" aria-label=${this.heading}>
         <h2>${this.heading}</h2>
         <p>${this.body}</p>
         <div class="actions">

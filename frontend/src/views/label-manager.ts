@@ -573,7 +573,7 @@ export class LabelManager extends LitElement {
     const title = d.id ? this._orig?.name ?? d.name : "New Label";
     return html`<div class="scrim" @click=${(e: Event) => e.target === e.currentTarget && this._tryClose()}
       @keydown=${(e: KeyboardEvent) => e.key === "Escape" && this._tryClose()}>
-      <div class="dialog ${this._shake ? "shake" : ""}" role="dialog" aria-label=${title}>
+      <div class="dialog ${this._shake ? "shake" : ""}" role="dialog" aria-modal="true" aria-label=${title}>
         <div class="dhead">
           <button class="icon" title="Close" @click=${() => (this._draft = null)}><ha-icon icon="mdi:close"></ha-icon></button>
           <h2>${title}</h2>
@@ -637,7 +637,7 @@ export class LabelManager extends LitElement {
   private _confirm(label: Label) {
     return html`<div class="scrim top" @click=${(e: Event) => e.target === e.currentTarget && (this._toRemove = null)}
       @keydown=${(e: KeyboardEvent) => e.key === "Escape" && (this._toRemove = null)}>
-      <div class="dialog confirm" role="alertdialog" aria-label="Remove Label?">
+      <div class="dialog confirm" role="alertdialog" aria-modal="true" aria-label="Remove Label?">
         <h2>Remove Label?</h2>
         <p>Are you sure you want to remove label ${label.name}? ${label.count
           ? `It will be removed from ${label.count} ticket${label.count === 1 ? "" : "s"}.`

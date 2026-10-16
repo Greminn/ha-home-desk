@@ -6,7 +6,7 @@ import { HaClient } from "./ha-client";
 import type { NewTicket } from "./ha-client";
 import { ACTIVE, ENHANCEMENT, HISTORY, PRIORITIES } from "./types";
 import type { Category, HomeAssistant, HomeDeskSettings, Label, Ticket, TicketPatch, TicketSummary } from "./types";
-import { actorName, PRIORITY_LABEL, type Person } from "./format";
+import { actorName, isAgent, PRIORITY_LABEL, type Person } from "./format";
 import "./views/ticket-list";
 import "./views/ticket-detail";
 import "./views/new-ticket-dialog";
@@ -123,6 +123,21 @@ export class HomeDeskPanel extends LitElement {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+      /* The brand mark (a house with a tick) before the title, in the brand's blue. */
+      .bar h1:not(.crumb) {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .bar h1 .mark {
+        flex: none;
+        width: 26px;
+        height: 26px;
+        color: #03a9f4;
+      }
+      :host([light]) .bar h1 .mark {
+        color: #039be5;
       }
       .bar h1.crumb {
         font-size: var(--st-fs-title);
@@ -448,6 +463,8 @@ export class HomeDeskPanel extends LitElement {
   @state() private _category = "";
   /** A requester's name (as stored), or "" for anyone. */
   @state() private _person = "";
+  /** "" for any, "with" for tickets assigned to the AI agent, "without" for the rest. */
+  @state() private _agentFilter = "";
   @state() private _filtersOpen = false;
   /** True when only one pane fits: the list or the ticket, not both. */
   @state() private _compact = window.matchMedia(COMPACT_QUERY).matches;
@@ -803,8 +820,17 @@ export class HomeDeskPanel extends LitElement {
         (!this._priority || t.priority === this._priority) &&
         (!this._label || t.labels.includes(this._label)) &&
         (!this._person || t.requester === this._person) &&
+        (!this._agentFilter || isAgent(t.assignee ?? "") === (this._agentFilter === "with")) &&
         (!this._category || (this._category === "none" ? !t.category : t.category === this._category)),
     );
+  }
+
+  private get _agentOptions(): DropdownOption[] {
+    return [
+      { id: "", label: "Any AI Agent" },
+      { id: "with", label: "With AI Agent" },
+      { id: "without", label: "Not with AI Agent" },
+    ];
   }
 
   private get _priorityOptions(): DropdownOption[] {
@@ -830,7 +856,7 @@ export class HomeDeskPanel extends LitElement {
   }
 
   private get _filterCount(): number {
-    return [this._category, this._priority, this._label, this._person, this._view === "all" ? this._scope : ""].filter(Boolean).length;
+    return [this._category, this._priority, this._label, this._person, this._agentFilter, this._view === "all" ? this._scope : ""].filter(Boolean).length;
   }
 
   /**
@@ -869,17 +895,17 @@ export class HomeDeskPanel extends LitElement {
         <div class="bar">
           <div class="side ${this._page ? "wide" : ""}">
             ${this._page
-              ? html`<button class="icon" title="Back" @click=${() => (this._page = "")}><ha-icon icon="mdi:arrow-left"></ha-icon></button>
+              ? html`<button class="icon" title="Back" aria-label="Back" @click=${() => (this._page = "")}><ha-icon icon="mdi:arrow-left"></ha-icon></button>
                   <h1 class="crumb">${{ labels: "Labels", categories: "Categories", settings: "Settings" }[this._page]}</h1>`
               : html`${this.narrow
                   ? html`<button class="icon" title="Menu" @click=${() =>
                       this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }))}><ha-icon icon="mdi:menu"></ha-icon></button>`
                   : nothing}
-                <h1>Home Desk</h1>`}
+                <h1><svg class="mark" viewBox="0 0 86.2 86.2" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M84.15 19.86 84.66 19.10 85.07 18.28 85.36 17.41 85.47 16.97 85.59 16.06 85.59 15.14 85.47 14.23 85.36 13.79 85.07 12.92 84.66 12.10 84.42 11.71 83.86 10.98 83.22 10.34 82.86 10.05 82.10 9.54 81.28 9.13 80.41 8.84 79.51 8.66 79.06 8.61 78.60 8.60 77.69 8.66 76.79 8.84 75.92 9.13 75.10 9.54 74.34 10.05 73.98 10.34 57.89 26.41 65.19 32.80 65.76 33.34 66.20 33.82 66.84 34.65 67.32 35.43 67.77 36.33 83.55 20.55ZM35.60 12.37 34.89 12.03 34.15 11.78 33.38 11.62 32.60 11.57 32.21 11.59 31.43 11.69 31.05 11.78 30.31 12.03 29.60 12.37 28.95 12.81 2.65 35.81 2.09 36.36 1.84 36.67 1.41 37.32 1.22 37.67 0.92 38.39 0.72 39.15 0.61 39.93 0.60 40.32 0.61 71.99 0.72 72.77 0.92 73.53 1.22 74.25 1.61 74.93 2.09 75.56 2.64 76.11 3.27 76.59 3.95 76.98 4.67 77.28 5.05 77.40 5.82 77.55 6.60 77.60 58.99 77.59 59.77 77.48 60.53 77.28 61.25 76.98 61.93 76.59 62.56 76.11 63.11 75.56 63.59 74.93 63.98 74.25 64.28 73.53 64.40 73.15 64.55 72.38 64.60 71.60 64.60 40.32 64.55 39.55 37.55 66.55 36.86 67.15 36.10 67.66 35.28 68.07 34.41 68.36 33.97 68.47 33.06 68.59 32.14 68.59 31.23 68.47 30.79 68.36 29.92 68.07 29.10 67.66 28.34 67.15 27.98 66.86 11.65 50.55 11.34 50.22 10.78 49.49 10.32 48.70 9.97 47.85 9.73 46.97 9.66 46.51 9.60 45.60 9.66 44.69 9.84 43.79 10.13 42.92 10.54 42.10 11.05 41.34 11.65 40.65 12.34 40.05 13.10 39.54 13.92 39.13 14.79 38.84 15.69 38.66 16.60 38.60 17.51 38.66 18.41 38.84 18.85 38.97 19.70 39.32 20.49 39.78 21.22 40.34 32.60 51.70 55.05 29.25 36.55 13.06 35.93 12.58Z"/></svg><span>Home Desk</span></h1>`}
           </div>
           ${this._page ? html`<div class="tabs"></div>` : html`<div class="tabs" role="tablist">
             ${VIEWS.map(
-              (v) => html`<button class="tab ${v.id === this._view ? "active" : ""}" role="tab" title=${v.label}
+              (v) => html`<button class="tab ${v.id === this._view ? "active" : ""}" role="tab" title=${v.label} aria-label=${v.label}
                 aria-selected=${v.id === this._view} @click=${() => this._setView(v.id)}>
                 <ha-icon .icon=${v.icon}></ha-icon><span class="tab-text">${v.label}</span>${v.count
                   ? html`<span class="count">${this._tickets.filter(v.match).length}</span>`
@@ -891,7 +917,7 @@ export class HomeDeskPanel extends LitElement {
           ${this._admin
             ? html`<button class="icon" title="Settings" aria-label="Settings" @click=${() => (this._page = "settings")}><ha-icon icon="mdi:cog-outline"></ha-icon></button>`
             : nothing}
-          <button class="icon" title="More options" @click=${() => (this._menuOpen = !this._menuOpen)}><ha-icon icon="mdi:dots-vertical"></ha-icon></button>
+          <button class="icon" title="More options" aria-label="More options" aria-haspopup="menu" aria-expanded=${this._menuOpen} @click=${() => (this._menuOpen = !this._menuOpen)}><ha-icon icon="mdi:dots-vertical"></ha-icon></button>
           ${this._menuOpen
             ? html`<button class="menu-backdrop" aria-label="Close menu" @click=${() => (this._menuOpen = false)}></button>
                 <div class="menu-popover" role="menu">
@@ -927,7 +953,7 @@ export class HomeDeskPanel extends LitElement {
               <ha-icon icon="mdi:magnify"></ha-icon>
               <input type="search" placeholder="Search tickets" aria-label="Search tickets" .value=${this._q} @input=${this._onSearch} />
             </div>
-            <button class="icon filter-btn ${this._filterCount ? "on" : ""}" title="Filters" aria-expanded=${this._filtersOpen}
+            <button class="icon filter-btn ${this._filterCount ? "on" : ""}" title="Filters" aria-label="Filters" aria-expanded=${this._filtersOpen}
               @click=${() => (this._filtersOpen = !this._filtersOpen)}>
               <ha-icon icon="mdi:filter-variant"></ha-icon>${this._filterCount ? html`<span class="dot"></span>` : nothing}
             </button>
@@ -942,6 +968,8 @@ export class HomeDeskPanel extends LitElement {
                   @change=${(e: CustomEvent<string>) => (this._category = e.detail)}></st-dropdown>
                 <st-dropdown label="Raised By" placeholder="Raised By" .options=${this._personOptions} .value=${this._person}
                   @change=${(e: CustomEvent<string>) => (this._person = e.detail)}></st-dropdown>
+                <st-dropdown label="AI Agent" placeholder="AI Agent" .options=${this._agentOptions} .value=${this._agentFilter}
+                  @change=${(e: CustomEvent<string>) => (this._agentFilter = e.detail)}></st-dropdown>
                 <st-dropdown label="Priority" placeholder="Priority" .options=${this._priorityOptions} .value=${this._priority}
                   @change=${(e: CustomEvent<string>) => (this._priority = e.detail)}></st-dropdown>
                 <st-dropdown label="Label" placeholder="Label" .options=${this._labelOptions} .value=${this._label}
