@@ -1,0 +1,6 @@
+frontend/node_modules/
+frontend/.env
+__pycache__/
+.DS_Store
+# Generated from a private OPERATIONS.md; regenerate with tools/export_operations.py
+import/

@@ -1,0 +1,265 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Home Desk",
+        "description": "An issue tracker for your smart home, for the manager, the household and AI agents."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Home Desk is already set up."
+    }
+  },
+  "services": {
+    "get_guide": {
+      "name": "Get guide",
+      "description": "START HERE if you are an AI agent. Returns the usage guide for Home Desk: what it is, ticket fields and statuses, how to review, comment on, update and close tickets, and conventions to follow."
+    },
+    "get_changelog": {
+      "name": "Get changelog",
+      "description": "Return the installed Home Desk version and its changelog: what changed, and any **Action:** or **Breaking:** notes. Pass `since` (the last version you reviewed) to get only newer releases. Call after Home Desk is updated.",
+      "fields": {
+        "since": {
+          "name": "Since version",
+          "description": "Only include releases newer than this version. The Unreleased section is always included."
+        }
+      }
+    },
+    "list_tags": {
+      "name": "List tags",
+      "description": "Return every tag with its id, name, colour and how many tickets use it. Prefer an existing tag over inventing a new one; a tag name you use that doesn't exist is created automatically."
+    },
+    "get_stats": {
+      "name": "Get stats",
+      "description": "Return ticket counts by status, urgent and unassigned counts, and every tag (with colour and count). A good first call to see what needs attention."
+    },
+    "list_tickets": {
+      "name": "List tickets",
+      "description": "List ticket summaries (no bodies); use get_ticket for the full ticket. Defaults to active tickets, excluding history. Tag `needs-review` marks tickets whose state has not been verified yet.",
+      "fields": {
+        "status": {
+          "name": "Status",
+          "description": "A status, a comma-separated list, `active` (new, open, in_progress, waiting; the default) or `all`."
+        },
+        "query": {
+          "name": "Query",
+          "description": "Search text across title, description, comments, resolution, tags and entities."
+        },
+        "type": {
+          "name": "Type",
+          "description": "Only this type."
+        },
+        "priority": {
+          "name": "Priority",
+          "description": "Only this priority."
+        },
+        "assignee": {
+          "name": "Assignee",
+          "description": "Only this assignee, or `unassigned`."
+        },
+        "requester": {
+          "name": "Requester",
+          "description": "Only tickets raised by this person."
+        },
+        "tag": {
+          "name": "Tag",
+          "description": "Only tickets with this tag (name or id)."
+        },
+        "include_history": {
+          "name": "Include history",
+          "description": "Include `log` (historical record) tickets. Default false."
+        },
+        "limit": {
+          "name": "Limit",
+          "description": "Maximum tickets to return (default 100)."
+        }
+      }
+    },
+    "get_ticket": {
+      "name": "Get ticket",
+      "description": "Return one ticket in full: description, resolution, tags, entities, timeline of comments and changes, and related tickets.",
+      "fields": {
+        "ticket_id": {
+          "name": "Ticket ID",
+          "description": "The ticket's number."
+        }
+      }
+    },
+    "create_ticket": {
+      "name": "Create ticket",
+      "description": "Create a ticket and return it. Search first (list_tickets with a query) to avoid duplicates. AI agents: call get_guide first and pass `actor` with your own name.",
+      "fields": {
+        "title": {
+          "name": "Title",
+          "description": "Short summary of the problem, request or idea."
+        },
+        "description": {
+          "name": "Description",
+          "description": "Details in markdown: what happened, evidence, what was expected."
+        },
+        "type": {
+          "name": "Type",
+          "description": "issue, request, idea, task, question or log (history record)."
+        },
+        "priority": {
+          "name": "Priority",
+          "description": "low, normal, high or urgent (urgent = safety, security or whole-house outage)."
+        },
+        "requester": {
+          "name": "Requester",
+          "description": "Who raised it. Defaults to the actor."
+        },
+        "assignee": {
+          "name": "Assignee",
+          "description": "Who should work on it. Leave empty for unassigned."
+        },
+        "tags": {
+          "name": "Tags",
+          "description": "Tag names or ids. Names that don't exist yet are created. Defaults to Home Assistant when omitted."
+        },
+        "entities": {
+          "name": "Entities",
+          "description": "Home Assistant entity ids this ticket concerns."
+        },
+        "actor": {
+          "name": "Actor",
+          "description": "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+        }
+      }
+    },
+    "update_ticket": {
+      "name": "Update ticket",
+      "description": "Change a ticket's fields. Pass only what should change; every change is logged on the timeline. To close a ticket use close_ticket so a resolution is recorded.",
+      "fields": {
+        "ticket_id": {
+          "name": "Ticket ID",
+          "description": "The ticket's number."
+        },
+        "title": {
+          "name": "Title",
+          "description": "New title."
+        },
+        "description": {
+          "name": "Description",
+          "description": "New description (markdown)."
+        },
+        "type": {
+          "name": "Type",
+          "description": "New type."
+        },
+        "status": {
+          "name": "Status",
+          "description": "new, open, in_progress, waiting, resolved or closed."
+        },
+        "priority": {
+          "name": "Priority",
+          "description": "New priority."
+        },
+        "assignee": {
+          "name": "Assignee",
+          "description": "New assignee; empty to unassign."
+        },
+        "tags": {
+          "name": "Tags",
+          "description": "Replace all tags with this list."
+        },
+        "add_tags": {
+          "name": "Add tags",
+          "description": "Tag names or ids to add. Unknown names are created."
+        },
+        "remove_tags": {
+          "name": "Remove tags",
+          "description": "Tag names or ids to remove."
+        },
+        "entities": {
+          "name": "Entities",
+          "description": "Replace the linked entity ids."
+        },
+        "resolution": {
+          "name": "Resolution",
+          "description": "Resolution notes."
+        },
+        "actor": {
+          "name": "Actor",
+          "description": "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+        }
+      }
+    },
+    "add_comment": {
+      "name": "Add comment",
+      "description": "Add a comment to a ticket's timeline. Use it to record findings: what you checked, what you found, with times and values.",
+      "fields": {
+        "ticket_id": {
+          "name": "Ticket ID",
+          "description": "The ticket's number."
+        },
+        "body": {
+          "name": "Comment",
+          "description": "The comment, in markdown."
+        },
+        "internal": {
+          "name": "Internal note",
+          "description": "True makes a private note that the requester can't see."
+        },
+        "actor": {
+          "name": "Actor",
+          "description": "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+        }
+      }
+    },
+    "close_ticket": {
+      "name": "Close ticket",
+      "description": "Resolve or close a ticket with resolution notes (the cause and the fix). Only close when you are confident; otherwise comment and leave it open.",
+      "fields": {
+        "ticket_id": {
+          "name": "Ticket ID",
+          "description": "The ticket's number."
+        },
+        "resolution": {
+          "name": "Resolution",
+          "description": "What the cause was and what fixed it."
+        },
+        "status": {
+          "name": "Status",
+          "description": "`resolved` (fixed; the default) or `closed` (won't fix, superseded or no longer relevant)."
+        },
+        "actor": {
+          "name": "Actor",
+          "description": "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+        }
+      }
+    },
+    "link_tickets": {
+      "name": "Link tickets",
+      "description": "Mark two tickets as related; shown on both.",
+      "fields": {
+        "ticket_id": {
+          "name": "Ticket ID",
+          "description": "One ticket."
+        },
+        "other_id": {
+          "name": "Other ticket ID",
+          "description": "The related ticket."
+        },
+        "actor": {
+          "name": "Actor",
+          "description": "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+        }
+      }
+    },
+    "import_file": {
+      "name": "Import file",
+      "description": "Admin: bulk-import tickets from a JSON file inside the config directory. Idempotent: tickets whose source_key already exists are skipped.",
+      "fields": {
+        "path": {
+          "name": "Path",
+          "description": "Path to the JSON file, inside the Home Assistant config directory."
+        },
+        "actor": {
+          "name": "Actor",
+          "description": "Who is importing."
+        }
+      }
+    }
+  }
+}
