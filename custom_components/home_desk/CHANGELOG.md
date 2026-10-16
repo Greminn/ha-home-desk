@@ -9,6 +9,7 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 ### Breaking
 - **Statuses are now `new`, `in_progress`, `resolved` and `closed`: `open` is gone.** Existing `open` tickets become `in_progress` on first start. Setting `status: open` (or `waiting`) still works and means `in_progress`, but responses never contain `open`. **Action:** stop reading or writing `open`.
 - **Status now moves by itself.** The first comment or change on a `new` ticket moves it to `in_progress` (changes by Home Assistant, import and Home Desk itself don't count). A `resolved` ticket becomes `closed` automatically after a delay the manager sets in Settings (default 7 days; "straight away" and "never" are options). **Action:** you rarely need to set `status`; use `close_ticket` to resolve.
+- **Services (except `get_guide` and `get_changelog`) now need an administrator.** Before, any Home Assistant user could call them and read internal notes or other people's tickets, which the panel never allowed. Calls from automations and scripts (which have no user) still work, and so do calls made with an administrator's token, which is what an AI agent normally uses. **Action:** if an agent or integration calls these services with a non-admin user's token, give it an admin's.
 - **The Home Assistant label is gone: it is a category now.** It is removed from tickets and from `list_labels`. Repair tickets get the category Home Assistant, plus the labels Bug and Repair. Tickets that were only labelled Home Assistant are now uncategorised.
 
 ### Added
@@ -18,6 +19,8 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 - **Panel redesign:** a flat full-width ticket with the title, status, priority, category and labels pinned at the top; a long description collapses to one line as you scroll; comments with avatars and your Home Assistant profile picture; the comment box docked at the bottom with a priority control and "Assign to AI Agent" (switched on by default after the agent has replied); a history view with each change as a line; a new-ticket button at the left of the toolbar; priority as a warning icon in the list; HA-style Manage Categories page.
 
 ### Changed
+- Titles are limited to 300 characters, comments, descriptions and resolutions to 100,000, and label and category names to 80 (the longest imported ticket is about 21,000). Pictures in ticket text are shown as links, not loaded, and forms, styles and SVG are removed.
+- Panel: an amber **Blocked** item in the list and on the ticket; a "With AI Agent" filter; the brand mark in the header; screen-reader and keyboard improvements and reduced-motion support.
 - "Tickets from Repairs" moved from the integration's options to the Settings page (an older "off" is carried over once). The ignored-integrations list stays in the integration's options.
 
 ### Breaking (labels and views)

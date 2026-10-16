@@ -146,7 +146,7 @@ Tests (no HA install needed): `python3 -I tests/test_storage.py` and `uv run --w
 ## Known limits
 
 - Tested without a Home Assistant install (storage logic, the MCP bridge, and the panel in a mock page) and by use on a live install; there is no automated test of the HA wiring itself.
-- Admin-only features rely on HA's own admin flag. Non-admins only see tickets they raised, and the simple report form for them is not built yet (they use the same panel, cut down).
+- Services (other than the guide and changelog) and the Settings need an administrator; admin-only features rely on HA's own admin flag. Non-admins only see tickets they raised, and the simple report form for them is not built yet (they use the same panel, cut down).
 - Label colours are limited to the theme-aware names, not arbitrary hex values.
 - The Settings notification options are stored but nothing is sent yet.
 - The old `tests/test_storage.py` still expects the retired Home Assistant label and fails there; it needs updating for categories, the new statuses and the AI Agent rules.
