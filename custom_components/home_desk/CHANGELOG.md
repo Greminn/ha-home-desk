@@ -7,16 +7,30 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 ## [Unreleased]
 
 ### Breaking
+- **Statuses are now `new`, `in_progress`, `resolved` and `closed`: `open` is gone.** Existing `open` tickets become `in_progress` on first start. Setting `status: open` (or `waiting`) still works and means `in_progress`, but responses never contain `open`. **Action:** stop reading or writing `open`.
+- **Status now moves by itself.** The first comment or change on a `new` ticket moves it to `in_progress` (changes by Home Assistant, import and Home Desk itself don't count). A `resolved` ticket becomes `closed` automatically after a delay the manager sets in Settings (default 7 days; "straight away" and "never" are options). **Action:** you rarely need to set `status`; use `close_ticket` to resolve.
+- **The Home Assistant label is gone: it is a category now.** It is removed from tickets and from `list_labels`. Repair tickets get the category Home Assistant, plus the labels Bug and Repair. Tickets that were only labelled Home Assistant are now uncategorised.
+
+### Added
+- **Categories: what part of the smart home a ticket is about.** One optional category per ticket (Home Assistant, Network, Lighting...). Home Assistant is built in and locked; the rest are made by the manager (Manage Categories in the panel) and by agents. New services `list_categories`, `create_category`, `update_category` and `delete_category` (agents may delete only a category nothing uses), and a `category` field on `create_ticket`, `update_ticket` and `list_tickets` (`none` finds uncategorised tickets). A ticket's category must already exist: create it first. `get_stats` adds `no_category` and `categories`. MCP: `list_categories`, `create_category`, `update_category`, `delete_category`, and `category` on create, update and list. **Action:** agents, see "Categorise what you touch" in `get_guide`.
+- **Assign a ticket to an AI agent.** In the panel the only assignee is the AI agent (named `ai:<name>`). Assigning fires a `home_desk_event` of kind `assigned` so an automation can start the agent, and when the agent comments on a ticket assigned to it, the ticket is handed back (the assignee is cleared). Events carry `with_agent` and `category`. `get_stats` adds `with_agent`.
+- **Settings page** (the cog in the panel, admins only): the close-resolved-tickets delay, which AI agent to use, a switch for tickets from Repairs, and each manager's own notification options (stored now; sending notifications comes later).
+- **Panel redesign:** a flat full-width ticket with the title, status, priority, category and labels pinned at the top; a long description collapses to one line as you scroll; comments with avatars and your Home Assistant profile picture; the comment box docked at the bottom with a priority control and "Assign to AI Agent" (switched on by default after the agent has replied); a history view with each change as a line; a new-ticket button at the left of the toolbar; priority as a warning icon in the list; HA-style Manage Categories page.
+
+### Changed
+- "Tickets from Repairs" moved from the integration's options to the Settings page (an older "off" is carried over once). The ignored-integrations list stays in the integration's options.
+
+### Breaking (labels and views)
 - **Tags are now labels, and `type` is gone.** Like GitHub, a ticket is categorised by labels. Renames: services `list_tags` → `list_labels`; `tags`/`add_tags`/`remove_tags` → `labels`/`add_labels`/`remove_labels`; the `tag` filter in `list_tickets` → `label`; the `tags` field on tickets and in `get_stats` → `labels`; websocket `tags`/`tag_*` → `labels`/`label_*`; MCP tool `list_tags` → `list_labels`. The old names are still accepted by the services (and by import files) and translated, but responses use the new names, so **Action:** read `labels` where you read `tags`, and stop reading `type`.
 - **The `waiting` status is gone.** Use the **Blocked** label. Setting `status: waiting` still works and becomes `open` plus the Blocked label.
 - **Statuses are now `new`, `open`, `in_progress`, `resolved`, `closed`.**
 - `list_tickets` no longer has a `type` filter; filter by `label` (Bug, Enhancement, ...). Tickets labelled **History** are left out unless `include_history` is true (this replaces the old `log` type).
 
-### Added
+### Added (repairs, labels)
 - **Home Assistant Repairs become tickets.** (Titles come from the integration's translations; when it has none, the title is the domain, the repair key and a shortened repair id, so similar repairs can be told apart, and an automatic title is refreshed when Home Assistant's text improves.) Each repair gets one ticket (requester `Home Assistant`, labels Bug / Home Assistant / Repair, priority from the repair's severity). The ticket resolves itself when HA clears the repair, reopens if it comes back, and gets the Blocked label while the repair is ignored in HA. Your own changes to a repair ticket's priority and labels are kept. Settings (Settings → Devices & services → Home Desk → Configure): turn it off, or list integrations to skip. Existing repairs are picked up when Home Assistant starts. **Action:** agents, see "Tickets raised by Home Assistant Repairs" in `get_guide`.
 - `home_desk.get_changelog` service and `get_changelog` MCP tool: returns this changelog and the installed version, optionally only the releases newer than `since`.
 
-### Changed
+### Changed (panel)
 - **Built-in labels** that can't be renamed or deleted: Home Assistant, Bug, Enhancement, Task, Question, History, Blocked. Existing tickets are migrated automatically on first start: `issue` → Bug, `task` → Task, `request`/`idea` → Enhancement, `question` → Question, `log` → History, and `waiting` → open + Blocked (with a note on the ticket's timeline). Labels also have an optional description.
 - Panel: removed the "Assignee" filter from the inbox (it was unused). The assignee field is still on each ticket, in the detail view and in the services, so agents and `list_tickets` work as before.
 - Panel: the "raised by" line in a ticket now shows an icon for who raised it (person, AI agent, Home Assistant or import).

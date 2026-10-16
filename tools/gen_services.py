@@ -10,7 +10,7 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parents[1] / "custom_components" / "home_desk"
 PRIOS = ["low", "normal", "high", "urgent"]
-STATUSES = ["new", "open", "in_progress", "resolved", "closed"]
+STATUSES = ["new", "in_progress", "resolved", "closed"]
 
 TEXT = {"text": {}}
 LONG = {"text": {"multiline": True}}
@@ -32,15 +32,29 @@ SERVICES = {
     "get_changelog": ("Get changelog", "Return the installed Home Desk version and its changelog: what changed, and any **Action:** or **Breaking:** notes. Pass `since` (the last version you reviewed) to get only newer releases. Call after Home Desk is updated.", {
         "since": ("Since version", "Only include releases newer than this version. The Unreleased section is always included.", TEXT, False, "0.1.0"),
     }),
-    "list_labels": ("List labels", "Return every label with its id, name, colour, description and how many tickets use it. Prefer an existing label over inventing a new one; a label name you use that doesn't exist is created automatically. Built-in labels: Bug, Enhancement, Task, Question, History, Blocked and Home Assistant.", {}),
-    "get_stats": ("Get stats", "Return ticket counts by status, urgent and unassigned counts, and every label (with colour and count). A good first call to see what needs attention.", {}),
+    "list_labels": ("List labels", "Return every label with its id, name, colour, description and how many tickets use it. Prefer an existing label over inventing a new one; a label name you use that doesn't exist is created automatically. Built-in labels: Bug, Enhancement, Task, Question, History and Blocked. (What part of the home a ticket is about is a category, see list_categories.)", {}),
+    "list_categories": ("List categories", "Return every category with its id, name, icon and how many tickets use it. A category says what part of the smart home a ticket is about (Home Assistant, Network, Lighting...). A ticket has at most one. Home Assistant is built in.", {}),
+    "create_category": ("Create category", "Create a category, for example Network or Cameras. Check list_categories first. Pass `actor` with your own name.", {
+        "name": ("Name", "The category's name.", TEXT, True, "Network"),
+        "icon": ("Icon", "An optional icon such as mdi:lan.", TEXT, False, "mdi:lan"),
+        "actor": ACTOR}),
+    "update_category": ("Update category", "Rename a category or change its icon. The built-in Home Assistant category can't be changed.", {
+        "category": ("Category", "The category's name or id.", TEXT, True, "Network"),
+        "name": ("New name", "A new name.", TEXT, False, None),
+        "icon": ("Icon", "A new icon such as mdi:lan.", TEXT, False, None),
+        "actor": ACTOR}),
+    "delete_category": ("Delete category", "Delete a category that no ticket uses. A category in use is refused: move its tickets first, or ask the manager to delete it in the panel. The built-in Home Assistant category can't be deleted.", {
+        "category": ("Category", "The category's name or id.", TEXT, True, "Network"),
+        "actor": ACTOR}),
+    "get_stats": ("Get stats", "Return ticket counts by status, urgent, unassigned and with-AI-agent counts, how many active tickets have no category, and every label and category (with counts). A good first call to see what needs attention.", {}),
     "list_tickets": ("List tickets", "List ticket summaries (no bodies); use get_ticket for the full ticket. Defaults to active tickets, excluding those labelled History. Label `needs-review` marks tickets whose state has not been verified yet.", {
-        "status": ("Status", "A status, a comma-separated list, `active` (new, open, in_progress; the default) or `all`.", TEXT, False, "active"),
+        "status": ("Status", "A status, a comma-separated list, `active` (new and in_progress; the default) or `all`.", TEXT, False, "active"),
         "query": ("Query", "Search text across title, description, comments, resolution, labels and entities.", TEXT, False, None),
         "priority": ("Priority", "Only this priority.", sel(PRIOS), False, None),
         "assignee": ("Assignee", "Only this assignee, or `unassigned`.", TEXT, False, None),
         "requester": ("Requester", "Only tickets raised by this person.", TEXT, False, None),
         "label": ("Label", "Only tickets with this label (name or id), e.g. Bug, Enhancement or Blocked.", TEXT, False, None),
+        "category": ("Category", "Only tickets in this category (name or id), or `none` for tickets with no category yet.", TEXT, False, None),
         "include_history": ("Include history", "Include tickets labelled History (records of past work). Default false.", BOOL, False, None),
         "limit": ("Limit", "Maximum tickets to return (default 100).", {"number": {"min": 1, "max": 1000, "mode": "box"}}, False, None)}),
     "get_ticket": ("Get ticket", "Return one ticket in full: description, resolution, labels, entities, timeline of comments and changes, and related tickets.", {"ticket_id": TID}),
@@ -49,18 +63,20 @@ SERVICES = {
         "description": ("Description", "Details in markdown: what happened, evidence, what was expected.", LONG, False, None),
         "priority": ("Priority", "low, normal, high or urgent (urgent = safety, security or whole-house outage).", sel(PRIOS), False, None),
         "requester": ("Requester", "Who raised it. Defaults to the actor.", TEXT, False, None),
-        "assignee": ("Assignee", "Who should work on it. Leave empty for unassigned.", TEXT, False, None),
-        "labels": ("Labels", "Label names or ids, e.g. Bug, Enhancement, Task, Question. Names that don't exist yet are created. Defaults to Home Assistant when omitted.", MULTI, False, None),
+        "assignee": ("Assignee", "Who is working on it. Leave empty for unassigned. Assigning a ticket to an AI agent (name starting `ai:`) hands it to that agent; a `home_desk_event` of kind `assigned` is fired.", TEXT, False, None),
+        "labels": ("Labels", "Label names or ids, e.g. Bug, Enhancement, Task, Question. Names that don't exist yet are created.", MULTI, False, None),
+        "category": ("Category", "What part of the home this is about (see list_categories), e.g. Network. It must already exist: create_category first if it is new. Leave empty if unsure.", TEXT, False, None),
         "entities": ("Entities", "Home Assistant entity ids this ticket concerns.", MULTI, False, None),
         "actor": ACTOR}),
     "update_ticket": ("Update ticket", "Change a ticket's fields. Pass only what should change; every change is logged on the timeline. To close a ticket use close_ticket so a resolution is recorded.", {
         "ticket_id": TID,
         "title": ("Title", "New title.", TEXT, False, None),
         "description": ("Description", "New description (markdown).", LONG, False, None),
-        "status": ("Status", "new, open, in_progress, resolved or closed. To mark a ticket as waiting on something, add the Blocked label.", sel(STATUSES), False, None),
+        "status": ("Status", "new, in_progress, resolved or closed. A ticket moves from new to in_progress by itself the first time anyone acts on it, and a resolved ticket closes by itself after the delay in Settings, so you rarely need this. To mark a ticket as waiting on something, add the Blocked label. (`open` is accepted and means in_progress.)", sel(STATUSES), False, None),
         "priority": ("Priority", "New priority.", sel(PRIOS), False, None),
-        "assignee": ("Assignee", "New assignee; empty to unassign.", TEXT, False, None),
+        "assignee": ("Assignee", "New assignee; empty to unassign. When an AI agent a ticket is assigned to comments on it, the ticket is handed back (the assignee is cleared) automatically.", TEXT, False, None),
         "labels": ("Labels", "Replace all labels with this list.", MULTI, False, None),
+        "category": ("Category", "Move the ticket to this category (name or id, from list_categories); empty to clear.", TEXT, False, None),
         "add_labels": ("Add labels", "Label names or ids to add. Unknown names are created.", MULTI, False, None),
         "remove_labels": ("Remove labels", "Label names or ids to remove.", MULTI, False, None),
         "entities": ("Entities", "Replace the linked entity ids.", MULTI, False, None),
@@ -120,9 +136,8 @@ def write_json():
             "step": {
                 "init": {
                     "title": "Repairs",
-                    "description": "Home Desk can open a ticket for each Home Assistant repair, resolve it when Home Assistant clears the repair, and reopen it if the repair comes back.",
+                    "description": "Home Desk opens a ticket for each Home Assistant repair, resolves it when Home Assistant clears the repair, and reopens it if the repair comes back. Turn this on or off in Home Desk's Settings page. Here you can skip noisy integrations.",
                     "data": {
-                        "repairs_to_tickets": "Create tickets from Home Assistant repairs",
                         "repairs_ignored_domains": "Integrations to skip",
                     },
                     "data_description": {

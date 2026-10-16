@@ -16,6 +16,8 @@ export interface NewTicket {
   /** Label ids; a household user may only pick Bug, Enhancement or Question. */
   labels: string[];
   priority: Priority;
+  /** A category id (admins only; household users' tickets start uncategorised). */
+  category?: string;
 }
 
 /** Thin wrapper over the home_desk/* WebSocket commands. */

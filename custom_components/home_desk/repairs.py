@@ -16,8 +16,8 @@ from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.translation import async_get_translations
 
-from .const import CONF_REPAIRS, CONF_REPAIRS_IGNORE, REPAIR_PRIORITY
-from .storage import async_open_repair_keys, async_sync_repair
+from .const import CONF_REPAIRS_IGNORE, DOMAIN, REPAIR_PRIORITY
+from .storage import async_get_settings, async_open_repair_keys, async_sync_repair
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,8 +62,12 @@ async def _describe(hass: HomeAssistant, issue: ir.IssueEntry) -> tuple[str, str
     return title, "\n\n".join(lines)
 
 
+async def _enabled(hass: HomeAssistant) -> bool:
+    return bool((await async_get_settings(hass)).get("repairs", True))
+
+
 async def _sync(hass: HomeAssistant, domain: str, issue_id: str, ignored_domains: set[str]) -> None:
-    if domain in ignored_domains:
+    if domain in ignored_domains or not await _enabled(hass):
         return
     issue = ir.async_get(hass).async_get_issue(domain, issue_id)
     try:
@@ -86,20 +90,28 @@ async def _sync(hass: HomeAssistant, domain: str, issue_id: str, ignored_domains
 
 
 async def async_setup_repairs(hass: HomeAssistant, options: dict[str, Any]) -> Callable[[], None]:
-    """Start mirroring repairs into tickets. Returns a function that stops it."""
-    if not options.get(CONF_REPAIRS, True):
-        return lambda: None
+    """Start mirroring repairs into tickets. Returns a function that stops it.
+
+    Whether it is switched on is the "Tickets from Repairs" setting, checked on every change, so the switch in
+    the panel takes effect without a restart. Turning it on calls the catch-up below.
+    """
     ignored = {d.strip() for d in options.get(CONF_REPAIRS_IGNORE) or [] if d.strip()}
 
-    # Catch up with what is in the registry now, including repairs that cleared while HA was off.
-    present = set()
-    for (domain, issue_id), issue in list(ir.async_get(hass).issues.items()):
-        if issue.active:
-            present.add((domain, issue_id))
-        await _sync(hass, domain, issue_id, ignored)
-    for domain, issue_id in await async_open_repair_keys(hass):
-        if (domain, issue_id) not in present:
+    async def catch_up() -> None:
+        """Make the tickets match the issue registry now, including repairs that cleared while HA was off."""
+        if not await _enabled(hass):
+            return
+        present = set()
+        for (domain, issue_id), issue in list(ir.async_get(hass).issues.items()):
+            if issue.active:
+                present.add((domain, issue_id))
             await _sync(hass, domain, issue_id, ignored)
+        for domain, issue_id in await async_open_repair_keys(hass):
+            if (domain, issue_id) not in present:
+                await _sync(hass, domain, issue_id, ignored)
+
+    hass.data[f"{DOMAIN}_repairs_catch_up"] = catch_up
+    await catch_up()
 
     @callback
     def _changed(event: Event) -> None:
@@ -107,4 +119,10 @@ async def async_setup_repairs(hass: HomeAssistant, options: dict[str, Any]) -> C
         if domain and issue_id:
             hass.async_create_task(_sync(hass, domain, issue_id, ignored))
 
-    return hass.bus.async_listen(ir.EVENT_REPAIRS_ISSUE_REGISTRY_UPDATED, _changed)
+    stop = hass.bus.async_listen(ir.EVENT_REPAIRS_ISSUE_REGISTRY_UPDATED, _changed)
+
+    def _stop() -> None:
+        stop()
+        hass.data.pop(f"{DOMAIN}_repairs_catch_up", None)
+
+    return _stop

@@ -18,17 +18,24 @@ import re
 
 from .const import (
     ACTIVE_STATUSES,
+    AUTO_CLOSE_SECONDS,
     BLOCKED_LABEL_ID,
+    BUILTIN_CATEGORIES,
     BUILTIN_LABELS,
+    DEFAULT_NOTIFY,
+    DEFAULT_SETTINGS,
     DOMAIN,
     EVENT_TICKET,
+    HA_CATEGORY_ID,
     HA_LABEL_ID,
     HISTORY_LABEL_ID,
     LABEL_AUTO_COLORS,
     LABEL_COLORS,
     LEGACY_TYPE_LABELS,
     PRIORITIES,
+    STATUS_ALIASES,
     STATUSES,
+    SYSTEM_ACTORS,
 )
 
 _STORE_VERSION = 1  # shape changes are migrated in _load, not by bumping this
@@ -44,6 +51,7 @@ _EDITABLE = (
     "priority",
     "assignee",
     "labels",
+    "category",
     "entities",
     "resolution",
 )
@@ -53,6 +61,21 @@ INTERNAL_KINDS = ("note",)
 
 class TicketError(Exception):
     """A request that can't be applied (unknown ticket, bad value)."""
+
+
+def _status(value: str) -> str:
+    """A status as stored: an old name such as "open" becomes what it was merged into."""
+    return STATUS_ALIASES.get(value, value)
+
+
+def _agent_key(name: str) -> str:
+    return (name or "").strip().lower().removeprefix("ai:").strip()
+
+
+def is_agent(name: str | None) -> bool:
+    """An AI agent: named ``ai:<name>`` (what the panel assigns) or a known agent such as Claude."""
+    n = (name or "").strip().lower()
+    return n.startswith("ai:") or "claude" in n
 
 
 def _now() -> str:
@@ -123,6 +146,29 @@ def _resolve_labels(data: dict[str, Any], raws: list[str] | None) -> list[str]:
     return sorted(ids)
 
 
+def _resolve_category(data: dict[str, Any], raw: str | None) -> str | None:
+    """A category id for what a caller typed: an id or a name (any case). Unknown names are an error, so
+    categories aren't created by accident; create one with `async_create_category`."""
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    registry = data["category_registry"]
+    if raw in registry:
+        return raw
+    if _slug(raw) in registry:
+        return _slug(raw)
+    for category in registry.values():
+        if category["name"].lower() == raw.lower():
+            return category["id"]
+    names = ", ".join(c["name"] for c in registry.values())
+    raise TicketError(f"Unknown category {raw!r}. Existing categories: {names}. Create it first if it is new.")
+
+
+def _category_name(data: dict[str, Any], category_id: str | None) -> str | None:
+    category = data["category_registry"].get(category_id or "")
+    return category["name"] if category else category_id
+
+
 def upgrade_legacy_fields(fields: dict[str, Any], mode: str) -> dict[str, Any]:
     """Translate pre-label field names so older callers, agents and import files keep working.
 
@@ -144,9 +190,11 @@ def upgrade_legacy_fields(fields: dict[str, Any], mode: str) -> dict[str, Any]:
             f.setdefault("label", label)
         elif label:
             extra.append(label)
-    if f.get("status") == "waiting":  # the old waiting status is now "open" plus the Blocked label
-        f["status"] = "open"
+    if f.get("status") == "waiting":  # the old waiting status is now in progress plus the Blocked label
+        f["status"] = "in_progress"
         extra.append(BLOCKED_LABEL_ID)
+    elif f.get("status") in STATUS_ALIASES:
+        f["status"] = _status(f["status"])
     if extra and mode != "filter":
         f[add_key] = [*(f.get(add_key) or []), *extra]
     return f
@@ -191,10 +239,34 @@ def _migrate(data: dict[str, Any]) -> bool:
                 ticket["labels"] = sorted({*ticket["labels"], label})
             changed = True
         if ticket["status"] == "waiting":
-            ticket["status"] = "open"
+            ticket["status"] = "in_progress"
             ticket["labels"] = sorted({*ticket["labels"], BLOCKED_LABEL_ID})
             _event(ticket, "Home Desk", "field",
-                   "Status 'waiting' no longer exists: now open with the Blocked label", None)
+                   "Status 'waiting' no longer exists: now in progress with the Blocked label", None)
+            changed = True
+        elif ticket["status"] in STATUS_ALIASES:  # "open" was merged into in progress
+            ticket["status"] = _status(ticket["status"])
+            changed = True
+        # The Home Assistant label became a category: take the label off (tickets are categorised afresh).
+        if HA_LABEL_ID in ticket["labels"]:
+            ticket["labels"] = [i for i in ticket["labels"] if i != HA_LABEL_ID]
+            changed = True
+        if "category" not in ticket:
+            ticket["category"] = None
+            changed = True
+    if HA_LABEL_ID in registry:
+        del registry[HA_LABEL_ID]
+        changed = True
+    # Categories: the built-in ones are always present and locked.
+    categories = data.setdefault("category_registry", {})
+    for builtin in BUILTIN_CATEGORIES:
+        want = {**builtin, "builtin": True}
+        if categories.get(builtin["id"]) != want:
+            categories[builtin["id"]] = want
+            changed = True
+    for key, default in (("settings", dict(DEFAULT_SETTINGS)), ("notify", {})):
+        if key not in data:
+            data[key] = default
             changed = True
     return changed
 
@@ -255,6 +327,8 @@ def _fire(hass: HomeAssistant, ticket: dict[str, Any], kind: str, actor: str) ->
             "priority": ticket["priority"],
             "requester": ticket["requester"],
             "assignee": ticket["assignee"],
+            "with_agent": is_agent(ticket["assignee"]),
+            "category": ticket.get("category"),
         },
     )
 
@@ -287,6 +361,7 @@ def _new_ticket(
     requester: str = "unknown",
     assignee: str | None = None,
     labels: list[str] | None = None,
+    category: str | None = None,
     entities: list[str] | None = None,
     actor: str | None = None,
     legacy_ref: str | None = None,
@@ -300,10 +375,11 @@ def _new_ticket(
     title = (title or "").strip()
     if not title:
         raise TicketError("A ticket needs a title")
+    status = _status(status)
     _check(status, STATUSES, "status")
     _check(priority, PRIORITIES, "priority")
     ts = created_at or _now()
-    label_ids = _resolve_labels(data, labels) or [HA_LABEL_ID]
+    label_ids = _resolve_labels(data, labels)
     tid = data["next_id"]
     data["next_id"] = tid + 1
     ticket: dict[str, Any] = {
@@ -315,6 +391,7 @@ def _new_ticket(
         "requester": requester,
         "assignee": assignee or None,
         "labels": label_ids,
+        "category": _resolve_category(data, category) if category else None,
         "entities": sorted(set(entities or [])),
         "links": [],
         "legacy_ref": legacy_ref,
@@ -351,34 +428,74 @@ def _apply_update(data: dict[str, Any], ticket: dict[str, Any], actor: str, fiel
         fields["labels"] = _resolve_labels(data, fields["labels"])
     ts = _now()
     changed = False
+    status_before = ticket["status"]
     for key, new in fields.items():
         if key not in _EDITABLE:
             raise TicketError(f"Cannot update field {key!r}")
-        if new is None and key != "assignee":
+        if new is None and key not in ("assignee", "category"):
             continue
         if key == "assignee":
             new = new or None
+        elif key == "category":
+            new = _resolve_category(data, new)
         elif key == "status":
+            new = _status(new)
             _check(new, STATUSES, "status")
         elif key == "priority":
             _check(new, PRIORITIES, "priority")
         elif key == "entities":
             new = sorted(set(new))
-        old = ticket[key]
+        old = ticket.get(key)
         if new == old:
             continue
         ticket[key] = new
         changed = True
         kind = key if key in ("status", "priority", "assignee") else "field"
         payload: dict[str, Any] = {"field": key}
-        if key != "description":
+        if key == "category":  # the timeline shows names, not ids
+            payload.update({"from": _category_name(data, old), "to": _category_name(data, new)})
+        elif key != "description":
             payload.update({"from": old, "to": new})
         _event(ticket, actor, kind, None, payload, ts)
         if key == "status":
             ticket["closed_at"] = ts if new in ("resolved", "closed") else None
     if changed:
         ticket["updated_at"] = ts
+        if ticket["status"] == "resolved" and status_before != "resolved":
+            _close_if_immediate(data, ticket)
     return changed
+
+
+def _settings(data: dict[str, Any]) -> dict[str, Any]:
+    return {**DEFAULT_SETTINGS, **data.get("settings", {})}
+
+
+def _close_if_immediate(data: dict[str, Any], ticket: dict[str, Any]) -> None:
+    """With the "straight away" setting, a resolved ticket closes at once."""
+    if _settings(data)["auto_close"] == "immediately":
+        _apply_update(data, ticket, "Home Desk", {"status": "closed"})
+
+
+def _progress(ticket: dict[str, Any], actor: str, ts: str) -> bool:
+    """The first thing done to a New ticket moves it to In Progress. Automatic sources don't count."""
+    if ticket["status"] != "new" or actor in SYSTEM_ACTORS:
+        return False
+    ticket["status"] = "in_progress"
+    _event(ticket, "Home Desk", "status", None, {"field": "status", "from": "new", "to": "in_progress"}, ts)
+    ticket["updated_at"] = ts
+    return True
+
+
+def _hand_back(ticket: dict[str, Any], actor: str, ts: str) -> bool:
+    """When the AI agent a ticket is assigned to replies, the ticket goes back to the manager."""
+    assignee = ticket.get("assignee")
+    if not assignee or not is_agent(assignee):
+        return False
+    if not (is_agent(actor) or _agent_key(actor) == _agent_key(assignee)):
+        return False
+    ticket["assignee"] = None
+    _event(ticket, actor, "assignee", None, {"field": "assignee", "from": assignee, "to": None}, ts)
+    return True
 
 
 # ---------------------------------------------------------------- public API
@@ -406,12 +523,14 @@ async def async_list_tickets(
     assignee: str | None = None,
     requester: str | None = None,
     label: str | None = None,
+    category: str | None = None,
     include_history: bool = True,
     limit: int = 500,
     offset: int = 0,
 ) -> dict[str, Any]:
     """Filter tickets. `status` is a status, a comma list, 'active' or 'all'."""
     if status and status not in ("all", "active"):
+        status = ",".join(_status(x) for x in status.split(","))
         for s in status.split(","):
             _check(s, STATUSES, "status")
     async with _lock(hass):
@@ -420,6 +539,9 @@ async def async_list_tickets(
     label_id = None
     if label:
         label_id = _resolve_label(data, label, create=False) or "\0"
+    category_id = None
+    if category and category != "none":
+        category_id = _resolve_category(data, category)
     rows = []
     for t in data["tickets"].values():
         if status == "active":
@@ -438,6 +560,10 @@ async def async_list_tickets(
             continue
         if label_id and label_id not in t["labels"]:
             continue
+        if category == "none" and t.get("category"):
+            continue
+        if category_id and t.get("category") != category_id:
+            continue
         if not include_history and HISTORY_LABEL_ID in t["labels"]:
             continue
         if needle:
@@ -449,6 +575,7 @@ async def async_list_tickets(
                     t.get("resolution") or "",
                     t.get("legacy_ref") or "",
                     " ".join(data["label_registry"][i]["name"] for i in t["labels"] if i in data["label_registry"]),
+                    _category_name(data, t.get("category")) or "",
                     " ".join(t["entities"]),
                     " ".join(e["body"] or "" for e in t["events"]),
                 ]
@@ -481,11 +608,16 @@ async def async_update_ticket(
     async with _lock(hass):
         data = await _load(hass)
         ticket = _get(data, ticket_id)
+        assignee_before = ticket["assignee"]
         changed = _apply_update(data, ticket, actor, fields)
+        if changed and "status" not in fields:
+            _progress(ticket, actor, ticket["updated_at"])
         if changed:
             await _save(hass, data)
     if changed:
         _fire(hass, ticket, "updated", actor)
+        if ticket["assignee"] != assignee_before and is_agent(ticket["assignee"]):
+            _fire(hass, ticket, "assigned", actor)  # lets an automation start the AI agent
     return ticket
 
 
@@ -506,6 +638,8 @@ async def async_add_comment(
         ts = _now()
         _event(ticket, actor, "note" if internal else "comment", body, None, ts)
         ticket["updated_at"] = ts
+        _progress(ticket, actor, ts)
+        _hand_back(ticket, actor, ts)
         await _save(hass, data)
     _fire(hass, ticket, "note" if internal else "comment", actor)
     return ticket
@@ -566,7 +700,10 @@ async def async_stats(hass: HomeAssistant) -> dict[str, Any]:
         "by_status": by_status,
         "urgent": sum(1 for t in active if t["priority"] == "urgent"),
         "unassigned": sum(1 for t in active if not t["assignee"]),
+        "with_agent": sum(1 for t in active if is_agent(t["assignee"])),
+        "no_category": sum(1 for t in active if not t.get("category")),
         "labels": labels,
+        "categories": _category_list(data),
     }
 
 
@@ -590,7 +727,6 @@ async def async_import_tickets(
             if key and key in by_key:
                 skipped += 1
                 continue
-            item["labels"] = [*(item.get("labels") or []), HA_LABEL_ID]
             ticket = _new_ticket(data, actor=actor, **item)
             if key:
                 by_key[key] = ticket
@@ -667,7 +803,8 @@ async def async_sync_repair(
                 description=description,
                 priority=priority,
                 requester=REPAIR_ACTOR,
-                labels=["Home Assistant", "Bug", "Repair"],
+                labels=["Bug", "Repair"],
+                category=HA_CATEGORY_ID,
                 source=REPAIR_SOURCE,
                 source_key=key,
                 actor=REPAIR_ACTOR,
@@ -688,7 +825,7 @@ async def async_sync_repair(
                 fields["title"] = title
                 ticket["repair_title"] = title
             if was_closed:
-                fields["status"] = "open"
+                fields["status"] = "in_progress"
             if description and description != ticket["description"]:
                 fields["description"] = description
             if ignored and BLOCKED_LABEL_ID not in ticket["labels"]:
@@ -818,3 +955,159 @@ async def async_delete_label(hass: HomeAssistant, label_id: str) -> int:
         del data["label_registry"][label_id]
         await _save(hass, data)
     return removed
+
+
+# ------------------------------------------------------------------ category registry
+
+
+def _category_list(data: dict[str, Any]) -> list[dict[str, Any]]:
+    counts: dict[str, int] = {}
+    for t in data["tickets"].values():
+        if t.get("category"):
+            counts[t["category"]] = counts.get(t["category"], 0) + 1
+    cats = [{**c, "count": counts.get(c["id"], 0)} for c in data["category_registry"].values()]
+    order = {b["id"]: n for n, b in enumerate(BUILTIN_CATEGORIES)}
+    return sorted(cats, key=lambda c: (order.get(c["id"], len(order)), c["name"].lower()))
+
+
+async def async_list_categories(hass: HomeAssistant) -> list[dict[str, Any]]:
+    async with _lock(hass):
+        return _category_list(await _load(hass))
+
+
+def _category_exists(data: dict[str, Any], name: str, except_id: str | None = None) -> bool:
+    return any(
+        c["id"] != except_id and (c["name"].lower() == name.lower() or c["id"] == _slug(name))
+        for c in data["category_registry"].values()
+    )
+
+
+async def async_create_category(hass: HomeAssistant, *, name: str, icon: str = "") -> dict[str, Any]:
+    name = (name or "").strip()
+    if not name or not _slug(name):
+        raise TicketError("A category needs a name")
+    async with _lock(hass):
+        data = await _load(hass)
+        if _category_exists(data, name):
+            raise TicketError(f"A category named {name!r} already exists")
+        category = {"id": _slug(name), "name": name, "icon": _check_icon(icon), "builtin": False}
+        data["category_registry"][category["id"]] = category
+        await _save(hass, data)
+    return category
+
+
+async def async_update_category(
+    hass: HomeAssistant, category_id: str, *, name: str | None = None, icon: str | None = None
+) -> dict[str, Any]:
+    async with _lock(hass):
+        data = await _load(hass)
+        category = data["category_registry"].get(category_id)
+        if category is None:
+            raise TicketError(f"Category {category_id!r} not found")
+        if category["builtin"]:
+            raise TicketError(f"{category['name']} is a built-in category and can't be changed")
+        if name is not None:
+            name = name.strip()
+            if not name or not _slug(name):
+                raise TicketError("A category needs a name")
+            if _category_exists(data, name, except_id=category_id):
+                raise TicketError(f"A category named {name!r} already exists")
+            category["name"] = name  # the id stays put, so tickets keep their category
+        if icon is not None:
+            category["icon"] = _check_icon(icon)
+        await _save(hass, data)
+    return category
+
+
+async def async_delete_category(hass: HomeAssistant, category_id: str, *, only_if_empty: bool = False) -> int:
+    """Delete a category; tickets in it become uncategorised. Returns how many tickets that was.
+
+    With `only_if_empty` (what AI agents get) a category that is in use is refused instead.
+    """
+    async with _lock(hass):
+        data = await _load(hass)
+        category = data["category_registry"].get(category_id)
+        if category is None:
+            raise TicketError(f"Category {category_id!r} not found")
+        if category["builtin"]:
+            raise TicketError(f"{category['name']} is a built-in category and can't be deleted")
+        using = [t for t in data["tickets"].values() if t.get("category") == category_id]
+        if using and only_if_empty:
+            raise TicketError(f"{len(using)} ticket(s) use {category['name']}; move them first, or ask the manager to delete it")
+        for t in using:
+            t["category"] = None
+        del data["category_registry"][category_id]
+        await _save(hass, data)
+    return len(using)
+
+
+# ------------------------------------------------------------------ settings
+
+
+def _user_notify(data: dict[str, Any], user_id: str | None) -> dict[str, Any]:
+    mine = data.get("notify", {}).get(user_id or "", {})
+    return {**DEFAULT_NOTIFY, **mine, "targets": list(mine.get("targets", DEFAULT_NOTIFY["targets"]))}
+
+
+async def async_get_settings(hass: HomeAssistant, user_id: str | None = None) -> dict[str, Any]:
+    """Shared options, plus the notification options of one manager."""
+    async with _lock(hass):
+        data = await _load(hass)
+    return {**_settings(data), "notify": _user_notify(data, user_id)}
+
+
+async def async_save_settings(
+    hass: HomeAssistant, patch: dict[str, Any], *, user_id: str | None = None
+) -> dict[str, Any]:
+    """Change shared options, and this manager's own notification options. Returns the new settings."""
+    patch = dict(patch)
+    notify = patch.pop("notify", None)
+    if "auto_close" in patch and patch["auto_close"] not in AUTO_CLOSE_SECONDS:
+        raise TicketError(f"Invalid auto_close {patch['auto_close']!r}; must be one of {list(AUTO_CLOSE_SECONDS)}")
+    unknown = set(patch) - set(DEFAULT_SETTINGS)
+    if unknown:
+        raise TicketError(f"Unknown setting(s) {sorted(unknown)}")
+    if "repairs" in patch:
+        patch["repairs"] = bool(patch["repairs"])
+    async with _lock(hass):
+        data = await _load(hass)
+        data["settings"] = {**_settings(data), **patch}
+        if notify is not None:
+            mine = _user_notify(data, user_id)
+            for key, value in notify.items():
+                if key not in DEFAULT_NOTIFY:
+                    raise TicketError(f"Unknown notification setting {key!r}")
+                mine[key] = [str(v) for v in value] if key == "targets" else bool(value)
+            data.setdefault("notify", {})[user_id or ""] = mine
+        await _save(hass, data)
+        merged = {**_settings(data), "notify": _user_notify(data, user_id)}
+    return merged
+
+
+# ------------------------------------------------------------------ auto-close
+
+
+async def async_auto_close(hass: HomeAssistant) -> int:
+    """Close resolved tickets that have waited long enough (the delay is a setting). Returns how many."""
+    closed: list[dict[str, Any]] = []
+    async with _lock(hass):
+        data = await _load(hass)
+        seconds = AUTO_CLOSE_SECONDS.get(_settings(data)["auto_close"])
+        if seconds is None:
+            return 0
+        now = datetime.now(timezone.utc)
+        for ticket in data["tickets"].values():
+            if ticket["status"] != "resolved" or not ticket.get("closed_at"):
+                continue
+            try:
+                resolved_at = datetime.fromisoformat(ticket["closed_at"])
+            except ValueError:
+                continue
+            if (now - resolved_at).total_seconds() >= seconds:
+                _apply_update(data, ticket, "Home Desk", {"status": "closed"})
+                closed.append(ticket)
+        if closed:
+            await _save(hass, data)
+    for ticket in closed:
+        _fire(hass, ticket, "updated", "Home Desk")
+    return len(closed)

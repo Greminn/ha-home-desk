@@ -8,7 +8,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 
-from .const import CONF_REPAIRS, CONF_REPAIRS_IGNORE, DOMAIN
+from .const import CONF_REPAIRS_IGNORE, DOMAIN
 
 
 class HomeDeskConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -28,7 +28,7 @@ class HomeDeskConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class HomeDeskOptionsFlow(config_entries.OptionsFlow):
-    """Options: whether Home Assistant Repairs become tickets, and which integrations to skip."""
+    """Options: which integrations' repairs to skip. (Turning Repairs-to-tickets on or off is in the panel's Settings.)"""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self._entry = config_entry
@@ -39,7 +39,6 @@ class HomeDeskOptionsFlow(config_entries.OptionsFlow):
         options = self._entry.options
         schema = vol.Schema(
             {
-                vol.Required(CONF_REPAIRS, default=options.get(CONF_REPAIRS, True)): selector.BooleanSelector(),
                 vol.Optional(
                     CONF_REPAIRS_IGNORE, default=options.get(CONF_REPAIRS_IGNORE, [])
                 ): selector.TextSelector(selector.TextSelectorConfig(multiple=True)),

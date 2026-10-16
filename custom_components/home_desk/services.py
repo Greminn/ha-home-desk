@@ -20,18 +20,22 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
 from .changelog import changelog_since
-from .const import DOMAIN, LEGACY_TYPE_LABELS, PRIORITIES, STATUSES
+from .const import DOMAIN, LEGACY_TYPE_LABELS, PRIORITIES, STATUS_ALIASES, STATUSES
 from .storage import (
     TicketError,
     async_add_comment,
     async_close_ticket,
+    async_create_category,
     async_create_ticket,
+    async_delete_category,
     async_get_ticket,
     async_import_tickets,
+    async_list_categories,
     async_list_labels,
     async_link_tickets,
     async_list_tickets,
     async_stats,
+    async_update_category,
     async_update_ticket,
     upgrade_legacy_fields,
 )
@@ -44,7 +48,7 @@ _ACTOR = {vol.Optional("actor"): cv.string}
 _ID = {vol.Required("ticket_id"): vol.Coerce(int)}
 _LABELS = vol.All(cv.ensure_list, [cv.string])
 # Pre-label names still accepted (and translated) so older callers keep working. Not documented.
-_LEGACY_STATUS = vol.In([*STATUSES, "waiting"])
+_LEGACY_STATUS = vol.In([*STATUSES, *STATUS_ALIASES, "waiting"])
 _LEGACY = {
     vol.Optional("type"): vol.In(list(LEGACY_TYPE_LABELS)),
     vol.Optional("tags"): _LABELS,
@@ -83,6 +87,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             requester=d.get("requester", actor),
             assignee=d.get("assignee"),
             labels=d.get("labels"),
+            category=d.get("category"),
             entities=d.get("entities"),
             actor=actor,
         )
@@ -100,6 +105,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             assignee=d.get("assignee"),
             requester=d.get("requester"),
             label=d.get("label"),
+            category=d.get("category"),
             include_history=d.get("include_history", False),
             limit=d.get("limit", 100),
         )
@@ -136,6 +142,32 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def list_labels(call: ServiceCall) -> dict[str, Any]:
         return {"labels": await async_list_labels(hass)}
+
+    async def list_categories(call: ServiceCall) -> dict[str, Any]:
+        return {"categories": await async_list_categories(hass)}
+
+    async def create_category(call: ServiceCall) -> dict[str, Any]:
+        return await async_create_category(hass, name=call.data["name"], icon=call.data.get("icon", ""))
+
+    async def update_category(call: ServiceCall) -> dict[str, Any]:
+        cats = await async_list_categories(hass)
+        ref = call.data["category"].strip().lower()
+        found = next((c for c in cats if c["id"] == ref or c["name"].lower() == ref), None)
+        if found is None:
+            raise TicketError(f"Unknown category {call.data['category']!r}")
+        return await async_update_category(
+            hass, found["id"], name=call.data.get("name"), icon=call.data.get("icon")
+        )
+
+    async def delete_category(call: ServiceCall) -> dict[str, Any]:
+        cats = await async_list_categories(hass)
+        ref = call.data["category"].strip().lower()
+        found = next((c for c in cats if c["id"] == ref or c["name"].lower() == ref), None)
+        if found is None:
+            raise TicketError(f"Unknown category {call.data['category']!r}")
+        # Agents may only remove a category nothing uses; the manager can delete a used one in the panel.
+        await async_delete_category(hass, found["id"], only_if_empty=True)
+        return {"deleted": found["name"]}
 
     async def stats(call: ServiceCall) -> dict[str, Any]:
         return await async_stats(hass)
@@ -182,6 +214,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Optional("requester"): cv.string,
         vol.Optional("assignee"): vol.Any(cv.string, None),
         vol.Optional("labels"): _LABELS,
+        vol.Optional("category"): vol.Any(cv.string, None),
         vol.Optional("entities"): _LABELS,
         **_LEGACY,
         **_ACTOR,
@@ -194,6 +227,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Optional("assignee"): cv.string,
         vol.Optional("requester"): cv.string,
         vol.Optional("label"): cv.string,
+        vol.Optional("category"): cv.string,
         vol.Optional("include_history"): cv.boolean,
         vol.Optional("type"): vol.In(list(LEGACY_TYPE_LABELS)),
         vol.Optional("tag"): cv.string,
@@ -209,6 +243,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Optional("labels"): _LABELS,
         vol.Optional("add_labels"): _LABELS,
         vol.Optional("remove_labels"): _LABELS,
+        vol.Optional("category"): vol.Any(cv.string, None),
         vol.Optional("entities"): _LABELS,
         vol.Optional("add_tags"): _LABELS,
         vol.Optional("remove_tags"): _LABELS,
@@ -234,6 +269,22 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         **_ACTOR,
     }), supports_response=both)
     s(DOMAIN, "list_labels", _wrap(list_labels), vol.Schema({}), supports_response=SupportsResponse.ONLY)
+    s(DOMAIN, "list_categories", _wrap(list_categories), vol.Schema({}), supports_response=SupportsResponse.ONLY)
+    s(DOMAIN, "create_category", _wrap(create_category), vol.Schema({
+        vol.Required("name"): cv.string,
+        vol.Optional("icon"): cv.string,
+        **_ACTOR,
+    }), supports_response=both)
+    s(DOMAIN, "update_category", _wrap(update_category), vol.Schema({
+        vol.Required("category"): cv.string,
+        vol.Optional("name"): cv.string,
+        vol.Optional("icon"): cv.string,
+        **_ACTOR,
+    }), supports_response=both)
+    s(DOMAIN, "delete_category", _wrap(delete_category), vol.Schema({
+        vol.Required("category"): cv.string,
+        **_ACTOR,
+    }), supports_response=both)
     s(DOMAIN, "get_stats", _wrap(stats), vol.Schema({}), supports_response=SupportsResponse.ONLY)
     s(DOMAIN, "import_file", _wrap(import_file), vol.Schema({
         vol.Required("path"): cv.string,

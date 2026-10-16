@@ -27,7 +27,7 @@ HA_URL = os.environ.get("HA_URL", "").rstrip("/")
 HA_TOKEN = os.environ.get("HA_TOKEN", "")
 ACTOR = os.environ.get("HOMEDESK_ACTOR", "claude")
 
-Status = Literal["new", "open", "in_progress", "resolved", "closed"]
+Status = Literal["new", "in_progress", "resolved", "closed"]
 Priority = Literal["low", "normal", "high", "urgent"]
 
 mcp = FastMCP(
@@ -57,7 +57,7 @@ def _call(service: str, data: dict[str, Any]) -> Any:
 
 def _brief(ticket: dict[str, Any]) -> dict[str, Any]:
     """Drop bulky fields from a write response; callers can get_ticket for the lot."""
-    keep = ("id", "title", "status", "priority", "assignee", "requester", "labels", "updated_at", "resolution")
+    keep = ("id", "title", "status", "priority", "assignee", "requester", "labels", "category", "updated_at", "resolution")
     return {k: ticket.get(k) for k in keep}
 
 
@@ -80,16 +80,18 @@ def list_tickets(
     priority: Priority | None = None,
     assignee: str | None = None,
     label: str | None = None,
+    category: str | None = None,
     include_history: bool = False,
     limit: int = 50,
 ) -> dict[str, Any]:
     """List tickets (summaries, no body). status: a status, comma list, 'active' (default) or 'all'.
     `query` searches titles, descriptions, comments and resolutions. Label `needs-review` marks imported
     open items whose real state still needs checking. Filter by `label` (Bug, Enhancement, Blocked...);
-    tickets labelled History are left out unless include_history=True."""
+    tickets labelled History are left out unless include_history=True. `category` filters by what part of
+    the home it is about (see list_categories); use "none" for tickets not categorised yet."""
     return _call("list_tickets", {
         "status": status, "query": query, "priority": priority, "assignee": assignee,
-        "label": label, "include_history": include_history, "limit": limit,
+        "label": label, "category": category, "include_history": include_history, "limit": limit,
     })
 
 
@@ -105,15 +107,17 @@ def create_ticket(
     description: str = "",
     priority: Priority = "normal",
     labels: list[str] | None = None,
+    category: str | None = None,
     entities: list[str] | None = None,
     assignee: str | None = None,
 ) -> dict[str, Any]:
     """Create a ticket. Search first (list_tickets with a query) so you don't file a duplicate.
     Description is markdown; list affected HA entity ids in `entities`. Label it Bug (something is
-    broken), Enhancement (an idea or request), Task or Question; see list_labels."""
+    broken), Enhancement (an idea or request), Task or Question; see list_labels. Give it a `category`
+    (what part of the home it is about; see list_categories) when you are sure; it must already exist."""
     return _brief(_call("create_ticket", {
         "title": title, "description": description, "priority": priority,
-        "labels": labels, "entities": entities, "assignee": assignee, "actor": ACTOR,
+        "labels": labels, "category": category, "entities": entities, "assignee": assignee, "actor": ACTOR,
     }))
 
 
@@ -127,15 +131,17 @@ def update_ticket(
     description: str | None = None,
     add_labels: list[str] | None = None,
     remove_labels: list[str] | None = None,
+    category: str | None = None,
     entities: list[str] | None = None,
 ) -> dict[str, Any]:
     """Change a ticket's fields. Only pass what should change; each change is logged on the timeline.
+    A ticket moves from new to in_progress by itself when you act on it, so you rarely set status.
     To close a ticket use close_ticket so the resolution is recorded. To mark a ticket as waiting on
     something, add the Blocked label."""
     return _brief(_call("update_ticket", {
         "ticket_id": ticket_id, "status": status, "priority": priority, "assignee": assignee, "title": title,
         "description": description, "add_labels": add_labels, "remove_labels": remove_labels,
-        "entities": entities, "actor": ACTOR,
+        "category": category, "entities": entities, "actor": ACTOR,
     }))
 
 
@@ -166,8 +172,32 @@ def list_labels() -> dict[str, Any]:
 
 
 @mcp.tool()
+def list_categories() -> dict[str, Any]:
+    """Every category (what part of the home a ticket is about) with id, name, icon and ticket count."""
+    return _call("list_categories", {})
+
+
+@mcp.tool()
+def create_category(name: str, icon: str | None = None) -> dict[str, Any]:
+    """Create a category such as Network or Cameras. Check list_categories first so you don't add a near-duplicate."""
+    return _call("create_category", {"name": name, "icon": icon, "actor": ACTOR})
+
+
+@mcp.tool()
+def update_category(category: str, name: str | None = None, icon: str | None = None) -> dict[str, Any]:
+    """Rename a category or change its icon. The built-in Home Assistant category can't be changed."""
+    return _call("update_category", {"category": category, "name": name, "icon": icon, "actor": ACTOR})
+
+
+@mcp.tool()
+def delete_category(category: str) -> dict[str, Any]:
+    """Delete a category nothing uses. A category in use is refused: move its tickets first."""
+    return _call("delete_category", {"category": category, "actor": ACTOR})
+
+
+@mcp.tool()
 def get_stats() -> dict[str, Any]:
-    """Counts by status, urgent and unassigned counts, and every label in use."""
+    """Counts by status, urgent, unassigned and with-AI-agent counts, tickets with no category, and every label and category."""
     return _call("get_stats", {})
 
 

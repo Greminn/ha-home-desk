@@ -159,6 +159,7 @@ export class SettingsPage extends LitElement {
     try {
       this._s = await this.client.saveSettings(patch);
       this._error = "";
+      this.dispatchEvent(new CustomEvent("settings-changed", { detail: this._s, bubbles: true, composed: true }));
     } catch {
       this._error = "Couldn't save that. These options need the newer Home Desk integration.";
       this._s = s;

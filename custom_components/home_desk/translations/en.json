@@ -14,9 +14,8 @@
     "step": {
       "init": {
         "title": "Repairs",
-        "description": "Home Desk can open a ticket for each Home Assistant repair, resolve it when Home Assistant clears the repair, and reopen it if the repair comes back.",
+        "description": "Home Desk opens a ticket for each Home Assistant repair, resolves it when Home Assistant clears the repair, and reopens it if the repair comes back. Turn this on or off in Home Desk's Settings page. Here you can skip noisy integrations.",
         "data": {
-          "repairs_to_tickets": "Create tickets from Home Assistant repairs",
           "repairs_ignored_domains": "Integrations to skip"
         },
         "data_description": {
@@ -42,11 +41,69 @@
     },
     "list_labels": {
       "name": "List labels",
-      "description": "Return every label with its id, name, colour, description and how many tickets use it. Prefer an existing label over inventing a new one; a label name you use that doesn't exist is created automatically. Built-in labels: Bug, Enhancement, Task, Question, History, Blocked and Home Assistant."
+      "description": "Return every label with its id, name, colour, description and how many tickets use it. Prefer an existing label over inventing a new one; a label name you use that doesn't exist is created automatically. Built-in labels: Bug, Enhancement, Task, Question, History and Blocked. (What part of the home a ticket is about is a category, see list_categories.)"
+    },
+    "list_categories": {
+      "name": "List categories",
+      "description": "Return every category with its id, name, icon and how many tickets use it. A category says what part of the smart home a ticket is about (Home Assistant, Network, Lighting...). A ticket has at most one. Home Assistant is built in."
+    },
+    "create_category": {
+      "name": "Create category",
+      "description": "Create a category, for example Network or Cameras. Check list_categories first. Pass `actor` with your own name.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "The category's name."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "An optional icon such as mdi:lan."
+        },
+        "actor": {
+          "name": "Actor",
+          "description": "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+        }
+      }
+    },
+    "update_category": {
+      "name": "Update category",
+      "description": "Rename a category or change its icon. The built-in Home Assistant category can't be changed.",
+      "fields": {
+        "category": {
+          "name": "Category",
+          "description": "The category's name or id."
+        },
+        "name": {
+          "name": "New name",
+          "description": "A new name."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "A new icon such as mdi:lan."
+        },
+        "actor": {
+          "name": "Actor",
+          "description": "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+        }
+      }
+    },
+    "delete_category": {
+      "name": "Delete category",
+      "description": "Delete a category that no ticket uses. A category in use is refused: move its tickets first, or ask the manager to delete it in the panel. The built-in Home Assistant category can't be deleted.",
+      "fields": {
+        "category": {
+          "name": "Category",
+          "description": "The category's name or id."
+        },
+        "actor": {
+          "name": "Actor",
+          "description": "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+        }
+      }
     },
     "get_stats": {
       "name": "Get stats",
-      "description": "Return ticket counts by status, urgent and unassigned counts, and every label (with colour and count). A good first call to see what needs attention."
+      "description": "Return ticket counts by status, urgent, unassigned and with-AI-agent counts, how many active tickets have no category, and every label and category (with counts). A good first call to see what needs attention."
     },
     "list_tickets": {
       "name": "List tickets",
@@ -54,7 +111,7 @@
       "fields": {
         "status": {
           "name": "Status",
-          "description": "A status, a comma-separated list, `active` (new, open, in_progress; the default) or `all`."
+          "description": "A status, a comma-separated list, `active` (new and in_progress; the default) or `all`."
         },
         "query": {
           "name": "Query",
@@ -75,6 +132,10 @@
         "label": {
           "name": "Label",
           "description": "Only tickets with this label (name or id), e.g. Bug, Enhancement or Blocked."
+        },
+        "category": {
+          "name": "Category",
+          "description": "Only tickets in this category (name or id), or `none` for tickets with no category yet."
         },
         "include_history": {
           "name": "Include history",
@@ -118,11 +179,15 @@
         },
         "assignee": {
           "name": "Assignee",
-          "description": "Who should work on it. Leave empty for unassigned."
+          "description": "Who is working on it. Leave empty for unassigned. Assigning a ticket to an AI agent (name starting `ai:`) hands it to that agent; a `home_desk_event` of kind `assigned` is fired."
         },
         "labels": {
           "name": "Labels",
-          "description": "Label names or ids, e.g. Bug, Enhancement, Task, Question. Names that don't exist yet are created. Defaults to Home Assistant when omitted."
+          "description": "Label names or ids, e.g. Bug, Enhancement, Task, Question. Names that don't exist yet are created."
+        },
+        "category": {
+          "name": "Category",
+          "description": "What part of the home this is about (see list_categories), e.g. Network. It must already exist: create_category first if it is new. Leave empty if unsure."
         },
         "entities": {
           "name": "Entities",
@@ -152,7 +217,7 @@
         },
         "status": {
           "name": "Status",
-          "description": "new, open, in_progress, resolved or closed. To mark a ticket as waiting on something, add the Blocked label."
+          "description": "new, in_progress, resolved or closed. A ticket moves from new to in_progress by itself the first time anyone acts on it, and a resolved ticket closes by itself after the delay in Settings, so you rarely need this. To mark a ticket as waiting on something, add the Blocked label. (`open` is accepted and means in_progress.)"
         },
         "priority": {
           "name": "Priority",
@@ -160,11 +225,15 @@
         },
         "assignee": {
           "name": "Assignee",
-          "description": "New assignee; empty to unassign."
+          "description": "New assignee; empty to unassign. When an AI agent a ticket is assigned to comments on it, the ticket is handed back (the assignee is cleared) automatically."
         },
         "labels": {
           "name": "Labels",
           "description": "Replace all labels with this list."
+        },
+        "category": {
+          "name": "Category",
+          "description": "Move the ticket to this category (name or id, from list_categories); empty to clear."
         },
         "add_labels": {
           "name": "Add labels",

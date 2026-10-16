@@ -3,7 +3,7 @@ import { property, state } from "lit/decorators.js";
 import { safeCustomElement } from "../define";
 import { sharedStyles } from "../styles";
 import { PRIORITIES } from "../types";
-import type { Priority } from "../types";
+import type { Category, Priority } from "../types";
 import { PRIORITY_LABEL } from "../format";
 
 /** What kind of ticket this is: a built-in label. A household user can pick the first three. */
@@ -75,6 +75,8 @@ export class NewTicketDialog extends LitElement {
   ];
 
   @property({ type: Boolean }) isAdmin = false;
+  @property({ attribute: false }) categories: Category[] = [];
+  @state() private _category = "";
   @state() private _title = "";
   @state() private _description = "";
   @state() private _kind = "bug";
@@ -91,6 +93,7 @@ export class NewTicketDialog extends LitElement {
       description: this._description,
       labels: [this._kind],
       priority: this._priority,
+      ...(this.isAdmin && this._category ? { category: this._category } : {}),
     });
   }
 
@@ -124,11 +127,21 @@ export class NewTicketDialog extends LitElement {
                   <label for="prio">Priority</label>
                   <select id="prio" .value=${this._priority}
                     @change=${(e: Event) => (this._priority = (e.target as HTMLSelectElement).value as Priority)}>
-                    ${PRIORITIES.map((p) => html`<option value=${p} ?selected=${p === this._priority}>${PRIORITY_LABEL[p]}</option>`)}
+                    ${PRIORITIES.filter((p) => p !== "low").map((p) => html`<option value=${p} ?selected=${p === this._priority}>${PRIORITY_LABEL[p]}</option>`)}
                   </select>
                 </div>`
               : ""}
           </div>
+          ${this.isAdmin
+            ? html`<div class="field">
+                <label for="cat">Category</label>
+                <select id="cat" .value=${this._category}
+                  @change=${(e: Event) => (this._category = (e.target as HTMLSelectElement).value)}>
+                  <option value="" ?selected=${!this._category}>No Category</option>
+                  ${this.categories.map((c) => html`<option value=${c.id} ?selected=${c.id === this._category}>${c.name}</option>`)}
+                </select>
+              </div>`
+            : ""}
           <div class="actions">
             <button @click=${() => this._fire("close")}>Cancel</button>
             <button class="primary" ?disabled=${!this._title.trim()} @click=${this._submit}>Create</button>

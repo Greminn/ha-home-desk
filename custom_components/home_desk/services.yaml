@@ -12,17 +12,75 @@ get_changelog:
       selector: {"text": {}}
 list_labels:
   name: "List labels"
-  description: "Return every label with its id, name, colour, description and how many tickets use it. Prefer an existing label over inventing a new one; a label name you use that doesn't exist is created automatically. Built-in labels: Bug, Enhancement, Task, Question, History, Blocked and Home Assistant."
+  description: "Return every label with its id, name, colour, description and how many tickets use it. Prefer an existing label over inventing a new one; a label name you use that doesn't exist is created automatically. Built-in labels: Bug, Enhancement, Task, Question, History and Blocked. (What part of the home a ticket is about is a category, see list_categories.)"
+list_categories:
+  name: "List categories"
+  description: "Return every category with its id, name, icon and how many tickets use it. A category says what part of the smart home a ticket is about (Home Assistant, Network, Lighting...). A ticket has at most one. Home Assistant is built in."
+create_category:
+  name: "Create category"
+  description: "Create a category, for example Network or Cameras. Check list_categories first. Pass `actor` with your own name."
+  fields:
+    name:
+      name: "Name"
+      description: "The category's name."
+      required: true
+      example: "Network"
+      selector: {"text": {}}
+    icon:
+      name: "Icon"
+      description: "An optional icon such as mdi:lan."
+      example: "mdi:lan"
+      selector: {"text": {}}
+    actor:
+      name: "Actor"
+      description: "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+      selector: {"text": {}}
+update_category:
+  name: "Update category"
+  description: "Rename a category or change its icon. The built-in Home Assistant category can't be changed."
+  fields:
+    category:
+      name: "Category"
+      description: "The category's name or id."
+      required: true
+      example: "Network"
+      selector: {"text": {}}
+    name:
+      name: "New name"
+      description: "A new name."
+      selector: {"text": {}}
+    icon:
+      name: "Icon"
+      description: "A new icon such as mdi:lan."
+      selector: {"text": {}}
+    actor:
+      name: "Actor"
+      description: "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+      selector: {"text": {}}
+delete_category:
+  name: "Delete category"
+  description: "Delete a category that no ticket uses. A category in use is refused: move its tickets first, or ask the manager to delete it in the panel. The built-in Home Assistant category can't be deleted."
+  fields:
+    category:
+      name: "Category"
+      description: "The category's name or id."
+      required: true
+      example: "Network"
+      selector: {"text": {}}
+    actor:
+      name: "Actor"
+      description: "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+      selector: {"text": {}}
 get_stats:
   name: "Get stats"
-  description: "Return ticket counts by status, urgent and unassigned counts, and every label (with colour and count). A good first call to see what needs attention."
+  description: "Return ticket counts by status, urgent, unassigned and with-AI-agent counts, how many active tickets have no category, and every label and category (with counts). A good first call to see what needs attention."
 list_tickets:
   name: "List tickets"
   description: "List ticket summaries (no bodies); use get_ticket for the full ticket. Defaults to active tickets, excluding those labelled History. Label `needs-review` marks tickets whose state has not been verified yet."
   fields:
     status:
       name: "Status"
-      description: "A status, a comma-separated list, `active` (new, open, in_progress; the default) or `all`."
+      description: "A status, a comma-separated list, `active` (new and in_progress; the default) or `all`."
       example: "active"
       selector: {"text": {}}
     query:
@@ -44,6 +102,10 @@ list_tickets:
     label:
       name: "Label"
       description: "Only tickets with this label (name or id), e.g. Bug, Enhancement or Blocked."
+      selector: {"text": {}}
+    category:
+      name: "Category"
+      description: "Only tickets in this category (name or id), or `none` for tickets with no category yet."
       selector: {"text": {}}
     include_history:
       name: "Include history"
@@ -86,12 +148,16 @@ create_ticket:
       selector: {"text": {}}
     assignee:
       name: "Assignee"
-      description: "Who should work on it. Leave empty for unassigned."
+      description: "Who is working on it. Leave empty for unassigned. Assigning a ticket to an AI agent (name starting `ai:`) hands it to that agent; a `home_desk_event` of kind `assigned` is fired."
       selector: {"text": {}}
     labels:
       name: "Labels"
-      description: "Label names or ids, e.g. Bug, Enhancement, Task, Question. Names that don't exist yet are created. Defaults to Home Assistant when omitted."
+      description: "Label names or ids, e.g. Bug, Enhancement, Task, Question. Names that don't exist yet are created."
       selector: {"text": {"multiple": true}}
+    category:
+      name: "Category"
+      description: "What part of the home this is about (see list_categories), e.g. Network. It must already exist: create_category first if it is new. Leave empty if unsure."
+      selector: {"text": {}}
     entities:
       name: "Entities"
       description: "Home Assistant entity ids this ticket concerns."
@@ -119,20 +185,24 @@ update_ticket:
       selector: {"text": {"multiline": true}}
     status:
       name: "Status"
-      description: "new, open, in_progress, resolved or closed. To mark a ticket as waiting on something, add the Blocked label."
-      selector: {"select": {"options": ["new", "open", "in_progress", "resolved", "closed"]}}
+      description: "new, in_progress, resolved or closed. A ticket moves from new to in_progress by itself the first time anyone acts on it, and a resolved ticket closes by itself after the delay in Settings, so you rarely need this. To mark a ticket as waiting on something, add the Blocked label. (`open` is accepted and means in_progress.)"
+      selector: {"select": {"options": ["new", "in_progress", "resolved", "closed"]}}
     priority:
       name: "Priority"
       description: "New priority."
       selector: {"select": {"options": ["low", "normal", "high", "urgent"]}}
     assignee:
       name: "Assignee"
-      description: "New assignee; empty to unassign."
+      description: "New assignee; empty to unassign. When an AI agent a ticket is assigned to comments on it, the ticket is handed back (the assignee is cleared) automatically."
       selector: {"text": {}}
     labels:
       name: "Labels"
       description: "Replace all labels with this list."
       selector: {"text": {"multiple": true}}
+    category:
+      name: "Category"
+      description: "Move the ticket to this category (name or id, from list_categories); empty to clear."
+      selector: {"text": {}}
     add_labels:
       name: "Add labels"
       description: "Label names or ids to add. Unknown names are created."

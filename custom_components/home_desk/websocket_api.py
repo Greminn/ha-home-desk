@@ -13,19 +13,26 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
-from .const import LABEL_COLORS, PRIORITIES, STATUSES
+from .const import AUTO_CLOSE_SECONDS, DOMAIN, LABEL_COLORS, PRIORITIES, STATUS_ALIASES, STATUSES
 from .storage import (
     TicketError,
     async_add_comment,
     async_close_ticket,
+    async_auto_close,
+    async_create_category,
     async_create_label,
     async_create_ticket,
+    async_delete_category,
     async_delete_label,
+    async_get_settings,
     async_get_ticket,
     async_link_tickets,
+    async_list_categories,
     async_list_labels,
     async_list_tickets,
+    async_save_settings,
     async_stats,
+    async_update_category,
     async_update_label,
     async_update_ticket,
     view,
@@ -34,6 +41,8 @@ from .storage import (
 # What a non-admin may tag their own new ticket with: what kind of report it is.
 HOUSEHOLD_LABELS = ("bug", "enhancement", "question")
 _LABELS = [vol.All(str, vol.Length(min=1, max=64))]
+# Old status names ("open") are still accepted; the storage layer translates them.
+_STATUS = vol.In([*STATUSES, *STATUS_ALIASES])
 
 
 def _actor(connection: websocket_api.ActiveConnection) -> str:
@@ -60,6 +69,7 @@ def _fail(connection: websocket_api.ActiveConnection, msg: dict, code: str, text
         vol.Optional("priority"): vol.In(PRIORITIES),
         vol.Optional("assignee"): str,
         vol.Optional("label"): str,
+        vol.Optional("category"): str,
         vol.Optional("include_history"): bool,
     }
 )
@@ -73,6 +83,7 @@ async def ws_list(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
             priority=msg.get("priority"),
             assignee=msg.get("assignee"),
             label=msg.get("label"),
+            category=msg.get("category"),
             requester=None if _is_admin(connection) else _actor(connection),
             include_history=msg.get("include_history", True),
         )
@@ -112,6 +123,7 @@ async def ws_stats(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
         vol.Optional("description"): str,
         vol.Optional("priority"): vol.In(PRIORITIES),
         vol.Optional("labels"): _LABELS,
+        vol.Optional("category"): str,
         vol.Optional("entities"): [str],
     }
 )
@@ -128,6 +140,7 @@ async def ws_create(hass: HomeAssistant, connection: websocket_api.ActiveConnect
             priority=msg.get("priority", "normal") if admin else "normal",
             requester=actor,
             labels=msg.get("labels") if admin else [x for x in msg.get("labels", []) if x in HOUSEHOLD_LABELS] or None,
+            category=msg.get("category") if admin else None,
             entities=msg.get("entities"),
             actor=actor,
         )
@@ -143,10 +156,11 @@ async def ws_create(hass: HomeAssistant, connection: websocket_api.ActiveConnect
         vol.Required("ticket_id"): int,
         vol.Optional("title"): str,
         vol.Optional("description"): str,
-        vol.Optional("status"): vol.In(STATUSES),
+        vol.Optional("status"): _STATUS,
         vol.Optional("priority"): vol.In(PRIORITIES),
         vol.Optional("assignee"): vol.Any(str, None),
         vol.Optional("labels"): _LABELS,
+        vol.Optional("category"): vol.Any(str, None),
         vol.Optional("entities"): [str],
         vol.Optional("resolution"): vol.Any(str, None),
     }
@@ -300,9 +314,105 @@ async def ws_label_delete(hass: HomeAssistant, connection: websocket_api.ActiveC
     connection.send_result(msg["id"], {"removed_from": removed})
 
 
+@websocket_api.websocket_command({vol.Required("type"): "home_desk/categories"})
+@websocket_api.async_response
+async def ws_categories(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Every category with its icon and ticket count (everyone needs these to draw a ticket's category)."""
+    connection.send_result(msg["id"], {"categories": await async_list_categories(hass)})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "home_desk/category_create", vol.Required("name"): str, vol.Optional("icon"): str}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_category_create(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    try:
+        category = await async_create_category(hass, name=msg["name"], icon=msg.get("icon", ""))
+    except TicketError as err:
+        _fail(connection, msg, "invalid", str(err))
+        return
+    connection.send_result(msg["id"], category)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "home_desk/category_update",
+        vol.Required("category_id"): str,
+        vol.Optional("name"): str,
+        vol.Optional("icon"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_category_update(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    try:
+        category = await async_update_category(hass, msg["category_id"], name=msg.get("name"), icon=msg.get("icon"))
+    except TicketError as err:
+        _fail(connection, msg, "invalid", str(err))
+        return
+    connection.send_result(msg["id"], category)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "home_desk/category_delete", vol.Required("category_id"): str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_category_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    try:
+        removed = await async_delete_category(hass, msg["category_id"])
+    except TicketError as err:
+        _fail(connection, msg, "invalid", str(err))
+        return
+    connection.send_result(msg["id"], {"removed_from": removed})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "home_desk/settings"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Shared options and this manager's own notification options."""
+    connection.send_result(msg["id"], await async_get_settings(hass, connection.user.id if connection.user else None))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "home_desk/settings_save",
+        vol.Optional("auto_close"): vol.In(list(AUTO_CLOSE_SECONDS)),
+        vol.Optional("agent"): str,
+        vol.Optional("repairs"): bool,
+        vol.Optional("notify"): {
+            vol.Optional("targets"): [str],
+            vol.Optional("new_ticket"): bool,
+            vol.Optional("comment"): bool,
+            vol.Optional("resolved"): bool,
+        },
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_settings_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    patch = {k: v for k, v in msg.items() if k not in ("id", "type")}
+    before = await async_get_settings(hass)
+    try:
+        result = await async_save_settings(hass, patch, user_id=connection.user.id if connection.user else None)
+    except TicketError as err:
+        _fail(connection, msg, "invalid", str(err))
+        return
+    # Turning Repairs-to-tickets on picks up the repairs that exist right now.
+    catch_up = hass.data.get(f"{DOMAIN}_repairs_catch_up")
+    if catch_up and result["repairs"] and not before["repairs"]:
+        hass.async_create_task(catch_up())
+    # Changing the auto-close delay applies straight away rather than at the next hourly check.
+    if "auto_close" in patch:
+        hass.async_create_task(async_auto_close(hass))
+    connection.send_result(msg["id"], result)
+
+
 def async_register_commands(hass: HomeAssistant) -> None:
     for command in (
         ws_list, ws_get, ws_stats, ws_create, ws_update, ws_comment, ws_close, ws_link,
         ws_labels, ws_label_create, ws_label_update, ws_label_delete,
+        ws_categories, ws_category_create, ws_category_update, ws_category_delete,
+        ws_settings, ws_settings_save,
     ):
         websocket_api.async_register_command(hass, command)

@@ -5,8 +5,8 @@ import { sharedStyles } from "./styles";
 import { HaClient } from "./ha-client";
 import type { NewTicket } from "./ha-client";
 import { ACTIVE, ENHANCEMENT, HISTORY, PRIORITIES } from "./types";
-import type { Category, HomeAssistant, Label, Ticket, TicketPatch, TicketSummary } from "./types";
-import { actorName, isAgent, PRIORITY_LABEL, type Person } from "./format";
+import type { Category, HomeAssistant, HomeDeskSettings, Label, Ticket, TicketPatch, TicketSummary } from "./types";
+import { actorName, PRIORITY_LABEL, type Person } from "./format";
 import "./views/ticket-list";
 import "./views/ticket-detail";
 import "./views/new-ticket-dialog";
@@ -455,6 +455,8 @@ export class HomeDeskPanel extends LitElement {
   @state() private _menuOpen = false;
   @state() private _labelList: Label[] = [];
   @state() private _categoryList: Category[] = [];
+  /** Home Desk's options (admins); the AI agent comes from here. */
+  @state() private _settings: HomeDeskSettings | null = null;
   /** A label waiting on "Remove Label?" before it comes off a ticket. */
   /** The category picker, open under the pill that was clicked. */
   /** The "add label" popup, opened from the + in the ticket header. */
@@ -623,6 +625,7 @@ export class HomeDeskPanel extends LitElement {
         this._client.labels(),
         this._client.categories(),
       ]);
+      if (this._admin) this._settings = await this._client.settings();
       if (this._q.trim()) await this._runSearch();
       if (this._selectedId !== null) await this._loadSelected(this._selectedId);
       this._error = "";
@@ -830,9 +833,15 @@ export class HomeDeskPanel extends LitElement {
     return [this._category, this._priority, this._label, this._person, this._view === "all" ? this._scope : ""].filter(Boolean).length;
   }
 
-  /** The AI agent a ticket can be handed to: one already seen on tickets, else Claude. */
+  /**
+   * The AI agent a ticket is assigned to, written as "ai:<name>" so it is always recognised as an agent. The name
+   * comes from the agent chosen in Settings (an AI Task or conversation entity: "Claude AI Task" becomes Claude).
+   */
   private get _agentName(): string {
-    return this._tickets.map((t) => t.assignee ?? "").find((a) => a && isAgent(a)) ?? "claude";
+    const entity = this._settings?.agent;
+    const friendly = entity ? String(this.hass.states?.[entity]?.attributes["friendly_name"] ?? "") : "";
+    const name = friendly.replace(/\s*(AI Task|conversation|agent)\s*$/i, "").trim();
+    return `ai:${name || "Claude"}`;
   }
 
   /** Household members by lower-case name, with their profile pictures, from HA's person entities. */
@@ -904,7 +913,8 @@ export class HomeDeskPanel extends LitElement {
           ? html`<st-category-manager .client=${this._client} .categories=${this._categoryList}
               @categories-changed=${() => void this._refresh()}></st-category-manager>`
           : this._page === "settings" && this._client
-            ? html`<st-settings .client=${this._client} .hass=${this.hass}></st-settings>`
+            ? html`<st-settings .client=${this._client} .hass=${this.hass}
+                @settings-changed=${(e: CustomEvent<HomeDeskSettings>) => (this._settings = e.detail)}></st-settings>`
             : html`<main class=${selecting ? "has-selection" : ""}>
         <div class="list-pane">
           <div class="toolbar ${this._filtersOpen ? "joined" : ""}">
@@ -997,7 +1007,7 @@ export class HomeDeskPanel extends LitElement {
             @confirm=${() => void this._removeLabel()}></st-confirm-dialog>`
         : nothing}
       ${this._creating
-        ? html`<st-new-ticket-dialog .isAdmin=${this._admin}
+        ? html`<st-new-ticket-dialog .isAdmin=${this._admin} .categories=${this._categoryList}
             @close=${() => (this._creating = false)}
             @create=${(e: CustomEvent<NewTicket>) => void this._create(e.detail)}></st-new-ticket-dialog>`
         : nothing}
