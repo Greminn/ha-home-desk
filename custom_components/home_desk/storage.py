@@ -254,6 +254,10 @@ def _migrate(data: dict[str, Any]) -> bool:
         if "category" not in ticket:
             ticket["category"] = None
             changed = True
+        # Tickets raised from Home Assistant Repairs are about Home Assistant.
+        if (ticket.get("source_key") or "").startswith("repair:") and not ticket["category"]:
+            ticket["category"] = HA_CATEGORY_ID
+            changed = True
     if HA_LABEL_ID in registry:
         del registry[HA_LABEL_ID]
         changed = True
