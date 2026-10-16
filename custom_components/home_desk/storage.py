@@ -32,6 +32,9 @@ from .const import (
     LABEL_AUTO_COLORS,
     LABEL_COLORS,
     LEGACY_TYPE_LABELS,
+    MAX_NAME,
+    MAX_TEXT,
+    MAX_TITLE,
     PRIORITIES,
     STATUS_ALIASES,
     STATUSES,
@@ -61,6 +64,13 @@ INTERNAL_KINDS = ("note",)
 
 class TicketError(Exception):
     """A request that can't be applied (unknown ticket, bad value)."""
+
+
+def _limit(value: str | None, longest: int, what: str) -> str | None:
+    """Refuse text that is far longer than any real ticket, comment or name."""
+    if value is not None and len(value) > longest:
+        raise TicketError(f"{what} is too long ({len(value)} characters; the limit is {longest})")
+    return value
 
 
 def _status(value: str) -> str:
@@ -379,6 +389,9 @@ def _new_ticket(
     title = (title or "").strip()
     if not title:
         raise TicketError("A ticket needs a title")
+    _limit(title, MAX_TITLE, "The title")
+    _limit(description, MAX_TEXT, "The description")
+    _limit(resolution, MAX_TEXT, "The resolution")
     status = _status(status)
     _check(status, STATUSES, "status")
     _check(priority, PRIORITIES, "priority")
@@ -438,6 +451,10 @@ def _apply_update(data: dict[str, Any], ticket: dict[str, Any], actor: str, fiel
             raise TicketError(f"Cannot update field {key!r}")
         if new is None and key not in ("assignee", "category"):
             continue
+        if key == "title":
+            _limit(new, MAX_TITLE, "The title")
+        elif key in ("description", "resolution"):
+            _limit(new, MAX_TEXT, f"The {key}")
         if key == "assignee":
             new = new or None
         elif key == "category":
@@ -636,6 +653,7 @@ async def async_add_comment(
     body = (body or "").strip()
     if not body:
         raise TicketError("A comment needs text")
+    _limit(body, MAX_TEXT, "The comment")
     async with _lock(hass):
         data = await _load(hass)
         ticket = _get(data, ticket_id)
@@ -662,6 +680,7 @@ async def async_close_ticket(
     resolution = (resolution or "").strip()
     if not resolution:
         raise TicketError("Closing a ticket needs resolution notes")
+    _limit(resolution, MAX_TEXT, "The resolution")
     async with _lock(hass):
         data = await _load(hass)
         ticket = _get(data, ticket_id)
@@ -897,6 +916,7 @@ async def async_create_label(
     name = (name or "").strip()
     if not name or not _slug(name):
         raise TicketError("A label needs a name")
+    _limit(name, MAX_NAME, "The label name")
     async with _lock(hass):
         data = await _load(hass)
         if _resolve_label(data, name, create=False):
@@ -990,6 +1010,7 @@ async def async_create_category(hass: HomeAssistant, *, name: str, icon: str = "
     name = (name or "").strip()
     if not name or not _slug(name):
         raise TicketError("A category needs a name")
+    _limit(name, MAX_NAME, "The category name")
     async with _lock(hass):
         data = await _load(hass)
         if _category_exists(data, name):

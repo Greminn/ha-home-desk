@@ -3,6 +3,7 @@ import { property } from "lit/decorators.js";
 import { safeCustomElement } from "../define";
 import "./ticket-tags";
 import { sharedStyles } from "../styles";
+import { BLOCKED } from "../types";
 import type { Category, Label, Status, TicketSummary } from "../types";
 import {
   PRIORITY_LABEL,
@@ -122,6 +123,11 @@ export class TicketList extends LitElement {
         text-decoration: underline;
         outline: none;
       }
+      /* Blocked is the one label that says nothing can happen until something outside changes, so it is spelled out. */
+      .meta .blocked {
+        color: var(--st-warning);
+        font-weight: 500;
+      }
       .ref {
         font-variant-numeric: tabular-nums;
       }
@@ -191,6 +197,7 @@ export class TicketList extends LitElement {
               ${t.assignee && isAgent(t.assignee)
                 ? html`<span><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> With AI Agent</span>`
                 : nothing}
+              ${t.labels.includes(BLOCKED) ? html`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>` : nothing}
               ${t.comment_count
                 ? html`<span><ha-icon icon="mdi:comment-outline"></ha-icon> ${t.comment_count}</span>`
                 : nothing}

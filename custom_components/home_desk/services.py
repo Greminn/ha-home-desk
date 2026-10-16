@@ -18,6 +18,7 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.service import async_register_admin_service
 
 from .changelog import changelog_since
 from .const import DOMAIN, LEGACY_TYPE_LABELS, PRIORITIES, STATUS_ALIASES, STATUSES
@@ -203,7 +204,16 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         )
         return {"version": manifest["version"], "changelog": changelog_since(text, call.data.get("since"))}
 
-    s = hass.services.async_register
+    # Only the guide and the changelog are open to every user. Everything else reads or changes tickets, so it needs an
+    # administrator (automations and scripts, which have no user, are fine). Otherwise any household member's account
+    # could call these services and see internal notes or other people's tickets, which the panel does not allow.
+    open_register = hass.services.async_register
+
+    def s(domain, name, handler, schema, supports_response=SupportsResponse.NONE):
+        if name in ("get_guide", "get_changelog"):
+            open_register(domain, name, handler, schema, supports_response=supports_response)
+        else:
+            async_register_admin_service(hass, domain, name, handler, schema, supports_response=supports_response)
     s(DOMAIN, "get_guide", _wrap(get_guide), vol.Schema({}), supports_response=SupportsResponse.ONLY)
     s(DOMAIN, "get_changelog", _wrap(get_changelog), vol.Schema({vol.Optional("since"): cv.string}), supports_response=SupportsResponse.ONLY)
     both = SupportsResponse.OPTIONAL

@@ -34,24 +34,6 @@ export const PRIORITY_LABEL: Record<Priority, string> = {
   urgent: "Urgent",
 };
 
-/** What a ticket is, shown as an icon: the first built-in kind label it carries. */
-const KIND_ICONS: [string, string][] = [
-  ["bug", "mdi:alert-circle-outline"],
-  ["enhancement", "mdi:lightbulb-outline"],
-  ["task", "mdi:checkbox-marked-circle-outline"],
-  ["question", "mdi:help-circle-outline"],
-  ["history", "mdi:history"],
-];
-
-export function kindIcon(labels: string[]): string {
-  return KIND_ICONS.find(([id]) => labels.includes(id))?.[1] ?? "mdi:circle-outline";
-}
-
-export function kindName(labels: string[]): string {
-  const id = KIND_ICONS.find(([k]) => labels.includes(k))?.[0];
-  return id ? id.charAt(0).toUpperCase() + id.slice(1) : "Ticket";
-}
-
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ["year", 31536000],
   ["month", 2592000],

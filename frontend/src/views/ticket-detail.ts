@@ -5,7 +5,7 @@ import { safeCustomElement } from "../define";
 import "./dropdown";
 import "./ticket-tags";
 import { sharedStyles } from "../styles";
-import { PRIORITIES } from "../types";
+import { BLOCKED, PRIORITIES } from "../types";
 import type { Category, Priority, Status, Label, Ticket, TicketEvent, TicketPatch } from "../types";
 import {
   PRIORITY_LABEL,
@@ -262,6 +262,13 @@ export class TicketDetail extends LitElement {
         font-weight: 500;
         color: var(--state);
       }
+      .sub .blocked {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--st-warning);
+        font-weight: 500;
+      }
       .sub .prio {
         display: inline-flex;
         align-items: center;
@@ -277,34 +284,6 @@ export class TicketDetail extends LitElement {
       .sub ha-icon {
         --mdc-icon-size: 16px;
         vertical-align: -3px;
-      }
-      .props {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 12px;
-        padding: 0 0 16px;
-        margin-bottom: 16px;
-        border-bottom: 1px solid var(--st-divider);
-      }
-      .props label {
-        display: block;
-        margin-bottom: 4px;
-        font-size: var(--st-fs-caption);
-        color: var(--st-fg-secondary);
-      }
-      .props st-dropdown {
-        display: block;
-      }
-      .props input {
-        width: 100%;
-        height: var(--st-h-bar);
-        border-radius: var(--st-r-bar);
-        border-color: var(--st-field-outline);
-        background: var(--st-surface);
-      }
-      .ro {
-        font-size: var(--st-fs-body);
-        line-height: var(--st-h-field);
       }
       .chips {
         display: flex;
@@ -325,31 +304,9 @@ export class TicketDetail extends LitElement {
         color: var(--st-fg);
         background: color-mix(in srgb, var(--st-fg) 10%, transparent);
       }
-      .label button {
-        all: unset;
-        display: inline-flex;
-        cursor: pointer;
-        margin-right: -6px;
-        padding: 0 4px;
-        color: inherit;
-        opacity: 0.8;
-      }
-      .label button:hover {
-        opacity: 1;
-      }
-      .label button ha-icon {
-        --mdc-icon-size: 16px;
-      }
       .chip.link {
         cursor: pointer;
         height: 28px;
-      }
-      .chips input {
-        width: 120px;
-        height: 28px;
-        padding: 0 10px;
-        border-radius: 8px;
-        font-size: var(--st-fs-small);
       }
       .card {
         padding: 0 0 16px;
@@ -661,16 +618,6 @@ export class TicketDetail extends LitElement {
           justify-content: center;
         }
       }
-      .composer .bar .grow {
-        flex: 1;
-      }
-      .composer label.inline {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-size: var(--st-fs-body);
-        color: var(--st-fg-secondary);
-      }
       .empty {
         display: flex;
         flex-direction: column;
@@ -714,7 +661,6 @@ export class TicketDetail extends LitElement {
   /** A priority picked in the comment box but not applied yet ("" = none picked). */
   @state() private _priorityTo = "";
   @state() private _comment = "";
-  @state() private _internal = false;
 
   override willUpdate(changed: Map<string, unknown>) {
     if (changed.has("ticket")) {
@@ -728,7 +674,6 @@ export class TicketDetail extends LitElement {
         this._priorityTo = "";
         this._expanded = false;
         this._comment = "";
-        this._internal = false;
       } else if (this.ticket && this.ticket.events.length > had) {
         // A comment (yours, or an agent's arriving live) is on the end: bring it into view.
         this._scrollTo = "bottom";
@@ -931,7 +876,7 @@ export class TicketDetail extends LitElement {
     const t = this.ticket;
     if (!t || !this._canSubmit(t)) return;
     const body = this._comment.trim();
-    if (body) this._fire("comment", { body, internal: this._internal });
+    if (body) this._fire("comment", { body, internal: false });
     const patch: TicketPatch = {};
     if (this._agentApplies(t)) patch.assignee = this._agentOn(t) ? this.agentName : null;
     if (this._priorityTo) patch.priority = this._priorityTo as Priority;
@@ -1078,6 +1023,7 @@ export class TicketDetail extends LitElement {
           <div class="meta-line">
             <span>Opened ${relativeTime(t.created_at, this.language)} by <ha-icon icon=${metaIcon(t.requester)}></ha-icon> ${actorName(t.requester)}</span>
             ${t.assignee && isAgent(t.assignee) ? html`<span><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> With ${actorLabel(t.assignee)}</span>` : nothing}
+            ${t.labels.includes(BLOCKED) ? html`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>` : nothing}
             ${t.comment_count ? html`<span><ha-icon icon="mdi:comment-outline"></ha-icon> ${t.comment_count}</span>` : nothing}
           </div>
           <!-- Second line: the category, status and priority, then the labels (which wrap on to their own line if they don't fit). -->

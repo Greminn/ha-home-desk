@@ -58,7 +58,6 @@ export const ACTIVE: readonly Status[] = [
 ];
 
 /** Built-in label ids the panel's views rely on. */
-export const BUG = "bug";
 export const ENHANCEMENT = "enhancement";
 export const HISTORY = "history";
 export const BLOCKED = "blocked";

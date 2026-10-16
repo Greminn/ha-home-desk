@@ -116,15 +116,6 @@ export class CategoryManager extends LitElement {
       .row .ico ha-icon {
         --mdc-icon-size: 24px;
       }
-      /* HA's renderLabelColorBadge: 20px, 8px corners, 1px outline. */
-      .swatch {
-        box-sizing: border-box;
-        width: var(--ha-space-5, 20px);
-        height: var(--ha-space-5, 20px);
-        border-radius: var(--ha-border-radius-md, 8px);
-        border: 1px solid var(--st-outline);
-        background: var(--c);
-      }
       .text {
         min-width: 0;
         padding: 0 8px;
@@ -317,64 +308,6 @@ export class CategoryManager extends LitElement {
         padding: 0;
         background: transparent;
         border: none;
-      }
-      .dot {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background: var(--c);
-        flex: none;
-      }
-      .dot.big {
-        width: 28px;
-        height: 28px;
-      }
-      .colors {
-        position: absolute;
-        z-index: 25;
-        left: 0;
-        right: 0;
-        top: 100%;
-        max-height: 320px;
-        overflow-y: auto;
-        padding: 12px 8px 8px;
-        border-radius: 4px;
-        background: var(--st-surface);
-        box-shadow: var(--st-shadow-m);
-        outline: 1px solid var(--st-divider);
-      }
-      .colors .csearch {
-        position: relative;
-        display: flex;
-        align-items: center;
-        margin: 0 8px 8px;
-      }
-      .colors .csearch ha-icon {
-        position: absolute;
-        left: 10px;
-        color: var(--st-fg-secondary);
-      }
-      .colors .csearch input {
-        width: 100%;
-        height: 40px;
-        padding: 0 12px 0 40px;
-        border: 1px solid var(--st-accent);
-        border-radius: var(--st-r-bar);
-        background: transparent;
-      }
-      .colors button.opt {
-        width: 100%;
-        height: 48px;
-        padding: 0 16px;
-        gap: 16px;
-        border-radius: 0;
-        justify-content: flex-start;
-        color: var(--st-fg);
-        font-size: var(--st-fs-field);
-        font-weight: 400;
-      }
-      .colors button.opt.selected {
-        color: var(--st-accent);
       }
       .dactions {
         display: flex;

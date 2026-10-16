@@ -56,6 +56,11 @@ BUILTIN_CATEGORIES = [
     {"id": HA_CATEGORY_ID, "name": "Home Assistant", "icon": "mdi:home-assistant"},
 ]
 
+# Size limits on what people and agents can send, so one bad call can't bloat the stored tickets.
+MAX_TITLE = 300
+MAX_TEXT = 100_000
+MAX_NAME = 80
+
 # How long a resolved ticket stays resolved before it closes by itself ("never" and "immediately" are special).
 AUTO_CLOSE_SECONDS = {
     "immediately": 0, "1h": 3600, "6h": 6 * 3600, "1d": 86400, "3d": 3 * 86400,
