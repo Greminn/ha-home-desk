@@ -15,13 +15,30 @@ export const sharedStyles = css`
     --st-success: var(--success-color, #43a047);
     --st-header-bg: var(--app-header-background-color, var(--st-surface));
     --st-header-fg: var(--app-header-text-color, var(--st-fg));
-    --st-fs-caption: 0.75rem;
-    --st-fs-small: 0.8125rem;
-    --st-fs-body: 0.875rem;
-    --st-fs-row: 0.9375rem;
-    --st-fs-title: 1.125rem;
-    --st-fs-header: 1.25rem;
-    --st-r-control: 12px;
+    /* HA's own type scale (px, so it doesn't depend on the page's root font size). */
+    --st-fs-caption: var(--ha-font-size-s, 12px);
+    --st-fs-small: var(--ha-font-size-s, 12px);
+    --st-fs-body: var(--ha-font-size-m, 14px);
+    --st-fs-row: var(--ha-font-size-m, 14px);
+    --st-fs-field: var(--ha-font-size-l, 16px);
+    --st-fs-title: var(--ha-font-size-l, 16px);
+    --st-fs-dialog: 22px;
+    --st-fs-header: var(--ha-font-size-xl, 20px);
+    --st-fs-heading: var(--ha-font-size-2xl, 24px);
+    --st-fw-heading: var(--ha-font-weight-heading, 700);
+    --st-shadow-m: var(--ha-box-shadow-m, 0 3px 6px -1px rgba(0, 0, 0, 0.35), 0 8px 16px -2px rgba(0, 0, 0, 0.45));
+    --st-shadow-l: var(--ha-box-shadow-l, 0 6px 12px -3px rgba(0, 0, 0, 0.4), 0 16px 32px -6px rgba(0, 0, 0, 0.55));
+    --st-r-control: var(--ha-border-radius-lg, 12px);
+    /* HA's toolbar controls (search, filter buttons): compact, tight corners, outlined. */
+    /* HA's data-table toolbar: 32px controls; the search box has 10px corners (8px and 40px on narrow
+       screens), chips and buttons are pills. */
+    --st-h-bar: 32px;
+    --st-r-bar: 10px;
+    --st-r-pill: var(--ha-border-radius-pill, 9999px);
+    --st-outline: var(--outline-color, var(--divider-color, #e0e0e0));
+    /* Idle and hover outlines of HA's inputs (from its neutral border tokens). */
+    --st-field-outline: var(--ha-color-border-neutral-quiet, color-mix(in srgb, var(--st-fg) 38%, transparent));
+    --st-field-outline-hover: var(--ha-color-border-neutral-normal, var(--st-fg));
     --st-h-control: 40px;
     --st-h-field: 36px;
     --st-hover: color-mix(in srgb, var(--st-fg) 8%, transparent);
@@ -120,28 +137,37 @@ export const sharedStyles = css`
   ha-icon {
     --mdc-icon-size: 20px;
   }
-  /* Label chip: a tinted background with a solid dot in the label's colour. */
+  /* Label pill, as HA's <ha-label> draws it: a solid colour with contrasting text, a 1px outline,
+     12px medium text. Regular is 32px with 16px corners; "dense" (in lists) is 20px with 8px corners. */
   .label {
     --label-color: var(--st-fg-secondary);
+    --label-fg: #fff;
+    box-sizing: border-box;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    height: 24px;
-    padding: 0 10px 0 8px;
-    border-radius: 8px;
-    font-size: var(--st-fs-caption);
-    font-weight: 400;
-    color: var(--st-fg);
-    background: color-mix(in srgb, var(--label-color) 22%, transparent);
+    height: 32px;
+    padding: 0 16px;
+    border: 1px solid var(--st-outline);
+    border-radius: var(--ha-border-radius-xl, 16px);
+    font-size: var(--ha-font-size-s, 12px);
+    font-weight: var(--ha-font-weight-medium, 500);
+    line-height: 1.2;
+    letter-spacing: 0.1px;
+    color: var(--label-fg);
+    background: var(--label-color);
     white-space: nowrap;
   }
-  .label::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--label-color);
-    flex: none;
+  .label > ha-icon {
+    --mdc-icon-size: 12px;
+    margin: 0 8px 0 -8px;
+  }
+  .label.dense {
+    height: 20px;
+    padding: 0 12px;
+    border-radius: var(--ha-border-radius-md, 8px);
+  }
+  .label.dense > ha-icon {
+    margin: 0 4px 0 -4px;
   }
   /* Rendered markdown (descriptions and comments). */
   .md {

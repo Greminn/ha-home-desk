@@ -171,7 +171,18 @@ async def main():
     e = await s.async_update_ticket(hass, e["id"], actor="x", add_labels=["GARDEN", "Home Assistant"], remove_labels=["nope"])
     assert e["labels"] == ["garden", "home-assistant"], e["labels"]  # name matching is case-insensitive, unknown removal ignored
     assert (await s.async_list_tickets(hass, status="all", label="Garden"))["total"] == 1
-    r = await s.async_update_label(hass, "garden", name="Gardening", color="teal", description="Outdoors")
+    assert labels["bug"]["icon"] == "mdi:bug-outline" and net["icon"] == ""
+    r = await s.async_update_label(hass, "garden", name="Gardening", color="teal", description="Outdoors", icon="mdi:flower")
+    assert r["icon"] == "mdi:flower"
+    for bad_icon in ("flower", "mdi:", "MDI:Flower x"):
+        try:
+            await s.async_update_label(hass, "garden", icon=bad_icon)
+            raise SystemExit(f"accepted icon {bad_icon}")
+        except s.TicketError:
+            pass
+    assert (await s.async_update_label(hass, "garden", icon=""))["icon"] == ""  # clearing is allowed
+    for hacolour in ("dark-grey", "black", "white"):
+        assert (await s.async_update_label(hass, "garden", color=hacolour))["color"] == hacolour
     assert r["name"] == "Gardening" and r["color"] == "teal" and r["description"] == "Outdoors"
     assert (await s.async_get_ticket(hass, e["id"]))["labels"] == ["garden", "home-assistant"]  # rename keeps tickets labelled
     assert (await s.async_list_tickets(hass, status="all", label="Gardening"))["total"] == 1
@@ -207,6 +218,10 @@ async def main():
             raise SystemExit(f"accepted status {bad}")
         except s.TicketError:
             pass
+    # a ticket can be found by its number, with or without the #
+    n = str(h["id"])
+    assert h["id"] in {t["id"] for t in (await s.async_list_tickets(hass, status="all", q="#" + n))["tickets"]}
+    assert h["id"] in {t["id"] for t in (await s.async_list_tickets(hass, status="all", q=n))["tickets"]}
     print("history ok")
 
     # ---- callers from before labels: type/tags/waiting keep working
@@ -272,7 +287,7 @@ async def main():
     assert t["events"][0]["actor"] == "Home Assistant"
     # the manager changes the priority; a later sync must not overwrite their triage
     await s.async_update_ticket(hass2, t["id"], actor="simon", priority="low", status="in_progress")
-    assert await sync(active=True, title="x", description="Update it.", priority="urgent") is None
+    assert await sync(active=True, title="Hue bridge firmware is out of date", description="Update it.", priority="urgent") is None
     assert (await s.async_get_ticket(hass2, t["id"]))["priority"] == "low"
     # ignored in HA -> Blocked while ignored
     assert await sync(active=True, ignored=True, description="Update it.") == "updated"
@@ -294,6 +309,16 @@ async def main():
     t = await s.async_get_ticket(hass2, t["id"])
     assert t["status"] == "open" and t["closed_at"] is None and "reporting this repair again" in t["events"][-1]["body"]
     assert (await s.async_list_tickets(hass2, status="all"))["total"] == 1  # still one ticket
+    # a better title from Home Assistant replaces an automatic one, but never a person's rename
+    assert await sync(active=True, title="Hue bridge firmware needs updating", description="Update it.") == "updated"
+    assert (await s.async_get_ticket(hass2, t["id"]))["title"] == "Hue bridge firmware needs updating"
+    await s.async_update_ticket(hass2, t["id"], actor="simon", title="My own name")
+    assert await sync(active=True, title="Something else from HA", description="Update it.") is None
+    assert (await s.async_get_ticket(hass2, t["id"]))["title"] == "My own name"
+    # a ticket from before titles were tracked counts as automatic until someone renames it
+    old = await s.async_sync_repair(hass2, domain="old", issue_id="x", active=True, title="old: x")
+    data_ = FakeStore.saved; [tk.pop("repair_title", None) for tk in data_["tickets"].values()]
+    assert await s.async_sync_repair(hass2, domain="old", issue_id="x", active=True, title="Nicer title") == "updated"
     # an ignored repair that is new starts out Blocked
     assert await s.async_sync_repair(hass2, domain="x", issue_id="y", active=True, ignored=True, title="t") == "created"
     y = next(t for t in (await s.async_list_tickets(hass2, status="all"))["tickets"] if t["source_key"] == "repair:x:y")
@@ -337,7 +362,14 @@ async def main():
     listener(type("Ev", (), {"data": {"domain": "ring", "issue_id": "login"}}))
     await asyncio.gather(*hass3.tasks)
     ring = next(t for t in (await s.async_list_tickets(hass3, status="all"))["tickets"] if t["source_key"] == "repair:ring:login")
-    assert ring["title"] == "ring: login_needed", ring["title"]
+    assert ring["title"] == "ring: login_needed (login)", ring["title"]
+    # ids that start with a config entry id are shortened, and similar repairs stay distinguishable
+    FakeRegistry.issues = {("proxmoxve", "01KZ9TR683GRTTEATQYX7757JZ_Update pve2_forbiden"): FakeIssue(
+        "proxmoxve", "01KZ9TR683GRTTEATQYX7757JZ_Update pve2_forbiden", translation_key="resource_exception_forbiden")}
+    listener(type("Ev", (), {"data": {"domain": "proxmoxve", "issue_id": "01KZ9TR683GRTTEATQYX7757JZ_Update pve2_forbiden"}}))
+    await asyncio.gather(*hass3.tasks)
+    px = next(t for t in (await s.async_list_tickets(hass3, status="all"))["tickets"] if t["source_key"].startswith("repair:proxmoxve"))
+    assert px["title"] == "proxmoxve: resource_exception_forbiden (Update pve2_forbiden)", px["title"]
     stop()
     assert not hass3.bus.listeners["repairs_issue_registry_updated"]
     # switched off: nothing is watched

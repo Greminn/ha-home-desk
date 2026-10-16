@@ -8,6 +8,7 @@ The mapping lives in storage.async_sync_repair; this module only watches HA.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -29,6 +30,16 @@ def _fill(text: str, placeholders: dict[str, Any] | None) -> str:
         return text
 
 
+def _fallback_title(issue: ir.IssueEntry) -> str:
+    """A title for a repair its integration gave no translation for: tell similar repairs apart."""
+    # Many integrations prefix issue ids with a config entry id (a 26-character ULID): noise to a reader.
+    short = re.sub(r"^[0-9A-Z]{26}_", "", issue.issue_id)
+    key = issue.translation_key
+    if key and short != key:
+        return f"{issue.domain}: {key} ({short})"
+    return f"{issue.domain}: {short}"
+
+
 async def _describe(hass: HomeAssistant, issue: ir.IssueEntry) -> tuple[str, str]:
     """A readable (title, description) for a repair, from the integration's own translations."""
     title = ""
@@ -41,7 +52,7 @@ async def _describe(hass: HomeAssistant, issue: ir.IssueEntry) -> tuple[str, str
         base = f"component.{issue.domain}.issues.{issue.translation_key}"
         title = _fill(translations.get(f"{base}.title", ""), issue.translation_placeholders)
         body = _fill(translations.get(f"{base}.description", ""), issue.translation_placeholders)
-    title = title or f"{issue.domain}: {issue.translation_key or issue.issue_id}"
+    title = title or _fallback_title(issue)
     lines = [body] if body else []
     lines.append(f"**Integration:** `{issue.domain}` · **Repair:** `{issue.issue_id}`")
     if issue.learn_more_url:

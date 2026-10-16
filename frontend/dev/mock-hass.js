@@ -1,0 +1,312 @@
+// A stand-in for Home Assistant's `hass` object, with an in-memory copy of the home_desk websocket API.
+// It mirrors the real backend's rules closely enough for UI work (admin vs household visibility,
+// labels, history, closing, live-update events). Data resets on reload or via the "Reset data" button.
+
+const MIN = 60_000;
+const HOUR = 60 * MIN;
+const DAY = 24 * HOUR;
+const iso = (msAgo) => new Date(Date.now() - msAgo).toISOString().replace(/\.\d+Z$/, "+00:00");
+
+const BUILTIN = [
+  ["home-assistant", "Home Assistant", "primary", "mdi:home-assistant", "Default for the Home Assistant system"],
+  ["bug", "Bug", "red", "mdi:bug-outline", "Something isn't working"],
+  ["enhancement", "Enhancement", "teal", "mdi:lightbulb-on-outline", "An idea or request for the future"],
+  ["task", "Task", "indigo", "mdi:checkbox-marked-circle-outline", "Something that needs doing"],
+  ["question", "Question", "purple", "mdi:help-circle-outline", "Needs an answer"],
+  ["history", "History", "grey", "mdi:history", "A record of past work, hidden from lists by default"],
+  ["blocked", "Blocked", "amber", "mdi:timer-sand", "Waiting on a person, a part or a fix"],
+];
+const CUSTOM = [
+  ["repair", "Repair", "green", "", ""],
+  ["needs-review", "Needs review", "orange", "", "State not verified yet"],
+  ["network", "Network", "indigo", "mdi:lan", ""],
+  ["zigbee", "Zigbee", "deep-purple", "mdi:zigbee", "Zigbee devices and the coordinator"],
+  ["lighting", "Lighting", "yellow", "mdi:lightbulb-outline", ""],
+  ["cameras", "Cameras", "cyan", "mdi:cctv", ""],
+  ["voice", "Voice", "pink", "", ""],
+  ["presence", "Presence", "purple", "mdi:account", "Entities that count as presence"],
+];
+
+// Categories, as in Home Assistant: a name and an icon. Home Assistant is the one built-in category.
+const CATEGORIES = [
+  ["home-assistant", "Home Assistant", "mdi:home-assistant", true],
+  ["network", "Network", "mdi:lan", false],
+  ["infrastructure", "Infrastructure", "mdi:server", false],
+  ["cameras", "Cameras", "mdi:cctv", false],
+  ["lighting", "Lighting", "mdi:lightbulb-outline", false],
+  ["security", "Security and access", "mdi:shield-lock-outline", false],
+];
+const CATEGORY_OF = [ // by words in the title; anything else has no category yet
+  ["proxmoxve", "infrastructure"], ["Wall tablet", "cameras"], ["Kiosk", "home-assistant"], ["Z-Wave", "security"],
+  ["presence-based", "lighting"], ["Lighting automation", "lighting"], ["garage door", "security"], ["Smart Home Trusted", "network"],
+  ["Roborock", "home-assistant"], ["Electricity", "home-assistant"],
+];
+
+const slug = (s) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+function seed() {
+  const labels = {};
+  for (const [id, name, color, icon, description] of BUILTIN) labels[id] = { id, name, color, icon, description, builtin: true };
+  for (const [id, name, color, icon, description] of CUSTOM) labels[id] = { id, name, color, icon, description, builtin: false };
+
+  let n = 0;
+  const tickets = {};
+  const add = (t, comments = []) => {
+    const id = ++n;
+    const created = t.ago ?? DAY;
+    const ticket = {
+      id, title: t.title, description: t.description ?? "", status: t.status ?? "open", priority: t.priority ?? "normal",
+      requester: t.requester ?? "Simon", assignee: t.assignee ?? null, labels: t.labels ?? ["home-assistant"],
+      entities: t.entities ?? [], links: [], legacy_ref: t.ref ?? null, source: t.source ?? null, source_key: t.key ?? null,
+      resolution: t.resolution ?? null, created_at: iso(created), updated_at: iso(t.updated ?? created),
+      closed_at: ["resolved", "closed"].includes(t.status) ? iso(t.updated ?? created) : null,
+      events: [{ id: 1, actor: t.requester ?? "Simon", kind: "created", body: null, data: null, created_at: iso(created) }],
+    };
+    for (const [actor, body, ago, internal] of comments) {
+      ticket.events.push({ id: ticket.events.length + 1, actor, kind: internal ? "note" : "comment", body, data: null, created_at: iso(ago) });
+    }
+    // A few change records so the history view has something to show.
+    const at = (mins) => iso(Math.max(created - mins * 60000, 0));
+    const push = (actor, kind, data, mins) => ticket.events.push({ id: ticket.events.length + 1, actor, kind, body: null, data, created_at: at(mins) });
+    if (ticket.status !== "new") push("Simon", "status", { from: "new", to: ticket.status }, 0.5);
+    if (ticket.priority !== "normal") push("Simon", "priority", { from: "normal", to: ticket.priority }, 0.4);
+    if (ticket.assignee) push("Simon", "assignee", { from: null, to: ticket.assignee }, 0.3);
+    if (ticket.labels.length) push("Simon", "field", { field: "labels", from: [], to: ticket.labels }, 0.2);
+    ticket.events.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).forEach((e, i) => (e.id = i + 1));
+    tickets[id] = ticket;
+    return ticket;
+  };
+
+  // Four near-identical repair tickets (the awkward case from real data).
+  for (const [i, host] of [["01JX3H", "pve"], ["01JX3J", "pve2"], ["01K6PD", "pve"], ["01KZ9T", "pve2"]]) {
+    add({
+      title: `proxmoxve: resource_exception_forbiden (Update ${host}_forbiden)`, status: "new", priority: "high", requester: "Home Assistant",
+      labels: ["blocked", "bug", "home-assistant", "repair"], source: "Home Assistant Repairs", key: `repair:proxmoxve:${i}_Update ${host}_forbiden`,
+      description: `**Integration:** \`proxmoxve\` · **Repair:** \`${i}_Update ${host}_forbiden\``, ago: 40 * MIN,
+    });
+  }
+  add({ title: "Smart Home Trusted internet-access denylist check", status: "open", priority: "high", labels: ["bug", "needs-review", "network", "home-assistant"], ago: 4 * HOUR, ref: "OPS-44", source: "OPERATIONS.md",
+    description: "**44. RECURRING** — Deliberately declined the architectural fix. Periodically cross-reference live clients against the firewall rule's MAC denylist.\n\nFirst run clean, second run found one real gap (a Zigbee repeater) fixed the same day.", entities: ["binary_sensor.unifi_gateway"] },
+    [["claude", "Ran the check again: **18 MACs match**, no stale entries.", 3 * HOUR], ["Simon", "Thanks. Leave it open, it recurs monthly.", 2 * HOUR]]);
+  add({ title: "Roborock Clean Upstairs false-success fix", status: "open", priority: "high", labels: ["bug", "needs-review", "home-assistant"], ago: 5 * HOUR, requester: "import", source: "OPERATIONS.md", ref: "OPS-16" });
+  add({ title: "Kiosk Satellite reinstall cleanup", status: "in_progress", assignee: "claude", priority: "high", labels: ["bug", "voice", "home-assistant"], ago: 2 * DAY, updated: 20 * MIN,
+    description: "After the MQTT to ESPHome migration, one loose end remains: the original *App is pinned* overlay investigation was superseded by the reinstall.\n\nThe satellite still reports the old MQTT discovery topics for two devices, and the dashboard card that used them shows 'unavailable' every morning around 06:00 when the kiosk restarts its browser. The pinned overlay was a separate issue and went away with the reinstall, so it can be ignored.\n\nWhat is left to check: the orphaned MQTT devices in the device registry, the 06:00 restart automation, and whether the card should read the ESPHome entities instead." },
+    [["claude", "Checked the device registry: the orphaned MQTT device is already gone.", 25 * MIN]]);
+  add({ title: "Z-Wave door sensors dropping closed reports", status: "in_progress", labels: ["bug", "home-assistant"], ago: 3 * DAY, updated: 6 * HOUR });
+  add({ title: "Add a presence-based hallway light scene", status: "open", labels: ["enhancement", "lighting", "presence"], ago: 6 * DAY, description: "Turn the hallway lights on at night only when someone is detected moving." });
+  add({ title: "Voice: let the kitchen satellite answer in a whisper at night", status: "new", labels: ["enhancement", "voice"], requester: "Qionne", ago: 20 * HOUR });
+  add({ title: "Could the dishwasher notify us when it finishes?", status: "new", labels: ["question"], requester: "Qionne", ago: 9 * HOUR });
+  add({ title: "A very long title that goes on and on to show how a ticket list copes when someone writes a whole sentence instead of a short summary of the problem", status: "open", labels: ["task", "network", "zigbee", "lighting", "cameras", "home-assistant"], ago: 8 * DAY });
+  add({ title: "Replace the batteries in the garage door sensor", status: "open", labels: ["task", "home-assistant"], priority: "low", ago: 12 * DAY, assignee: "Simon" });
+  add({ title: "Wall tablet camera popups", status: "open", labels: ["bug", "cameras", "blocked", "home-assistant"], priority: "urgent", ago: 9 * DAY, description: "Waiting on the upstream fix for the camera card." });
+  add({ title: "Electricity price sensor stopped updating", status: "open", priority: "high", labels: ["bug", "home-assistant"], ago: 30 * HOUR });
+  for (let i = 0; i < 6; i++) add({ title: `Lighting automation tweak #${i + 1}`, status: "open", labels: ["task", "lighting", "home-assistant"], ago: (10 + i) * DAY });
+  add({ title: "Zigbee lighting reliability", status: "resolved", labels: ["bug", "zigbee", "lighting", "home-assistant"], ago: 40 * DAY, updated: 30 * DAY, resolution: "Moved the coordinator to a USB extension cable away from the NAS." },
+    [["claude", "Coordinator is 3 m from the NAS, which radiates on 2.4 GHz.", 31 * DAY]]);
+  add({ title: "Replace the old MQTT broker", status: "closed", labels: ["task", "home-assistant"], ago: 60 * DAY, updated: 55 * DAY, resolution: "Superseded: moved to ESPHome." });
+  for (let i = 0; i < 5; i++) add({ title: `2026-08-${10 + i} log review`, status: "closed", labels: ["history", "home-assistant"], ago: (50 - i) * DAY, updated: (50 - i) * DAY, requester: "import" });
+  tickets[1].links = [2];
+  // A household member's ticket that nobody has sorted yet, newest of all.
+  add({ title: "The front door code doesn't work", status: "new", priority: "high", requester: "Qionne", labels: ["bug"], ago: 12 * MIN });
+  const categories = {};
+  for (const [id, name, icon, builtin] of CATEGORIES) categories[id] = { id, name, icon, builtin };
+  for (const t of Object.values(tickets)) {
+    t.category = CATEGORY_OF.find(([w]) => t.title.includes(w))?.[1] ?? null;
+    if (t.source === "Home Assistant Repairs" && !t.category) t.category = "home-assistant";
+  }
+  const settings = { auto_close: "7d", agent: "ai_task.claude_ai_task", repairs: true, notify: { targets: ["mobile_app_simons_iphone"], new_ticket: true, comment: true, resolved: false } };
+  return { labels, tickets, categories, settings, nextId: n + 2 };
+}
+
+export function createMock() {
+  let db = seed();
+  const listeners = new Set();
+  const fire = (ticket, kind = "updated", actor = "Simon") =>
+    listeners.forEach((cb) => cb({ data: { ticket_id: ticket.id, kind, actor, title: ticket.title, status: ticket.status } }));
+
+  const state = { user: { id: "u1", name: "Simon", is_admin: true } };
+  const isAdmin = () => state.user.is_admin;
+  const visible = (t) => isAdmin() || t.requester === state.user.name;
+  const view = (t) => ({ ...t, events: isAdmin() ? t.events : t.events.filter((e) => e.kind !== "note") });
+  const summary = (t) => {
+    const { description, events, resolution, ...rest } = t;
+    return { ...rest, comment_count: events.filter((e) => e.kind === "comment" || e.kind === "note").length, has_resolution: !!resolution };
+  };
+  const ensureLabel = (raw) => {
+    const found = Object.values(db.labels).find((l) => l.id === raw || l.name.toLowerCase() === raw.toLowerCase());
+    if (found) return found.id;
+    const id = slug(raw);
+    db.labels[id] = { id, name: raw.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase()), color: "grey", icon: "", description: "", builtin: false };
+    return id;
+  };
+  const labelList = () => {
+    const counts = {};
+    for (const t of Object.values(db.tickets)) for (const l of t.labels) counts[l] = (counts[l] ?? 0) + 1;
+    const order = Object.fromEntries(BUILTIN.map((b, i) => [b[0], i]));
+    return Object.values(db.labels).map((l) => ({ ...l, count: counts[l.id] ?? 0 }))
+      .sort((a, b) => (order[a.id] ?? 99) - (order[b.id] ?? 99) || a.name.localeCompare(b.name));
+  };
+  const apply = (t, actor, fields) => {
+    const now = iso(0);
+    for (const [key, val] of Object.entries(fields)) {
+      let next = val;
+      if (key === "labels") next = [...new Set(val.map(ensureLabel))].sort();
+      if (JSON.stringify(t[key]) === JSON.stringify(next)) continue;
+      const kind = ["status", "priority", "assignee"].includes(key) ? key : "field";
+      t.events.push({ id: t.events.length + 1, actor, kind, body: null, data: key === "description" ? { field: key } : { field: key, from: t[key], to: next }, created_at: now });
+      t[key] = next;
+      if (key === "status") t.closed_at = ["resolved", "closed"].includes(next) ? now : null;
+    }
+    t.updated_at = now;
+  };
+  const get = (id) => {
+    const t = db.tickets[id];
+    if (!t || !visible(t)) throw { code: "not_found", message: `Ticket ${id} not found` };
+    return t;
+  };
+
+  const handlers = {
+    list: (m) => {
+      const q = (m.q ?? "").toLowerCase();
+      const rows = Object.values(db.tickets).filter(visible).filter((t) => !q || [`#${t.id}`, t.title, t.description, ...t.events.map((e) => e.body ?? ""), ...t.labels.map((l) => db.labels[l]?.name ?? "")].join(" ").toLowerCase().includes(q));
+      const prio = { urgent: 0, high: 1, normal: 2, low: 3 };
+      rows.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+      rows.sort((a, b) => prio[a.priority] - prio[b.priority]);
+      rows.sort((a, b) => Number(["resolved", "closed"].includes(a.status)) - Number(["resolved", "closed"].includes(b.status)));
+      return { total: rows.length, tickets: rows.map(summary) };
+    },
+    get: (m) => { const t = get(m.ticket_id); return { ...view(t), related: t.links.map((i) => db.tickets[i]).filter(Boolean).map((r) => ({ id: r.id, title: r.title, status: r.status })) }; },
+    labels: () => ({ labels: labelList() }),
+    category_create: (m) => {
+      const id = slug(m.name);
+      if (!id || Object.values(db.categories).some((c) => c.id === id || c.name.toLowerCase() === m.name.toLowerCase())) throw { message: `A category named '${m.name}' already exists` };
+      db.categories[id] = { id, name: m.name.trim(), icon: m.icon || "", builtin: false };
+      return db.categories[id];
+    },
+    category_update: (m) => {
+      const c = db.categories[m.category_id];
+      if (!c || c.builtin) throw { message: "That category can't be changed" };
+      const name = (m.name ?? c.name).trim();
+      if (Object.values(db.categories).some((o) => o !== c && o.name.toLowerCase() === name.toLowerCase())) throw { message: `A category named '${name}' already exists` };
+      Object.assign(c, { name, icon: m.icon ?? c.icon });
+      return c;
+    },
+    category_delete: (m) => {
+      const c = db.categories[m.category_id];
+      if (!c || c.builtin) throw { message: "That category can't be deleted" };
+      let n = 0;
+      for (const t of Object.values(db.tickets)) if (t.category === c.id) { t.category = null; n++; }
+      delete db.categories[c.id];
+      return { removed_from: n };
+    },
+    settings: () => db.settings,
+    settings_save: (m) => {
+      const { notify, ...rest } = m;
+      delete rest.type;
+      Object.assign(db.settings, rest);
+      if (notify) Object.assign(db.settings.notify, notify);
+      return db.settings;
+    },
+    categories: () => {
+      const counts = {};
+      for (const t of Object.values(db.tickets)) if (t.category) counts[t.category] = (counts[t.category] ?? 0) + 1;
+      return { categories: Object.values(db.categories).map((c) => ({ ...c, count: counts[c.id] ?? 0 })) };
+    },
+    label_create: (m) => {
+      const id = slug(m.name);
+      if (!id || Object.values(db.labels).some((l) => l.id === id || l.name.toLowerCase() === m.name.toLowerCase())) throw { message: `A label named '${m.name}' already exists` };
+      db.labels[id] = { id, name: m.name.trim(), color: m.color ?? "blue", icon: m.icon ?? "", description: m.description ?? "", builtin: false };
+      return db.labels[id];
+    },
+    label_update: (m) => {
+      const l = db.labels[m.label_id];
+      if (!l) throw { message: `Label '${m.label_id}' not found` };
+      if (l.builtin) throw { message: `${l.name} is a built-in label and can't be changed` };
+      for (const k of ["name", "color", "icon", "description"]) if (m[k] !== undefined) l[k] = m[k];
+      return l;
+    },
+    label_delete: (m) => {
+      const l = db.labels[m.label_id];
+      if (!l) throw { message: `Label '${m.label_id}' not found` };
+      if (l.builtin) throw { message: `${l.name} is a built-in label and can't be deleted` };
+      let removed = 0;
+      for (const t of Object.values(db.tickets)) if (t.labels.includes(l.id)) { t.labels = t.labels.filter((x) => x !== l.id); removed++; }
+      delete db.labels[l.id];
+      return { removed_from: removed };
+    },
+    create: (m) => {
+      const labels = isAdmin() ? m.labels : (m.labels ?? []).filter((l) => ["bug", "enhancement", "question"].includes(l));
+      const id = db.nextId++;
+      const t = { id, title: m.title, description: m.description ?? "", status: "new", priority: isAdmin() ? m.priority ?? "normal" : "normal", requester: state.user.name, assignee: null,
+        category: null, labels: [...new Set((labels?.length ? labels : ["bug"]).map(ensureLabel))].sort(), entities: m.entities ?? [], links: [], legacy_ref: null, source: null, source_key: null, resolution: null,
+        created_at: iso(0), updated_at: iso(0), closed_at: null, events: [{ id: 1, actor: state.user.name, kind: "created", body: null, data: null, created_at: iso(0) }] };
+      db.tickets[id] = t; fire(t, "created", state.user.name); return t;
+    },
+    update: (m) => {
+      const { id: _i, type: _t, ticket_id, ...fields } = m;
+      const t = get(ticket_id); apply(t, state.user.name, fields);
+      // The backend rule: the first thing done to a new ticket moves it to In progress.
+      if (t.status === "new" && !("status" in fields)) apply(t, "Home Desk", { status: "in_progress" });
+      fire(t, "updated", state.user.name); return t;
+    },
+    comment: (m) => {
+      const t = get(m.ticket_id); const internal = !!m.internal && isAdmin();
+      t.events.push({ id: t.events.length + 1, actor: state.user.name, kind: internal ? "note" : "comment", body: m.body, data: null, created_at: iso(0) });
+      if (t.status === "new") apply(t, "Home Desk", { status: "in_progress" });
+      t.updated_at = iso(0); fire(t, internal ? "note" : "comment", state.user.name); return view(t);
+    },
+    close: (m) => {
+      const t = get(m.ticket_id); apply(t, state.user.name, { status: m.status ?? "resolved", resolution: m.resolution });
+      t.events.push({ id: t.events.length + 1, actor: state.user.name, kind: "comment", body: `**Resolution:** ${m.resolution}`, data: null, created_at: iso(0) });
+      fire(t, "closed", state.user.name); return t;
+    },
+    link: (m) => { const a = get(m.ticket_id), b = get(m.other_id); a.links.push(b.id); b.links.push(a.id); return a; },
+    stats: () => ({ total: Object.keys(db.tickets).length }),
+  };
+
+  const hass = {
+    get user() { return state.user; },
+    // HA's person entities: Simon has a profile picture, Qionne doesn't (so she gets the person icon).
+    // The notify services and AI entities that Settings offers.
+    services: { notify: { mobile_app_simons_iphone: {}, mobile_app_jos_pixel: {}, persistent_notification: {} } },
+    states: {
+      "ai_task.claude_ai_task": { state: "unknown", attributes: { friendly_name: "Claude AI Task" } },
+      "conversation.claude_conversation": { state: "unknown", attributes: { friendly_name: "Claude conversation" } },
+      "conversation.home_assistant": { state: "unknown", attributes: { friendly_name: "Home Assistant" } },
+      // Your real HA profile picture, copied into dev/local/ (git-ignored). Without the file the person icon shows.
+      "person.simon": { state: "home", attributes: { friendly_name: "Simon", entity_picture: "/local/simon.jpg" } },
+      "person.qionne": { state: "home", attributes: { friendly_name: "Qionne" } },
+    },
+    language: "en",
+    connection: {
+      sendMessagePromise: (msg) => new Promise((resolve, reject) => {
+        const name = String(msg.type).replace(/^home_desk\//, "");
+        const fn = handlers[name];
+        // A little latency, so loading states and ordering behave as they would for real.
+        setTimeout(() => { try { resolve(structuredClone(fn(msg))); } catch (e) { reject(e); } }, 40);
+        if (!fn) reject({ code: "unknown_command", message: `Unknown command ${msg.type}` });
+      }),
+      subscribeEvents: async (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
+    },
+  };
+
+  return {
+    hass,
+    setUser: (admin) => { state.user = admin ? { id: "u1", name: "Simon", is_admin: true } : { id: "u2", name: "Qionne", is_admin: false }; },
+    reset: () => { db = seed(); listeners.forEach((cb) => cb({ data: { ticket_id: 0 } })); },
+    /** Make the panel re-read everything (after switching user, say). */
+    refresh: () => listeners.forEach((cb) => cb({ data: { ticket_id: 0 } })),
+    /** Pretend an AI agent changed something: comment on (or move) a ticket. `openId` prefers the ticket on screen. */
+    agentUpdate: (openId) => {
+      const open = Object.values(db.tickets).filter((t) => !["resolved", "closed"].includes(t.status));
+      const t = (openId && db.tickets[openId]) || open[Math.floor(Math.random() * open.length)];
+      if (!t) return;
+      t.events.push({ id: t.events.length + 1, actor: "claude", kind: "comment", body: `Checked again at ${new Date().toLocaleTimeString()}: nothing has changed.`, data: null, created_at: iso(0) });
+      if (t.status === "new") apply(t, "claude", { status: "in_progress" });
+      // The agent hands the ticket back when it has replied.
+      if (t.assignee && /claude|^ai:/i.test(t.assignee)) apply(t, "claude", { assignee: null });
+      t.updated_at = iso(0);
+      fire(t, "comment", "claude");
+    },
+  };
+}

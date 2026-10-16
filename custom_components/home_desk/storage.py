@@ -87,6 +87,7 @@ def _add_label(
         "id": label_id or _slug(name),
         "name": name.strip(),
         "color": color or _auto_color(registry),
+        "icon": "",
         "description": "",
         "builtin": False,
     }
@@ -173,6 +174,10 @@ def _migrate(data: dict[str, Any]) -> bool:
             ticket["labels"] = ticket.pop("tags", [])
         changed = True
     registry = data["label_registry"]
+    for label in registry.values():
+        if "icon" not in label:  # labels from before icons existed
+            label["icon"] = ""
+            changed = True
     for builtin in BUILTIN_LABELS:
         want = {**builtin, "builtin": True}
         if registry.get(builtin["id"]) != want:
@@ -438,6 +443,7 @@ async def async_list_tickets(
         if needle:
             hay = " ".join(
                 [
+                    f"#{t['id']}",
                     t["title"],
                     t["description"],
                     t.get("resolution") or "",
@@ -669,11 +675,18 @@ async def async_sync_repair(
             if ignored:
                 _apply_update(data, ticket, REPAIR_ACTOR, {"add_labels": [BLOCKED_LABEL_ID]})
                 ticket["repair_blocked"] = True
+            ticket["repair_title"] = ticket["title"]
             kind = "created"
         elif active:
             changed = False
             was_closed = ticket["status"] in ("resolved", "closed")
             fields: dict[str, Any] = {}
+            # Keep the title in step with Home Assistant's text, unless a person has renamed the ticket.
+            renamed = any((e.get("data") or {}).get("field") == "title" for e in ticket["events"])
+            auto_title = ticket.get("repair_title", None if renamed else ticket["title"])
+            if title and title != ticket["title"] and ticket["title"] == auto_title:
+                fields["title"] = title
+                ticket["repair_title"] = title
             if was_closed:
                 fields["status"] = "open"
             if description and description != ticket["description"]:
@@ -730,8 +743,15 @@ async def async_list_labels(hass: HomeAssistant) -> list[dict[str, Any]]:
         return _label_list(await _load(hass))
 
 
+def _check_icon(icon: str) -> str:
+    icon = (icon or "").strip()
+    if icon and not re.fullmatch(r"[a-z0-9_-]+:[a-z0-9_-]+", icon):
+        raise TicketError(f"Invalid icon {icon!r}; use a name like mdi:bug-outline")
+    return icon
+
+
 async def async_create_label(
-    hass: HomeAssistant, *, name: str, color: str | None = None, description: str = ""
+    hass: HomeAssistant, *, name: str, color: str | None = None, description: str = "", icon: str = ""
 ) -> dict[str, Any]:
     name = (name or "").strip()
     if not name or not _slug(name):
@@ -742,6 +762,7 @@ async def async_create_label(
             raise TicketError(f"A label named {name!r} already exists")
         label = _add_label(data["label_registry"], name, _check_color(color) if color else None)
         label["description"] = description.strip()
+        label["icon"] = _check_icon(icon)
         await _save(hass, data)
     return label
 
@@ -753,6 +774,7 @@ async def async_update_label(
     name: str | None = None,
     color: str | None = None,
     description: str | None = None,
+    icon: str | None = None,
 ) -> dict[str, Any]:
     async with _lock(hass):
         data = await _load(hass)
@@ -773,6 +795,8 @@ async def async_update_label(
             label["color"] = _check_color(color)
         if description is not None:
             label["description"] = description.strip()
+        if icon is not None:
+            label["icon"] = _check_icon(icon)
         await _save(hass, data)
     return label
 

@@ -1,5 +1,7 @@
 import type {
   HomeAssistant,
+  Category,
+  HomeDeskSettings,
   Label,
   LabelColor,
   Ticket,
@@ -35,17 +37,56 @@ export class HaClient {
     return res.tickets;
   }
 
+  /** Categories, or none if the backend predates them (so an older install still loads). */
+  async categories(): Promise<Category[]> {
+    try {
+      return (await this.send<{ categories: Category[] }>("categories")).categories;
+    } catch {
+      return [];
+    }
+  }
+
+  createCategory(fields: { name: string; icon?: string }): Promise<Category> {
+    return this.send("category_create", fields);
+  }
+
+  updateCategory(categoryId: string, patch: { name?: string; icon?: string }): Promise<Category> {
+    return this.send("category_update", { category_id: categoryId, ...patch });
+  }
+
+  deleteCategory(categoryId: string): Promise<{ removed_from: number }> {
+    return this.send("category_delete", { category_id: categoryId });
+  }
+
+  /** Home Desk's options, or the defaults if the backend predates them. */
+  async settings(): Promise<HomeDeskSettings> {
+    try {
+      return await this.send<HomeDeskSettings>("settings");
+    } catch {
+      return {
+        auto_close: "7d",
+        agent: "",
+        repairs: true,
+        notify: { targets: [], new_ticket: true, comment: true, resolved: false },
+      };
+    }
+  }
+
+  saveSettings(patch: Partial<Omit<HomeDeskSettings, "notify">> & { notify?: Partial<HomeDeskSettings["notify"]> }): Promise<HomeDeskSettings> {
+    return this.send("settings_save", patch);
+  }
+
   async labels(): Promise<Label[]> {
     return (await this.send<{ labels: Label[] }>("labels")).labels;
   }
 
-  createLabel(name: string, color?: LabelColor): Promise<Label> {
-    return this.send("label_create", { name, ...(color ? { color } : {}) });
+  createLabel(fields: { name: string; color?: LabelColor; icon?: string; description?: string }): Promise<Label> {
+    return this.send("label_create", fields);
   }
 
   updateLabel(
     labelId: string,
-    patch: { name?: string; color?: LabelColor },
+    patch: { name?: string; color?: LabelColor; icon?: string; description?: string },
   ): Promise<Label> {
     return this.send("label_update", { label_id: labelId, ...patch });
   }

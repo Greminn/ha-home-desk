@@ -12,7 +12,9 @@
     "push": "node --env-file=.env scripts/dev/push.mjs",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write src",
-    "check": "npm run typecheck && npm run build"
+    "check": "npm run typecheck && npm run build",
+    "dev": "node scripts/dev/dev.mjs",
+    "dev:theme": "node scripts/dev/make-theme.mjs"
   },
   "dependencies": {
     "dompurify": "^3.2.6",
@@ -20,6 +22,7 @@
     "marked": "^16.4.1"
   },
   "devDependencies": {
+    "@mdi/js": "^7.4.47",
     "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.3",

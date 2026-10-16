@@ -14,7 +14,7 @@ const KINDS: { id: string; name: string; admin?: boolean }[] = [
   { id: "task", name: "Task", admin: true },
 ];
 
-/** "New ticket" dialog, styled like HA's own dialogs. */
+/** "New Ticket" dialog, styled like HA's own dialogs. */
 @safeCustomElement("st-new-ticket-dialog")
 export class NewTicketDialog extends LitElement {
   static override styles = [
@@ -37,11 +37,11 @@ export class NewTicketDialog extends LitElement {
         padding: 24px;
         border-radius: 28px;
         background: var(--st-surface);
-        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+        box-shadow: var(--st-shadow-l);
       }
       h2 {
         margin: 0 0 16px;
-        font-size: 1.375rem;
+        font-size: var(--st-fs-dialog);
         font-weight: 400;
       }
       label {
@@ -98,8 +98,8 @@ export class NewTicketDialog extends LitElement {
     return html`
       <div class="scrim" @click=${(e: Event) => e.target === e.currentTarget && this._fire("close")}
         @keydown=${(e: KeyboardEvent) => e.key === "Escape" && this._fire("close")}>
-        <div class="dialog" role="dialog" aria-label="New ticket">
-          <h2>New ticket</h2>
+        <div class="dialog" role="dialog" aria-label="New Ticket">
+          <h2>New Ticket</h2>
           <div class="field">
             <label for="title">Title</label>
             <input id="title" type="text" autofocus .value=${this._title}

@@ -247,6 +247,7 @@ async def ws_labels(hass: HomeAssistant, connection: websocket_api.ActiveConnect
         vol.Required("name"): str,
         vol.Optional("color"): vol.In(LABEL_COLORS),
         vol.Optional("description"): str,
+        vol.Optional("icon"): str,
     }
 )
 @websocket_api.require_admin
@@ -254,7 +255,7 @@ async def ws_labels(hass: HomeAssistant, connection: websocket_api.ActiveConnect
 async def ws_label_create(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
     try:
         label = await async_create_label(
-            hass, name=msg["name"], color=msg.get("color"), description=msg.get("description", "")
+            hass, name=msg["name"], color=msg.get("color"), description=msg.get("description", ""), icon=msg.get("icon", "")
         )
     except TicketError as err:
         _fail(connection, msg, "invalid", str(err))
@@ -269,6 +270,7 @@ async def ws_label_create(hass: HomeAssistant, connection: websocket_api.ActiveC
         vol.Optional("name"): str,
         vol.Optional("color"): vol.In(LABEL_COLORS),
         vol.Optional("description"): str,
+        vol.Optional("icon"): str,
     }
 )
 @websocket_api.require_admin
@@ -276,7 +278,7 @@ async def ws_label_create(hass: HomeAssistant, connection: websocket_api.ActiveC
 async def ws_label_update(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
     try:
         label = await async_update_label(
-            hass, msg["label_id"], name=msg.get("name"), color=msg.get("color"), description=msg.get("description")
+            hass, msg["label_id"], name=msg.get("name"), color=msg.get("color"), description=msg.get("description"), icon=msg.get("icon")
         )
     except TicketError as err:
         _fail(connection, msg, "invalid", str(err))

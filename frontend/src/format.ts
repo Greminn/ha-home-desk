@@ -2,10 +2,29 @@ import type { Priority, Status, Label, LabelColor } from "./types";
 
 export const STATUS_LABEL: Record<Status, string> = {
   new: "New",
-  open: "Open",
-  in_progress: "In progress",
+  // "Open" is retired: the panel treats it as In Progress until old tickets are migrated.
+  open: "In Progress",
+  in_progress: "In Progress",
   resolved: "Resolved",
   closed: "Closed",
+};
+
+/** Like GitHub's issue list: the icon is the state, not the kind (Bug, Enhancement... are labels). */
+export const STATE_ICON: Record<Status, string> = {
+  new: "mdi:circle-outline",
+  open: "mdi:circle-slice-4",
+  in_progress: "mdi:circle-slice-4",
+  resolved: "mdi:check-circle-outline",
+  closed: "mdi:close-circle-outline",
+};
+
+/** State colours: new is green, in progress blue, resolved purple, closed grey. */
+export const STATE_COLOR: Record<Status, string> = {
+  new: "var(--success-color, #43a047)",
+  open: "var(--primary-color)",
+  in_progress: "var(--primary-color)",
+  resolved: "var(--purple-color, #926bc7)",
+  closed: "var(--secondary-text-color)",
 };
 
 export const PRIORITY_LABEL: Record<Priority, string> = {
@@ -59,25 +78,45 @@ export function fullTime(iso: string, lang?: string): string {
 }
 
 /** Icon for who did something: an AI agent, Home Assistant itself, an import or a person. */
+/** An AI agent: named "ai:<name>" by the integration, or a known agent such as Claude. */
+export function isAgent(actor: string): boolean {
+  const a = actor.toLowerCase();
+  return a.startsWith("ai:") || a.includes("claude");
+}
+
+/** Home Assistant's own icon for AI features is the four-point spark, so agents get it too. */
+const AGENT_ICON = "mdi:star-four-points";
+/** The large avatar beside a comment uses the cluster of sparks, which reads better at that size. */
+const AGENT_AVATAR_ICON = "mdi:creation";
+
 export function actorIcon(actor: string): string {
   const a = actor.toLowerCase();
-  if (a.startsWith("ai:") || a.includes("claude")) return "mdi:robot-outline";
+  if (isAgent(actor)) return AGENT_AVATAR_ICON;
   if (a === "ha" || a === "home assistant") return "mdi:home-assistant";
   if (a === "import") return "mdi:database-import-outline";
   return "mdi:account-circle-outline";
 }
 
-export function actorName(actor: string): string {
-  return actor.replace(/^ai:/i, "");
+/** The small outline icon beside a name in the meta line: Home Assistant, an AI agent, or a person. */
+export function metaIcon(actor: string): string {
+  if (isAgent(actor)) return `${AGENT_ICON}-outline`;
+  const a = actor.toLowerCase();
+  return a === "ha" || a === "home assistant" ? "mdi:home-assistant" : "mdi:account-outline";
 }
 
+export function actorName(actor: string): string {
+  const name = actor.replace(/^ai:/i, "");
+  return name === name.toLowerCase() ? name.charAt(0).toUpperCase() + name.slice(1) : name;
+}
+
+/** HA's default values for its theme colours, used only when the page doesn't define the variable. */
 const LABEL_FALLBACK: Record<LabelColor, string> = {
   primary: "#03a9f4",
   accent: "#ff9800",
   red: "#f44336",
   pink: "#e91e63",
-  purple: "#9c27b0",
-  "deep-purple": "#673ab7",
+  purple: "#926bc7",
+  "deep-purple": "#6e41ab",
   indigo: "#3f51b5",
   blue: "#2196f3",
   "light-blue": "#03a9f4",
@@ -89,11 +128,14 @@ const LABEL_FALLBACK: Record<LabelColor, string> = {
   yellow: "#ffeb3b",
   amber: "#ffc107",
   orange: "#ff9800",
-  "deep-orange": "#ff5722",
+  "deep-orange": "#ff6f22",
   brown: "#795548",
   "light-grey": "#bdbdbd",
   grey: "#9e9e9e",
+  "dark-grey": "#606060",
   "blue-grey": "#607d8b",
+  black: "#000000",
+  white: "#ffffff",
 };
 
 /** CSS colour for a label colour name: HA's own theme variable, with a fallback. */
@@ -103,7 +145,62 @@ export function labelColorCss(color: LabelColor): string {
   return `var(--${color}-color, ${LABEL_FALLBACK[color] ?? "#9e9e9e"})`;
 }
 
+/** A colour as [r, g, b] 0-255, from "#rgb", "#rrggbb" or "rgb(...)"; null if it isn't one of those. */
+function parseColor(css: string): [number, number, number] | null {
+  const c = css.trim();
+  let m = /^#([0-9a-f]{3})$/i.exec(c);
+  if (m) return [...m[1]!].map((d) => parseInt(d + d, 16)) as [number, number, number];
+  m = /^#([0-9a-f]{6})/i.exec(c);
+  if (m) return [0, 2, 4].map((i) => parseInt(m![1]!.slice(i, i + 2), 16)) as [number, number, number];
+  m = /^rgba?\(\s*(\d+)[ ,]+(\d+)[ ,]+(\d+)/i.exec(c);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+const luminance = ([r, g, b]: [number, number, number]): number => {
+  const [lr, lg, lb] = [r, g, b].map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  }) as [number, number, number];
+  return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+};
+
+/**
+ * The text colour on a label's solid colour, chosen as HA's getContrastedColorHex does: black or white,
+ * whichever has the higher WCAG contrast. It reads the colour from the page's theme, so a custom
+ * theme gets the right answer; HA's default values are the fallback.
+ */
+export function labelTextColor(color: LabelColor): string {
+  let rgb: [number, number, number] | null = null;
+  try {
+    const name = color === "primary" ? "--primary-color" : color === "accent" ? "--accent-color" : `--${color}-color`;
+    rgb = parseColor(getComputedStyle(document.documentElement).getPropertyValue(name));
+  } catch {
+    // No document styles to read (tests, SSR): use the defaults.
+  }
+  rgb ??= parseColor(LABEL_FALLBACK[color] ?? "#9e9e9e") ?? [158, 158, 158];
+  const l = luminance(rgb);
+  // contrast with black = (l + 0.05) / 0.05; with white = 1.05 / (l + 0.05)
+  return (l + 0.05) / 0.05 >= 1.05 / (l + 0.05) ? "#000000" : "#ffffff";
+}
+
+/** "deep-purple" -> "Deep purple": a colour's name as HA's colour picker shows it. */
+export function colorName(color: string): string {
+  const name = color.replace(/-/g, " ");
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 /** A label id the registry doesn't know (deleted, or from an old event) still needs to render. */
 export function labelOrUnknown(map: Map<string, Label>, id: string): Label {
-  return map.get(id) ?? { id, name: id, color: "grey", description: "", builtin: false, count: 0 };
+  return map.get(id) ?? { id, name: id, color: "grey", description: "", icon: "", builtin: false, count: 0 };
+}
+
+/** How a name reads where it signs something (a comment, a change): agents are "AI Agent (Claude)". */
+export function actorLabel(actor: string): string {
+  return isAgent(actor) ? `AI Agent (${actorName(actor)})` : actorName(actor);
+}
+
+/** A household member as Home Assistant knows them: the person entity's name and profile picture. */
+export interface Person {
+  name: string;
+  picture?: string;
 }

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home Desk preview</title>
+  <style>
+    :root { color-scheme: dark light; }
+    html, body { height: 100%; margin: 0; font: 13px/1.4 -apple-system, system-ui, sans-serif; background: #2b2b2b; color: #ddd; }
+    body { display: flex; flex-direction: column; }
+    .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 12px; background: #1f1f1f; border-bottom: 1px solid #000; }
+    .bar h1 { font-size: 13px; margin: 0 8px 0 0; font-weight: 600; }
+    .group { display: inline-flex; align-items: center; gap: 4px; }
+    .group > span { opacity: .6; margin-right: 2px; }
+    button { font: inherit; color: inherit; background: #333; border: 1px solid #444; border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+    button:hover { background: #3d3d3d; }
+    button.on { background: #03a9f4; border-color: #03a9f4; color: #000; }
+    .stage { flex: 1; min-height: 0; display: flex; justify-content: center; padding: 12px; }
+    iframe { height: 100%; width: 100%; max-width: 100%; border: 1px solid #000; border-radius: 8px; background: #111; }
+    .hint { margin-left: auto; opacity: .5; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <h1>Home Desk preview</h1>
+    <div class="group" data-name="theme"><span>Theme</span><button data-v="dark">Dark</button><button data-v="light">Light</button></div>
+    <div class="group" data-name="width"><span>Width</span><button data-v="390">Phone</button><button data-v="768">Tablet</button><button data-v="1280">Desktop</button><button data-v="full">Full</button></div>
+    <div class="group" data-name="user"><span>User</span><button data-v="admin">Admin</button><button data-v="household">Household</button></div>
+    <div class="group"><button id="agent">Agent update</button><button id="reset">Reset data</button><button id="reload">Reload</button></div>
+    <span class="hint">Mock data. Nothing here touches Home Assistant.</span>
+  </div>
+  <div class="stage"><iframe id="frame" src="/panel.html" title="panel"></iframe></div>
+  <script>
+    const frame = document.getElementById("frame");
+    const defaults = { theme: "dark", width: "full", user: "admin" };
+    let state = { ...defaults };
+    try { state = { ...state, ...JSON.parse(localStorage.getItem("preview-state") ?? "{}") }; } catch {}
+    const send = (m) => frame.contentWindow?.postMessage(m, "*");
+    function apply() {
+      for (const g of document.querySelectorAll(".group[data-name]"))
+        for (const b of g.querySelectorAll("button")) b.classList.toggle("on", state[g.dataset.name] === b.dataset.v);
+      frame.style.width = state.width === "full" ? "100%" : state.width + "px";
+      send({ cmd: "theme", value: state.theme });
+      send({ cmd: "user", admin: state.user === "admin" });
+      try { localStorage.setItem("preview-state", JSON.stringify(state)); } catch {}
+    }
+    for (const g of document.querySelectorAll(".group[data-name]"))
+      g.addEventListener("click", (e) => { const v = e.target.dataset?.v; if (v) { state[g.dataset.name] = v; apply(); } });
+    document.getElementById("agent").onclick = () => send({ cmd: "agent" });
+    document.getElementById("reset").onclick = () => send({ cmd: "reset" });
+    document.getElementById("reload").onclick = () => frame.contentWindow.location.reload();
+    window.addEventListener("message", (e) => { if (e.data?.cmd === "ready") apply(); }); // the panel (re)loaded
+    apply();
+  </script>
+</body>
+</html>

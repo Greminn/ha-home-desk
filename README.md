@@ -11,24 +11,24 @@ A helpdesk for the home, living inside Home Assistant. The manager, household me
 | Part | Where | What it does |
 |---|---|---|
 | Integration | `custom_components/home_desk/` | Stores tickets and labels in `.storage/home_desk.tickets`, WebSocket API for the panel, `home_desk.*` services, a `home_desk_event` on the event bus for every change |
-| Panel | `frontend/` → `www/home-desk-panel.js` | Sidebar app (Lit, HA theme variables): views as sortable tables, a full-page ticket with timeline, comments, internal notes, resolve/reopen, coloured labels and a label manager |
+| Panel | `frontend/` → `www/home-desk-panel.js` | Sidebar app (Lit, HA theme variables): ticket list and ticket side by side, with timeline, comments, internal notes, resolve/reopen, coloured labels and a label manager |
 | AI bridge | `mcp/server.py` | Optional MCP server: list, get, create, update, comment, close, link, labels, stats |
 
 Admins see and change everything. Other HA users can raise tickets and comment on their own, and don't see internal notes or other people's tickets.
 
 ## Using the panel
 
-- **Views** (tabs): **Inbox** (new and open tickets, not enhancements), **In Progress**, **Enhancements** (ideas for the future) and **All** (with a Show filter: Everything, Open, Closed, History). Inbox, In Progress and Enhancements show counts. Each view is a sortable table; click a ticket to open it as a full page (back arrow, or the browser's back button). Every ticket has its own address, `/home-desk/123`. The last view you used is remembered per browser.
+- **Views** (tabs): **Inbox** (new and open tickets, not enhancements), **In Progress**, **Enhancements** (ideas for the future) and **All** (with a Show filter: Everything, Open, Closed, History). Inbox, In Progress and Enhancements show counts. The ticket list is on the left and the open ticket on the right (one at a time on a phone). Every ticket has its own address, `/home-desk/123`. The last view you used is remembered per browser.
 - **Find things:** search covers titles, descriptions, comments, resolutions and label names. Filter by priority and label.
 - **Work a ticket:** change status, priority, assignee and labels inline; comment; add an internal note (admins only, hidden from requesters); **Resolve** with notes, or **Reopen**. Everything is recorded on the ticket's timeline, including who did it (a person, an AI agent, or Home Assistant).
 - **Live:** the panel refreshes when anything changes, including changes made by an AI agent or an automation.
 
 ## Labels
 
-Labels work as they do on GitHub: they say what a ticket is, and which system or topic it concerns. Each label has a name, a colour (the same colour names HA uses for its own labels, so they follow your theme) and an optional description.
+Labels work as they do on GitHub: they say what a ticket is, and which system or topic it concerns. Each label has a name, a colour (the same colour names HA uses for its own labels, so they follow your theme), an optional icon and an optional description.
 
 - **Built-in labels** (locked: they can't be renamed, recoloured or deleted): **Bug** (something isn't working), **Enhancement** (an idea or request for the future), **Task**, **Question**, **History** (a record of past work, hidden from lists unless you ask), **Blocked** (waiting on a person, a part or a fix) and **Home Assistant** (the default when no label is given). The Inbox and Enhancements views rely on these.
-- Every other label is yours: **Manage labels** (in the panel's ⋮ menu, admins only) lets you add, rename, recolour and delete. Renaming keeps tickets labelled; deleting removes the label from every ticket after a confirmation that says how many.
+- Every other label is yours: **Manage labels** (in the panel's ⋮ menu, admins only) opens a page like Home Assistant's own Labels page, where you create, edit (name, icon, colour, description) and delete them. Renaming keeps tickets labelled; deleting removes the label from every ticket after a confirmation that says how many.
 - Typing a label name that doesn't exist (in the panel, or an AI agent using it) creates it, with a colour picked automatically. Names match case-insensitively.
 - A suggested scheme, used on the imported tracker: a **system** (Home Assistant, Network, Infrastructure, Media), **topics** (Zigbee, Lighting, Automations, Dashboards, Cameras, Presence, Energy, Voice, Security...) and **workflow** labels (Needs review, Monitoring, Recurring, Side project). Nothing enforces it.
 - Household users can pick Bug, Enhancement or Question when raising their own ticket; only admins set other labels and the priority.
@@ -99,6 +99,8 @@ npm run build        # writes custom_components/home_desk/www/home-desk-panel.js
 npm run typecheck
 cp .env.example .env # then `npm run push` rsyncs the panel bundle to HA; a hard browser refresh picks it up, no HA restart
 ```
+
+**Preview without Home Assistant:** `npm run dev` (in `frontend/`) serves the real panel against a mock Home Assistant at <http://localhost:5173> and rebuilds on every save. The control bar switches dark/light, phone/tablet/desktop width and admin/household user, fires a fake "agent update" to test live updates, and resets the mock data (`frontend/dev/mock-hass.js`). It uses Home Assistant's real theme tokens and the real Material Design Icons. `npm run dev:theme` regenerates `dev/theme.css` from a checkout of `home-assistant/frontend` (default `~/Projects/ha-frontend-reference`; the tokens are Apache-2.0). The preview is development-only and not part of the installed integration.
 
 Service names and descriptions (what AI agents read) are generated into `services.yaml`, `strings.json` and `translations/en.json` from one table: edit `tools/gen_services.py`, then run it. HA reads custom-integration service descriptions from `services.yaml`.
 

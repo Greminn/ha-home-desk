@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home Desk panel (preview)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+  <link rel="stylesheet" href="/theme.css">
+  <style>
+    html, body { height: 100%; margin: 0; }
+    html { font-size: 14px; } /* HA sets the root font size to 14px */
+    body {
+      font-family: var(--ha-font-family-body, Roboto, Noto, sans-serif);
+      font-size: var(--ha-font-size-m, 14px);
+      color: var(--primary-text-color);
+      background: var(--primary-background-color);
+      -webkit-font-smoothing: antialiased;
+    }
+    home-desk-panel { height: 100%; }
+  </style>
+</head>
+<body>
+  <script src="/dist/dev.js"></script>
+  <script>
+    // Reload when the bundle is rebuilt.
+    let seen;
+    setInterval(async () => {
+      try { const v = await (await fetch("/__v", { cache: "no-store" })).text(); if (seen && v !== seen) location.reload(); seen = v; } catch {}
+    }, 700);
+  </script>
+</body>
+</html>
