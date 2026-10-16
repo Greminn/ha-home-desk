@@ -1,6 +1,8 @@
 """Exercises storage.py against a stubbed Home Assistant (no HA install needed).
 
 Run:  python3 -I tests/test_storage.py
+
+No private data is needed: every ticket here is made up inside the test.
 """
 import asyncio
 import importlib.util
@@ -106,149 +108,256 @@ s = sys.modules["home_desk.storage"]
 repairs = sys.modules["home_desk.repairs"]
 
 
+async def expect_error(coro_fn, fragment=None, what="call"):
+    try:
+        await coro_fn()
+    except s.TicketError as err:
+        if fragment:
+            assert fragment in str(err), (fragment, str(err))
+        return
+    raise SystemExit(f"{what} should have been refused")
+
+
+# A small made-up tracker, in the shape the importer produces.
+IMPORT = [
+    {"title": "Z2M devices time out overnight", "description": "Seen twice this week.", "type": "issue", "tags": ["zigbee", "needs-review"],
+     "status": "open", "source_key": "ops-1", "related_keys": ["ops-2"]},
+    {"title": "Replace hallway sensor battery", "type": "task", "status": "closed", "source_key": "ops-2", "related_keys": ["ops-1"]},
+    {"title": "Add a bedtime scene", "type": "idea", "source_key": "ops-3"},
+    {"title": "2026-10-01 Router firmware", "type": "log", "status": "closed", "source_key": "log-1"},
+]
+
+
 async def main():
     hass = FakeHass()
-    items = json.loads((ROOT / "import" / "operations.json").read_text())
-    r = await s.async_import_tickets(hass, items, actor="import")
-    assert r["created"] == len(items) and r["skipped"] == 0, r
-    r2 = await s.async_import_tickets(hass, items, actor="import")
-    assert r2["created"] == 0 and r2["skipped"] == len(items), r2  # idempotent
-    print("import", r, "reimport", r2)
 
+    # ---- import is idempotent, and links come in both ways
+    r = await s.async_import_tickets(hass, IMPORT, actor="import")
+    assert r == {"created": 4, "skipped": 0, "links": 2}, r
+    assert (await s.async_import_tickets(hass, IMPORT, actor="import"))["created"] == 0
     st = await s.async_stats(hass)
-    print("stats", {k: v for k, v in st.items() if k != "labels"})
+    assert st["total"] == 4 and st["by_status"] == {"in_progress": 1, "closed": 2, "new": 1}, st  # "open" became in_progress
+    assert (await s.async_list_tickets(hass, status="active", label="needs-review"))["total"] == 1
+    assert (await s.async_list_tickets(hass, status="all", q="z2m"))["total"] == 1
+    assert (await s.async_list_tickets(hass, status="active", include_history=False))["total"] == 2
+    imported = (await s.async_list_tickets(hass, status="all"))["tickets"]
+    assert all(t["category"] is None and "home-assistant" not in t["labels"] for t in imported), "imports are uncategorised"
+    print("import ok")
 
-    active = await s.async_list_tickets(hass, status="active", include_history=False)
-    review = await s.async_list_tickets(hass, status="active", label="needs-review")
-    hits = await s.async_list_tickets(hass, status="all", q="Z2M")
-    print("active", active["total"], "needs-review", review["total"], "search Z2M", hits["total"])
-    assert active["total"] > 0 and hits["total"] > 0
-
+    # ---- a ticket's life
     t = await s.async_create_ticket(hass, title="Hall light didn't come on", description="at 7am", requester="Qionne")
-    assert t["status"] == "new" and t["events"][0]["kind"] == "created"
-    t = await s.async_update_ticket(hass, t["id"], actor="claude", status="in_progress", assignee="claude", add_labels=["lighting"])
-    kinds = [e["kind"] for e in t["events"]]
-    assert kinds == ["created", "status", "assignee", "field"], kinds
-    t = await s.async_add_comment(hass, t["id"], actor="claude", body="Looks like Z2M timeout.")
+    assert t["status"] == "new" and t["events"][0]["kind"] == "created" and t["labels"] == [] and t["category"] is None
+    t = await s.async_update_ticket(hass, t["id"], actor="Simon", priority="high", add_labels=["lighting"])
+    assert t["status"] == "in_progress", "the first action moves it out of New"
+    assert [e["kind"] for e in t["events"]] == ["created", "priority", "field", "status"], [e["kind"] for e in t["events"]]
+    assert t["events"][-1]["actor"] == "Home Desk"
+    t = await s.async_add_comment(hass, t["id"], actor="claude", body="Looks like a Z2M timeout.")
     t = await s.async_add_comment(hass, t["id"], actor="simon", body="private", internal=True)
     assert [e["kind"] for e in s.view(t, admin=False)["events"]].count("note") == 0
     t = await s.async_close_ticket(hass, t["id"], actor="claude", resolution="Restarted Z2M")
     assert t["status"] == "resolved" and t["closed_at"] and t["resolution"] == "Restarted Z2M"
-    t = await s.async_update_ticket(hass, t["id"], actor="simon", status="open")
-    assert t["closed_at"] is None
-    same = await s.async_update_ticket(hass, t["id"], actor="simon", status="open")
-    assert len(same["events"]) == len(t["events"])  # no-op change records nothing
-    for bad in ({"status": "bogus"}, {"nope": 1}):
-        try:
-            await s.async_update_ticket(hass, t["id"], actor="x", **bad)
-            raise SystemExit(f"accepted {bad}")
-        except s.TicketError:
-            pass
-    other = (await s.async_list_tickets(hass, status="all", limit=1))["tickets"][0]["id"]
+    t = await s.async_update_ticket(hass, t["id"], actor="simon", status="in_progress")  # reopen
+    assert t["status"] == "in_progress" and t["closed_at"] is None
+    n = len(t["events"])
+    assert len((await s.async_update_ticket(hass, t["id"], actor="simon", status="in_progress"))["events"]) == n  # a no-op records nothing
+    for bad in ({"status": "bogus"}, {"status": "waiting"}, {"nope": 1}):
+        await expect_error(lambda bad=bad: s.async_update_ticket(hass, t["id"], actor="x", **bad), what=f"update {bad}")
+    other = imported[0]["id"]
     await s.async_link_tickets(hass, t["id"], other, actor="claude")
     got = await s.async_get_ticket(hass, t["id"])
     assert got["related"] and got["related"][0]["id"] == other
     assert hass.bus.events and hass.bus.events[-1][0] == "home_desk_event"
-    mine = await s.async_list_tickets(hass, requester="Qionne", status="all")
-    assert mine["total"] == 1
+    assert (await s.async_list_tickets(hass, requester="Qionne", status="all"))["total"] == 1
+    n = str(t["id"])
+    for q in (n, "#" + n):  # a ticket can be found by its number
+        assert t["id"] in {x["id"] for x in (await s.async_list_tickets(hass, status="all", q=q))["tickets"]}
     print("lifecycle ok;", len(hass.bus.events), "events fired")
+
+    # ---- status moves by itself
+    a = await s.async_create_ticket(hass, title="Door code")
+    a = await s.async_update_ticket(hass, a["id"], actor="Home Assistant", priority="high")
+    assert a["status"] == "new", "Home Assistant's own changes don't start work"
+    for who in ("import", "Home Desk"):
+        a = await s.async_update_ticket(hass, a["id"], actor=who, priority="normal")
+        assert a["status"] == "new", who
+    a = await s.async_add_comment(hass, a["id"], actor="Simon", body="looking")
+    assert a["status"] == "in_progress" and [e["kind"] for e in a["events"]].count("status") == 1
+    a = await s.async_add_comment(hass, a["id"], actor="Simon", body="again")
+    assert [e["kind"] for e in a["events"]].count("status") == 1, "only the first action moves it"
+    alias = await s.async_create_ticket(hass, title="alias", status="open")
+    assert alias["status"] == "in_progress"
+    assert (await s.async_update_ticket(hass, alias["id"], actor="Simon", status="open"))["status"] == "in_progress"
+    assert s.upgrade_legacy_fields({"status": "open"}, "update") == {"status": "in_progress"}
+    print("status automation ok")
 
     # ---- labels
     labels = {x["id"]: x for x in await s.async_list_labels(hass)}
-    assert labels["home-assistant"]["builtin"] and labels["home-assistant"]["color"] == "primary", labels["home-assistant"]
-    assert labels["home-assistant"]["count"] == (await s.async_stats(hass))["total"]  # imported tickets all get it
+    assert "home-assistant" not in labels, "the Home Assistant label is a category now"
     for builtin in ("bug", "enhancement", "task", "question", "history", "blocked"):
         assert labels[builtin]["builtin"], builtin
     assert labels["needs-review"]["name"] == "Needs review" and not labels["needs-review"]["builtin"]
-    assert [x["id"] for x in await s.async_list_labels(hass)][:2] == ["home-assistant", "bug"]  # built-ins first
-    d = await s.async_create_ticket(hass, title="no labels given")
-    assert d["labels"] == ["home-assistant"], d["labels"]  # default
-    assert "type" not in d and "tags" not in d
+    assert [x["id"] for x in await s.async_list_labels(hass)][:2] == ["bug", "enhancement"]  # built-ins first
     e = await s.async_create_ticket(hass, title="garden", labels=["Garden"])
-    assert e["labels"] == ["garden"]  # a new name creates the label, and HA is not forced on
+    assert e["labels"] == ["garden"]  # a new name creates the label
     net = next(x for x in await s.async_list_labels(hass) if x["id"] == "garden")
     assert net["color"] and not net["builtin"]
-    e = await s.async_update_ticket(hass, e["id"], actor="x", add_labels=["GARDEN", "Home Assistant"], remove_labels=["nope"])
-    assert e["labels"] == ["garden", "home-assistant"], e["labels"]  # name matching is case-insensitive, unknown removal ignored
+    e = await s.async_update_ticket(hass, e["id"], actor="x", add_labels=["GARDEN", "Bug"], remove_labels=["nope"])
+    assert e["labels"] == ["bug", "garden"], e["labels"]  # case-insensitive; unknown removal ignored
     assert (await s.async_list_tickets(hass, status="all", label="Garden"))["total"] == 1
     assert labels["bug"]["icon"] == "mdi:bug-outline" and net["icon"] == ""
     r = await s.async_update_label(hass, "garden", name="Gardening", color="teal", description="Outdoors", icon="mdi:flower")
-    assert r["icon"] == "mdi:flower"
+    assert r["icon"] == "mdi:flower" and r["name"] == "Gardening" and r["color"] == "teal" and r["description"] == "Outdoors"
     for bad_icon in ("flower", "mdi:", "MDI:Flower x"):
-        try:
-            await s.async_update_label(hass, "garden", icon=bad_icon)
-            raise SystemExit(f"accepted icon {bad_icon}")
-        except s.TicketError:
-            pass
-    assert (await s.async_update_label(hass, "garden", icon=""))["icon"] == ""  # clearing is allowed
-    for hacolour in ("dark-grey", "black", "white"):
-        assert (await s.async_update_label(hass, "garden", color=hacolour))["color"] == hacolour
-    assert r["name"] == "Gardening" and r["color"] == "teal" and r["description"] == "Outdoors"
-    assert (await s.async_get_ticket(hass, e["id"]))["labels"] == ["garden", "home-assistant"]  # rename keeps tickets labelled
+        await expect_error(lambda i=bad_icon: s.async_update_label(hass, "garden", icon=i), what=f"icon {bad_icon}")
+    assert (await s.async_update_label(hass, "garden", icon=""))["icon"] == ""
+    for colour in ("dark-grey", "black", "white"):
+        assert (await s.async_update_label(hass, "garden", color=colour))["color"] == colour
+    assert (await s.async_get_ticket(hass, e["id"]))["labels"] == ["bug", "garden"]  # a rename keeps tickets labelled
     assert (await s.async_list_tickets(hass, status="all", label="Gardening"))["total"] == 1
-    for bad, kw in (("home-assistant", {"name": "x"}), ("bug", {"color": "red"}), ("nope", {"name": "x"}), ("garden", {"color": "bogus"})):
-        try:
-            await s.async_update_label(hass, bad, **kw)
-            raise SystemExit(f"accepted update of {bad}")
-        except s.TicketError:
-            pass
-    for bad in ("home-assistant", "history", "nope"):
-        try:
-            await s.async_delete_label(hass, bad)
-            raise SystemExit(f"accepted delete of {bad}")
-        except s.TicketError:
-            pass
-    try:
-        await s.async_create_label(hass, name="gardening")
-        raise SystemExit("duplicate label accepted")
-    except s.TicketError:
-        pass
+    for bad, kw in (("bug", {"name": "x"}), ("history", {"color": "red"}), ("nope", {"name": "x"}), ("garden", {"color": "bogus"})):
+        await expect_error(lambda b=bad, k=kw: s.async_update_label(hass, b, **k), what=f"update {bad}")
+    for bad in ("bug", "history", "nope"):
+        await expect_error(lambda b=bad: s.async_delete_label(hass, b), what=f"delete {bad}")
+    await expect_error(lambda: s.async_create_label(hass, name="gardening"), what="duplicate label")
     assert await s.async_delete_label(hass, "garden") == 1
     assert "garden" not in (await s.async_get_ticket(hass, e["id"]))["labels"]
-    assert "garden" not in {x["id"] for x in await s.async_list_labels(hass)}
     print("labels ok")
 
-    # ---- history is hidden by default, blocked is just a label
+    # ---- history is hidden by default
     h = await s.async_create_ticket(hass, title="old work", labels=["History"], status="closed")
-    assert h["id"] not in {t["id"] for t in (await s.async_list_tickets(hass, status="all", include_history=False))["tickets"]}
-    assert h["id"] in {t["id"] for t in (await s.async_list_tickets(hass, status="all"))["tickets"]}
-    for bad in ("waiting", "bogus"):
-        try:
-            await s.async_update_ticket(hass, d["id"], actor="x", status=bad)
-            raise SystemExit(f"accepted status {bad}")
-        except s.TicketError:
-            pass
-    # a ticket can be found by its number, with or without the #
-    n = str(h["id"])
-    assert h["id"] in {t["id"] for t in (await s.async_list_tickets(hass, status="all", q="#" + n))["tickets"]}
-    assert h["id"] in {t["id"] for t in (await s.async_list_tickets(hass, status="all", q=n))["tickets"]}
+    assert h["id"] not in {x["id"] for x in (await s.async_list_tickets(hass, status="all", include_history=False))["tickets"]}
+    assert h["id"] in {x["id"] for x in (await s.async_list_tickets(hass, status="all"))["tickets"]}
     print("history ok")
 
-    # ---- callers from before labels: type/tags/waiting keep working
+    # ---- callers from before labels and statuses: type, tags, waiting and open keep working
     up = s.upgrade_legacy_fields
     assert up({"title": "x", "type": "idea", "tags": ["a"]}, "create") == {"title": "x", "labels": ["a", "enhancement"]}
     assert up({"type": "issue", "add_tags": ["a"], "status": "waiting"}, "update") == {
-        "add_labels": ["a", "bug", "blocked"], "status": "open"}
+        "add_labels": ["a", "bug", "blocked"], "status": "in_progress"}
     assert up({"type": "log", "tag": "x"}, "filter") == {"label": "x"}
     assert up({"type": "log"}, "filter") == {"label": "history"}
     old_item = await s.async_create_ticket(hass, **up({"title": "legacy call", "type": "question", "tags": ["z"]}, "create"))
     assert old_item["labels"] == ["question", "z"], old_item["labels"]
     print("legacy callers ok")
 
-    # ---- migration of data saved with tags, types and the waiting status
-    base = {k: v for k, v in (await s.async_get_ticket(hass, d["id"])).items() if k not in ("labels", "related")}
-    old = {"next_id": 5, "tag_registry": {"ops-todo": {"id": "ops-todo", "name": "Ops todo", "color": "teal", "builtin": False}},
+    # ---- categories
+    cats = await s.async_list_categories(hass)
+    assert [c["id"] for c in cats] == ["home-assistant"] and cats[0]["builtin"], cats
+    c = await s.async_create_ticket(hass, title="Wi-Fi drops")
+    await expect_error(lambda: s.async_update_ticket(hass, c["id"], actor="Simon", category="Network"), "Unknown category", "unknown category")
+    net = await s.async_create_category(hass, name="Network", icon="mdi:lan")
+    assert net["id"] == "network" and not net["builtin"]
+    await expect_error(lambda: s.async_create_category(hass, name="network"), "already exists", "duplicate category")
+    await expect_error(lambda: s.async_create_category(hass, name="  "), "needs a name", "blank category")
+    await expect_error(lambda: s.async_create_category(hass, name="x", icon="lan"), "Invalid icon", "bad icon")
+    c = await s.async_update_ticket(hass, c["id"], actor="Simon", category="network")
+    assert c["category"] == "network"
+    ev = next(e for e in c["events"] if (e["data"] or {}).get("field") == "category")
+    assert ev["data"] == {"field": "category", "from": None, "to": "Network"}, ev  # the timeline shows names, not ids
+    assert (await s.async_create_ticket(hass, title="with category", category="Network"))["category"] == "network"
+    assert (await s.async_list_tickets(hass, category="Network", status="all"))["total"] == 2
+    assert (await s.async_list_tickets(hass, category="none", status="all"))["total"] == (await s.async_stats(hass))["total"] - 2
+    assert "network" in (await s.async_list_tickets(hass, status="all", q="network"))["tickets"][0]["category"]
+    st = await s.async_stats(hass)
+    assert [x["count"] for x in st["categories"] if x["id"] == "network"] == [2]
+    assert st["no_category"] == len([1 for x in (await s.async_list_tickets(hass, status="active"))["tickets"] if not x["category"]])
+    for fn in (lambda: s.async_update_category(hass, "home-assistant", name="x"), lambda: s.async_delete_category(hass, "home-assistant")):
+        await expect_error(fn, "built-in", "built-in category")
+    await expect_error(lambda: s.async_delete_category(hass, "network", only_if_empty=True), "use Network", "agent delete of a used category")
+    assert (await s.async_update_category(hass, "network", name="Networking", icon="mdi:router-network"))["name"] == "Networking"
+    assert (await s.async_get_ticket(hass, c["id"]))["category"] == "network"  # a rename keeps tickets in it
+    c = await s.async_update_ticket(hass, c["id"], actor="Simon", category=None)
+    assert c["category"] is None  # clearing is allowed
+    assert await s.async_delete_category(hass, "network") == 1  # the panel may delete a used one
+    assert (await s.async_list_tickets(hass, category="none", status="all"))["total"] == (await s.async_stats(hass))["total"]
+    emp = await s.async_create_category(hass, name="Empty")
+    assert await s.async_delete_category(hass, emp["id"], only_if_empty=True) == 0
+    print("categories ok")
+
+    # ---- the AI agent: assigning fires an event, and its reply hands the ticket back
+    g = await s.async_create_ticket(hass, title="Camera offline")
+    hass.bus.events.clear()
+    g = await s.async_update_ticket(hass, g["id"], actor="Simon", assignee="ai:Claude")
+    kinds = [ev[1]["kind"] for ev in hass.bus.events]
+    assert kinds == ["updated", "assigned"] and hass.bus.events[-1][1]["with_agent"], kinds
+    assert (await s.async_stats(hass))["with_agent"] == 1
+    g = await s.async_add_comment(hass, g["id"], actor="Simon", body="check the logs")
+    assert g["assignee"] == "ai:Claude", "a manager's comment leaves it with the agent"
+    g = await s.async_add_comment(hass, g["id"], actor="claude", body="found it")
+    assert g["assignee"] is None and g["events"][-1]["kind"] == "assignee" and g["events"][-1]["actor"] == "claude", "the agent's reply hands it back"
+    g = await s.async_update_ticket(hass, g["id"], actor="Simon", assignee="Jo")
+    assert (await s.async_add_comment(hass, g["id"], actor="Jo", body="on it"))["assignee"] == "Jo", "only an AI agent hands back"
+    h2 = await s.async_create_ticket(hass, title="assigned to someone else")
+    hass.bus.events.clear()
+    await s.async_update_ticket(hass, h2["id"], actor="Simon", assignee="Jo")
+    assert [ev[1]["kind"] for ev in hass.bus.events] == ["updated"], "no assigned event for a person"
+    print("agent ok")
+
+    # ---- settings
+    cfg = await s.async_get_settings(hass, "u1")
+    assert cfg["auto_close"] == "7d" and cfg["repairs"] is True and cfg["agent"] == ""
+    assert cfg["notify"] == {"targets": [], "new_ticket": True, "comment": True, "resolved": False}
+    cfg = await s.async_save_settings(hass, {"auto_close": "1d", "agent": "ai_task.claude", "notify": {"targets": ["mobile_app_x"], "resolved": True}}, user_id="u1")
+    assert cfg["auto_close"] == "1d" and cfg["agent"] == "ai_task.claude" and cfg["notify"]["targets"] == ["mobile_app_x"] and cfg["notify"]["resolved"]
+    assert (await s.async_get_settings(hass, "u2"))["notify"]["targets"] == [], "notifications are per manager"
+    assert (await s.async_get_settings(hass, "u2"))["auto_close"] == "1d", "the rest is shared"
+    for bad in ({"auto_close": "soon"}, {"nope": 1}, {"notify": {"nope": 1}}):
+        await expect_error(lambda b=bad: s.async_save_settings(hass, b), what=f"settings {bad}")
+    print("settings ok")
+
+    # ---- resolved tickets close after the delay
+    r1 = await s.async_close_ticket(hass, (await s.async_create_ticket(hass, title="to resolve"))["id"], actor="Simon", resolution="fixed")
+    assert r1["status"] == "resolved"
+    assert await s.async_auto_close(hass) == 0, "not yet"
+    def backdate(ticket_id, stamp):
+        data = FakeStore.saved
+        data["tickets"][str(ticket_id)]["closed_at"] = stamp
+    backdate(r1["id"], "2026-01-01T00:00:00+00:00")
+    await s.async_save_settings(hass, {"auto_close": "7d"})
+    assert await s.async_auto_close(hass) == 1
+    r1 = await s.async_get_ticket(hass, r1["id"])
+    assert r1["status"] == "closed" and r1["events"][-1]["actor"] == "Home Desk" and r1["events"][-1]["kind"] == "status"
+    await s.async_save_settings(hass, {"auto_close": "immediately"})
+    q = await s.async_close_ticket(hass, (await s.async_create_ticket(hass, title="instant"))["id"], actor="Simon", resolution="done")
+    assert q["status"] == "closed", q["status"]
+    await s.async_save_settings(hass, {"auto_close": "never"})
+    q2 = await s.async_close_ticket(hass, (await s.async_create_ticket(hass, title="never"))["id"], actor="Simon", resolution="done")
+    backdate(q2["id"], "2020-01-01T00:00:00+00:00")
+    assert await s.async_auto_close(hass) == 0 and (await s.async_get_ticket(hass, q2["id"]))["status"] == "resolved"
+    await s.async_save_settings(hass, {"auto_close": "7d"})
+    print("auto-close ok")
+
+    # ---- size limits
+    for fn in (lambda: s.async_create_ticket(hass, title="x" * 301), lambda: s.async_create_ticket(hass, title="ok", description="y" * 100_001),
+               lambda: s.async_add_comment(hass, c["id"], actor="Simon", body="z" * 100_001),
+               lambda: s.async_update_ticket(hass, c["id"], actor="Simon", title="t" * 301),
+               lambda: s.async_close_ticket(hass, c["id"], actor="Simon", resolution="r" * 100_001),
+               lambda: s.async_create_category(hass, name="n" * 81), lambda: s.async_create_label(hass, name="n" * 81)):
+        await expect_error(fn, "too long", "oversized input")
+    assert len((await s.async_create_ticket(hass, title="x" * 300, description="y" * 100_000))["title"]) == 300
+    print("limits ok")
+
+    # ---- migration of data saved with tags, types, waiting/open statuses, the HA label and no categories
+    base = {k: v for k, v in (await s.async_get_ticket(hass, a["id"])).items() if k not in ("labels", "related", "category")}
+    old = {"next_id": 6, "tag_registry": {"ops-todo": {"id": "ops-todo", "name": "Ops todo", "color": "teal", "builtin": False}},
            "tickets": {
         "1": {**base, "id": 1, "type": "issue", "status": "waiting", "tags": ["ops-todo", "wall-tablet"], "events": []},
         "2": {**base, "id": 2, "type": "log", "status": "closed", "tags": [], "events": []},
         "3": {**base, "id": 3, "type": "idea", "status": "new", "tags": ["home-assistant"], "events": []},
-        "4": {**base, "id": 4, "type": "request", "status": "open", "tags": [], "events": []}}}
+        "4": {**base, "id": 4, "type": "request", "status": "open", "tags": [], "events": []},
+        "5": {**base, "id": 5, "type": "issue", "status": "new", "tags": ["home-assistant"], "events": [],
+              "source": s.REPAIR_SOURCE, "source_key": "repair:hue:x"}}}
     FakeStore.saved = old
-    migrated = await s.async_list_tickets(hass, status="all")
-    got = {t["id"]: t for t in migrated["tickets"]}
+    got = {x["id"]: x for x in (await s.async_list_tickets(hass, status="all"))["tickets"]}
     assert got[1]["labels"] == ["blocked", "bug", "ops-todo", "wall-tablet"], got[1]["labels"]
-    assert got[1]["status"] == "open" and "type" not in got[1] and "tags" not in got[1]
-    assert got[2]["labels"] == ["history"] and got[3]["labels"] == ["enhancement", "home-assistant"] and got[4]["labels"] == ["enhancement"]
+    assert got[1]["status"] == "in_progress" and "type" not in got[1] and "tags" not in got[1], "waiting became in progress + Blocked"
+    assert got[4]["status"] == "in_progress", "open became in progress"
+    assert got[2]["labels"] == ["history"] and got[3]["labels"] == ["enhancement"] and got[4]["labels"] == ["enhancement"], "the Home Assistant label is stripped"
+    assert all("category" in x for x in got.values()) and got[3]["category"] is None
+    assert got[5]["category"] == "home-assistant", "existing repair tickets are about Home Assistant"
+    assert "home-assistant" not in {x["id"] for x in await s.async_list_labels(hass)}
+    assert [c["id"] for c in await s.async_list_categories(hass)] == ["home-assistant"]
+    assert FakeStore.saved["settings"]["auto_close"] == "7d" and FakeStore.saved["notify"] == {}
     assert "label_registry" in FakeStore.saved and "tag_registry" not in FakeStore.saved  # persisted, so it only migrates once
     assert FakeStore.saved["tickets"]["1"]["events"][-1]["kind"] == "field"  # the waiting conversion is on the timeline
     assert {x["id"]: x["name"] for x in await s.async_list_labels(hass)}["ops-todo"] == "Ops todo"
@@ -265,10 +374,9 @@ async def main():
     s.Store = Both
     FakeStore.saved = {}
     got = await s.async_list_tickets(hass, status="all")
-    assert [t["id"] for t in got["tickets"]] == [1] and got["tickets"][0]["labels"] == ["bug", "zigbee"], got
+    assert [x["id"] for x in got["tickets"]] == [1] and got["tickets"][0]["labels"] == ["bug", "zigbee"], got
     assert FakeStore.saved["tickets"]["1"]["labels"] == ["bug", "zigbee"]  # written under the new key
     print("legacy adoption ok")
-
 
     # ---- repairs become tickets
     s.Store = FakeStore  # undo the legacy-adoption patch above
@@ -283,7 +391,7 @@ async def main():
     t = await s.async_get_ticket(hass2, tix[0]["id"])
     assert t["requester"] == "Home Assistant" and t["priority"] == "high" and t["source"] == s.REPAIR_SOURCE, t
     assert t["source_key"] == "repair:hue:old_fw" and t["status"] == "new"
-    assert {"home-assistant", "bug", "repair"} <= set(t["labels"]), t["labels"]
+    assert t["category"] == "home-assistant" and sorted(t["labels"]) == ["bug", "repair"], (t["category"], t["labels"])
     assert t["events"][0]["actor"] == "Home Assistant"
     # the manager changes the priority; a later sync must not overwrite their triage
     await s.async_update_ticket(hass2, t["id"], actor="simon", priority="low", status="in_progress")
@@ -304,10 +412,10 @@ async def main():
     t = await s.async_get_ticket(hass2, t["id"])
     assert t["status"] == "resolved" and "Cleared by Home Assistant" in t["resolution"] and t["closed_at"]
     assert await sync(active=False) is None and await s.async_open_repair_keys(hass2) == []
-    # it comes back -> the same ticket reopens
+    # it comes back -> the same ticket reopens, as in progress
     assert await sync(active=True, description="Update it.") == "reopened"
     t = await s.async_get_ticket(hass2, t["id"])
-    assert t["status"] == "open" and t["closed_at"] is None and "reporting this repair again" in t["events"][-1]["body"]
+    assert t["status"] == "in_progress" and t["closed_at"] is None and "reporting this repair again" in t["events"][-1]["body"]
     assert (await s.async_list_tickets(hass2, status="all"))["total"] == 1  # still one ticket
     # a better title from Home Assistant replaces an automatic one, but never a person's rename
     assert await sync(active=True, title="Hue bridge firmware needs updating", description="Update it.") == "updated"
@@ -316,13 +424,17 @@ async def main():
     assert await sync(active=True, title="Something else from HA", description="Update it.") is None
     assert (await s.async_get_ticket(hass2, t["id"]))["title"] == "My own name"
     # a ticket from before titles were tracked counts as automatic until someone renames it
-    old = await s.async_sync_repair(hass2, domain="old", issue_id="x", active=True, title="old: x")
-    data_ = FakeStore.saved; [tk.pop("repair_title", None) for tk in data_["tickets"].values()]
+    await s.async_sync_repair(hass2, domain="old", issue_id="x", active=True, title="old: x")
+    [tk.pop("repair_title", None) for tk in FakeStore.saved["tickets"].values()]
     assert await s.async_sync_repair(hass2, domain="old", issue_id="x", active=True, title="Nicer title") == "updated"
     # an ignored repair that is new starts out Blocked
     assert await s.async_sync_repair(hass2, domain="x", issue_id="y", active=True, ignored=True, title="t") == "created"
-    y = next(t for t in (await s.async_list_tickets(hass2, status="all"))["tickets"] if t["source_key"] == "repair:x:y")
+    y = next(x for x in (await s.async_list_tickets(hass2, status="all"))["tickets"] if x["source_key"] == "repair:x:y")
     assert "blocked" in y["labels"]
+    # with "close straight away", a repair that clears is closed as well as resolved
+    await s.async_save_settings(hass2, {"auto_close": "immediately"})
+    assert await s.async_sync_repair(hass2, domain="x", issue_id="y", active=False) == "resolved"
+    assert (await s.async_get_ticket(hass2, y["id"]))["status"] == "closed"
     print("repair sync ok")
 
     # ---- the glue that watches HA's issue registry
@@ -340,8 +452,8 @@ async def main():
     }
     # an old repair ticket whose repair vanished while HA was off must be resolved on start
     await s.async_sync_repair(hass3, domain="mqtt", issue_id="stale", active=True, title="stale repair")
-    stop = await repairs.async_setup_repairs(hass3, {"repairs_to_tickets": True, "repairs_ignored_domains": ["hacs"]})
-    tix = {t["source_key"]: t for t in (await s.async_list_tickets(hass3, status="all"))["tickets"]}
+    stop = await repairs.async_setup_repairs(hass3, {"repairs_ignored_domains": ["hacs"]})
+    tix = {x["source_key"]: x for x in (await s.async_list_tickets(hass3, status="all"))["tickets"]}
     assert set(tix) == {"repair:hue:old_fw", "repair:mqtt:stale"}, set(tix)  # hacs skipped, inactive zha ignored
     hue = await s.async_get_ticket(hass3, tix["repair:hue:old_fw"]["id"])
     assert hue["title"] == "Bridge Lounge needs an update" and hue["priority"] == "high", hue["title"]
@@ -361,21 +473,33 @@ async def main():
     FakeRegistry.issues = {("ring", "login"): FakeIssue("ring", "login", translation_key="login_needed")}
     listener(type("Ev", (), {"data": {"domain": "ring", "issue_id": "login"}}))
     await asyncio.gather(*hass3.tasks)
-    ring = next(t for t in (await s.async_list_tickets(hass3, status="all"))["tickets"] if t["source_key"] == "repair:ring:login")
+    ring = next(x for x in (await s.async_list_tickets(hass3, status="all"))["tickets"] if x["source_key"] == "repair:ring:login")
     assert ring["title"] == "ring: login_needed (login)", ring["title"]
     # ids that start with a config entry id are shortened, and similar repairs stay distinguishable
     FakeRegistry.issues = {("proxmoxve", "01KZ9TR683GRTTEATQYX7757JZ_Update pve2_forbiden"): FakeIssue(
         "proxmoxve", "01KZ9TR683GRTTEATQYX7757JZ_Update pve2_forbiden", translation_key="resource_exception_forbiden")}
     listener(type("Ev", (), {"data": {"domain": "proxmoxve", "issue_id": "01KZ9TR683GRTTEATQYX7757JZ_Update pve2_forbiden"}}))
     await asyncio.gather(*hass3.tasks)
-    px = next(t for t in (await s.async_list_tickets(hass3, status="all"))["tickets"] if t["source_key"].startswith("repair:proxmoxve"))
+    px = next(x for x in (await s.async_list_tickets(hass3, status="all"))["tickets"] if x["source_key"].startswith("repair:proxmoxve"))
     assert px["title"] == "proxmoxve: resource_exception_forbiden (Update pve2_forbiden)", px["title"]
     stop()
-    assert not hass3.bus.listeners["repairs_issue_registry_updated"]
-    # switched off: nothing is watched
+    assert not hass3.bus.listeners["repairs_issue_registry_updated"] and "home_desk_repairs_catch_up" not in hass3.data
+
+    # the "Tickets from Repairs" setting: off means nothing is turned into tickets, and turning it on catches up
     hass4 = FakeHass()
-    off = await repairs.async_setup_repairs(hass4, {"repairs_to_tickets": False})
-    assert not hass4.bus.listeners; off()
+    FakeStore.saved = {}
+    FakeRegistry.issues = {("hue", "x"): FakeIssue("hue", "x", translation_key="x")}
+    await s.async_save_settings(hass4, {"repairs": False})
+    off = await repairs.async_setup_repairs(hass4, {})
+    assert (await s.async_list_tickets(hass4, status="all"))["total"] == 0, "off: no ticket"
+    (listener4,) = hass4.bus.listeners["repairs_issue_registry_updated"]
+    listener4(type("Ev", (), {"data": {"domain": "hue", "issue_id": "x"}}))
+    await asyncio.gather(*hass4.tasks)
+    assert (await s.async_list_tickets(hass4, status="all"))["total"] == 0, "off: events are ignored too"
+    await s.async_save_settings(hass4, {"repairs": True})
+    await hass4.data["home_desk_repairs_catch_up"]()  # what turning the switch on does
+    assert (await s.async_list_tickets(hass4, status="all"))["total"] == 1, "on: the existing repair is picked up"
+    off()
     print("repairs glue ok")
 
 

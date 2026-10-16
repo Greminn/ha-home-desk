@@ -37,5 +37,16 @@ try:
 except RuntimeError as e:
     assert "not found" in str(e)
 m.get_changelog(since="0.1.0"); assert calls[-1][0].endswith("/get_changelog?return_response") and calls[-1][2] == {"since": "0.1.0"}
-print("tools:", sorted(t.name for t in m.mcp._tool_manager.list_tools()))
+# categories: the tools reach the right services with the right fields, and tickets can carry one
+m.list_categories(); assert calls[-1][0].endswith("/list_categories?return_response") and calls[-1][2] == {}
+m.create_category("Network", icon="mdi:lan"); assert calls[-1][2] == {"name": "Network", "icon": "mdi:lan", "actor": "claude"}
+m.update_category("Network", name="Networking"); assert calls[-1][2] == {"category": "Network", "name": "Networking", "actor": "claude"}
+m.delete_category("Networking"); assert calls[-1][0].endswith("/delete_category?return_response") and calls[-1][2] == {"category": "Networking", "actor": "claude"}
+m.create_ticket("Wi-Fi drops", category="Network"); assert calls[-1][2]["category"] == "Network"
+m.update_ticket(3, category="Network"); assert calls[-1][2] == {"ticket_id": 3, "category": "Network", "actor": "claude"}
+m.list_tickets(category="none"); assert calls[-1][2]["category"] == "none"
+assert "category" in m.update_ticket(3, category="x"), "write responses keep the category"
+names = sorted(t.name for t in m.mcp._tool_manager.list_tools())
+assert {"list_categories", "create_category", "update_category", "delete_category"} <= set(names), names
+print("tools:", names)
 print("MCP OK")

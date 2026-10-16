@@ -46,11 +46,13 @@ jobs:
         run: |
           python tools/gen_services.py
           git diff --exit-code -- custom_components/home_desk/services.yaml custom_components/home_desk/strings.json custom_components/home_desk/translations/en.json
-      # tests/test_storage.py still expects the retired Home Assistant label, so it fails until it is updated for
-      # categories, the four statuses and the AI Agent rules. It is run so the result is visible, but doesn't block yet.
-      - name: Storage tests (not blocking until updated)
-        continue-on-error: true
+      - run: pip install voluptuous "mcp<2"
+      - name: Storage tests (tickets, labels, categories, statuses, the AI agent, settings, repairs)
         run: python -I tests/test_storage.py
+      - name: API tests (who may do what over the websocket and the services)
+        run: python tests/test_api.py
+      - name: MCP bridge tests
+        run: python tests/test_mcp.py
 
   hassfest:
     name: Home Assistant hassfest
