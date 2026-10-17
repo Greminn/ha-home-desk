@@ -13,6 +13,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import AGENT_CONTEXT_CHARS
 from .redact import redact
+from .suggest import area_entities, async_guess, device_entities, name_of
 from .storage import async_get_ticket, async_list_categories, async_list_labels, async_list_tickets
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ _LOGGER = logging.getLogger(__name__)
 THREAD_CHARS = 9000
 MESSAGE_CHARS = 1500
 CONFIG_CHARS = 3500
-MAX_ENTITIES = 8
+MAX_ENTITIES = 12
 MAX_RELATED = 5
 HISTORY_HOURS = 24
 HISTORY_ROWS = 10
@@ -153,12 +154,16 @@ async def _configs(hass: HomeAssistant, entity_ids: list[str]) -> str:
 
 
 async def _related(hass: HomeAssistant, ticket: dict[str, Any]) -> str:
-    mine = set(ticket["entities"])
+    mine = set(ticket["entities"]) | {f"device:{i}" for i in ticket.get("devices", [])} | {f"area:{i}" for i in ticket.get("areas", [])}
     links = set(ticket.get("links", []))
+
+    def things(t: dict[str, Any]) -> set[str]:
+        return set(t["entities"]) | {f"device:{i}" for i in t.get("devices", [])} | {f"area:{i}" for i in t.get("areas", [])}
+
     rows = (await async_list_tickets(hass, status="all", include_history=False, limit=500))["tickets"]
     close = [
         t for t in rows
-        if t["id"] != ticket["id"] and not t.get("merged_into") and (t["id"] in links or mine & set(t["entities"]))
+        if t["id"] != ticket["id"] and not t.get("merged_into") and (t["id"] in links or mine & things(t))
     ][:MAX_RELATED]
     lines = []
     for t in close:
@@ -168,6 +173,42 @@ async def _related(hass: HomeAssistant, ticket: dict[str, Any]) -> str:
             line += f": {_clip(full['resolution'], 300)}"
         lines.append(line)
     return "\n".join(lines)
+
+
+def _about(hass: HomeAssistant, ticket: dict[str, Any]) -> tuple[str, list[str], str, list[str]]:
+    """What the ticket is about: a description of its devices and areas, the entities that covers (the ticket's own first, then
+    each device's and area's), and, if it names nothing, a guess from its words with those entities."""
+    notes: list[str] = []
+    entities = list(ticket["entities"])
+    try:
+        for device_id in ticket.get("devices", []):
+            name, area = name_of(hass, "device", device_id)
+            notes.append(f"- device: {name or 'not found (removed?)'}" + (f", in {area}" if area else ""))
+            entities += device_entities(hass, device_id)
+        for area_id in ticket.get("areas", []):
+            name, _ = name_of(hass, "area", area_id)
+            notes.append(f"- area: {name or 'not found (removed?)'}")
+            entities += area_entities(hass, area_id)
+    except Exception:  # noqa: BLE001 - without the registries the ticket's own entities still count
+        _LOGGER.debug("Could not read the device and area registries", exc_info=True)
+    confirmed = list(dict.fromkeys(entities))
+    guess_notes = ""
+    guessed: list[str] = []
+    if not (ticket["entities"] or ticket.get("devices") or ticket.get("areas")):
+        try:
+            found = async_guess(hass, ticket, limit=5)
+        except Exception:  # noqa: BLE001
+            found = []
+        lines = []
+        for c in found:
+            lines.append(f"- {c['kind']}: {c['name']}" + (f", in {c['area']}" if c.get("area") else "") + (f" ({c['id']})" if c["kind"] == "entity" else ""))
+            if c["kind"] == "entity":
+                guessed.append(c["id"])
+            elif c["kind"] == "device":
+                guessed += device_entities(hass, c["id"], 3)
+        guess_notes = "\n".join(lines)
+        guessed = list(dict.fromkeys(guessed))
+    return "\n".join(notes), confirmed, guess_notes, guessed
 
 
 async def async_build_prompt(hass: HomeAssistant, ticket_id: int, settings: dict[str, Any], agent: str) -> str:
@@ -186,10 +227,20 @@ async def async_build_prompt(hass: HomeAssistant, ticket_id: int, settings: dict
         f"{_clip(ticket['description'] or '(no description)', 4000)}",
         "## Comments, oldest first\n" + _thread(ticket),
     ]
-    if ticket["entities"] and settings.get("agent_states", True):
-        sections.append("## Entities this ticket is about\n" + await _entities(hass, ticket["entities"]))
-    if ticket["entities"] and settings.get("agent_config", True):
-        configs = await _configs(hass, ticket["entities"])
+    notes, confirmed, guess_notes, guessed = _about(hass, ticket)
+    if notes:
+        sections.append("## What this ticket is about\n" + notes)
+    if confirmed and settings.get("agent_states", True):
+        sections.append("## Entities this ticket is about\n" + await _entities(hass, confirmed))
+    if guessed and settings.get("agent_states", True):
+        sections.append(
+            "## Possibly related (guessed from the words in the ticket: these are NOT confirmed, say so if you rely on them)\n"
+            + guess_notes + "\n\n" + await _entities(hass, guessed)
+        )
+    elif guess_notes and settings.get("agent_states", True):
+        sections.append("## Possibly related (guessed from the words in the ticket, not confirmed)\n" + guess_notes)
+    if (confirmed or guessed) and settings.get("agent_config", True):
+        configs = await _configs(hass, confirmed + [g for g in guessed if g not in confirmed])
         if configs:
             sections.append("## Configuration of the automations and scripts it names\n" + configs)
     if settings.get("agent_related", True):

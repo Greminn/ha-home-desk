@@ -83,6 +83,8 @@ export interface TicketSummary {
   category: string | null;
   labels: string[];
   entities: string[];
+  devices?: string[];
+  areas?: string[];
   links: number[];
   legacy_ref: string | null;
   source: string | null;
@@ -103,6 +105,19 @@ export interface TicketSummary {
   unread?: boolean;
   /** What the newest change by someone else was (only with `unread`). */
   activity?: { actor: string; kind: TicketEvent["kind"]; at: string };
+}
+
+/** A device, entity or area a ticket might be about, from Home Desk's guess or the AI agent's choice. */
+export interface Suggestion {
+  kind: "entity" | "device" | "area";
+  id: string;
+  name: string;
+  area: string;
+  score: number;
+  /** An entity's current state. */
+  state?: string;
+  /** Chosen by the AI agent rather than guessed from the words. */
+  ai?: boolean;
 }
 
 export interface TicketEvent {
@@ -156,6 +171,9 @@ export interface TicketPatch {
   assignee?: string | null;
   category?: string | null;
   labels?: string[];
+  entities?: string[];
+  devices?: string[];
+  areas?: string[];
   resolution?: string | null;
 }
 

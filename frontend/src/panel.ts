@@ -6,7 +6,7 @@ import { panelStyles } from "./panel-styles";
 import { HaClient } from "./ha-client";
 import type { NewTicket } from "./ha-client";
 import type { Category, HomeAssistant, HomeDeskSettings, Label, Ticket, TicketPatch, TicketSummary } from "./types";
-import { STATUS_LABEL, actorName } from "./format";
+import { STATUS_LABEL, actorName, isAgent } from "./format";
 import type { Person } from "./format";
 import { VIEWS, filterCount, filterTickets, type ListFilters } from "./list-model";
 import "./views/ticket-list";
@@ -70,6 +70,8 @@ export class HomeDeskPanel extends LitElement {
   @state() private _merging: { rect: DOMRect; ids?: number[] } | null = null;
   @state() private _mergeConfirm: { from: TicketSummary[]; into: TicketSummary } | null = null;
   /** Tickets ticked in the list (admins), and whether checkboxes show on every row. */
+  /** Something that uses the AI plan, waiting for "yes" before it runs: asking now, or an assignment that starts the agent. */
+  @state() private _confirmCost: { text: string; run: () => Promise<void> } | null = null;
   @state() private _checked = new Set<number>();
   @state() private _ticking = false;
   private _lastChecked: number | null = null;
@@ -263,6 +265,51 @@ export class HomeDeskPanel extends LitElement {
       this._navigate(this._prefix);
       this._error = this._message(err);
     }
+  }
+
+  /** Whether the built-in AI agent can be asked to work (an AI Task agent is chosen in Settings), and its short name. */
+  private get _canAsk(): boolean {
+    return !!this._settings?.agent?.startsWith("ai_task.");
+  }
+
+  private get _askName(): string {
+    return this._agentName.replace(/^ai:/, "") || "Claude";
+  }
+
+  /** Ask before anything that costs: the person sees what will happen, and "Cancel" does nothing. */
+  private _askCost(text: string, run: () => Promise<void>) {
+    this._confirmCost = { text, run };
+  }
+
+  private _askNow(detail: { body: string; done: () => void }) {
+    const ticket = this._selected;
+    if (!ticket || !this._client) return;
+    const name = this._askName;
+    this._askCost(
+      `Ask ${name} to read ticket #${ticket.id} and reply now? The ticket${detail.body ? ", with your comment," : ""} is sent to ${name} through Home Assistant, which uses your AI plan and may cost money. You can stop it from the ticket while it works.`,
+      async () => {
+        const client = this._client!;
+        if (detail.body) await client.comment(ticket.id, detail.body, false);
+        detail.done();
+        await this._act((c) => c.runAgent(ticket.id));
+      },
+    );
+  }
+
+  /** A patch that hands the ticket to the AI agent while "start work when assigned" is on starts it, so ask first. */
+  private _patchTicket(patch: TicketPatch) {
+    const ticket = this._selected;
+    if (!ticket) return;
+    const toAgent = typeof patch.assignee === "string" && isAgent(patch.assignee);
+    if (toAgent && this._canAsk && this._settings?.agent_auto && !isAgent(ticket.assignee ?? "")) {
+      const name = this._askName;
+      this._askCost(
+        `Assigning ticket #${ticket.id} to ${name} starts it straight away: the ticket is sent to ${name} through Home Assistant, which uses your AI plan and may cost money. Assign it now?`,
+        () => this._act((c) => c.update(ticket.id, patch)),
+      );
+      return;
+    }
+    void this._act((c) => c.update(ticket.id, patch));
   }
 
   /** Mark tickets (or all, with no ids) as read: the list updates at once, the server in the background. */
@@ -658,7 +705,13 @@ export class HomeDeskPanel extends LitElement {
           @pick-merge=${(e: CustomEvent<{ rect: DOMRect }>) => (this._merging = e.detail)}
           @back=${() => this._close()}
           @open-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
-          @patch-ticket=${(e: CustomEvent<TicketPatch>) => this._selected && void this._act((c) => c.update(this._selected!.id, e.detail))}
+          .hass=${this.hass}
+          .canAsk=${this._canAsk}
+          .askName=${this._askName}
+          .autoRuns=${this._canAsk && !!this._settings?.agent_auto}
+          @confirm-cost=${(e: CustomEvent<{ text: string; run: () => Promise<void> }>) => this._askCost(e.detail.text, e.detail.run)}
+          @ask-ai=${(e: CustomEvent<{ body: string; done: () => void }>) => this._askNow(e.detail)}
+          @patch-ticket=${(e: CustomEvent<TicketPatch>) => this._patchTicket(e.detail)}
           @comment=${(e: CustomEvent<{ body: string; internal: boolean }>) => this._selected && void this._act((c) => c.comment(this._selected!.id, e.detail.body, e.detail.internal))}
           @close-ticket=${(e: CustomEvent<{ resolution: string; status: "resolved" | "closed" }>) => this._selected && void this._act((c) => c.close(this._selected!.id, e.detail.resolution, e.detail.status))}
         ></st-ticket-detail>`}
@@ -691,6 +744,15 @@ export class HomeDeskPanel extends LitElement {
             @cancel=${() => (this._mergeConfirm = null)}
             @confirm=${() => void this._doMerge()}></st-confirm-dialog>`
         : nothing}
+      ${this._confirmCost
+        ? html`<st-confirm-dialog heading="Use your AI plan?" confirmLabel="Yes, go ahead" body=${this._confirmCost.text}
+            @cancel=${() => (this._confirmCost = null)}
+            @confirm=${() => {
+              const run = this._confirmCost!.run;
+              this._confirmCost = null;
+              void run();
+            }}></st-confirm-dialog>`
+        : nothing}
       ${this._removing
         ? html`<st-confirm-dialog heading="Remove Label?" confirmLabel="Remove" danger
             body="Are you sure you want to remove label ${this._removing.label.name} from this ticket?"
@@ -698,7 +760,7 @@ export class HomeDeskPanel extends LitElement {
             @confirm=${() => void this._removeLabel()}></st-confirm-dialog>`
         : nothing}
       ${this._creating
-        ? html`<st-new-ticket-dialog .isAdmin=${this._admin} .categories=${this._categoryList}
+        ? html`<st-new-ticket-dialog .isAdmin=${this._admin} .hass=${this.hass} .categories=${this._categoryList}
             @close=${() => (this._creating = false)}
             @create=${(e: CustomEvent<NewTicket>) => void this._create(e.detail)}></st-new-ticket-dialog>`
         : nothing}

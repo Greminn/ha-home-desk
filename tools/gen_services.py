@@ -82,7 +82,9 @@ SERVICES = {
         "assignee": ("Assignee", "Who is working on it. Leave empty for unassigned. Assigning a ticket to an AI agent (name starting `ai:`) hands it to that agent; a `home_desk_event` of kind `assigned` is fired.", TEXT, False, None),
         "labels": ("Labels", "Label names or ids, e.g. Bug, Enhancement, Task, Question. Names that don't exist yet are created.", MULTI, False, None),
         "category": ("Category", "What part of the home this is about (see list_categories), e.g. Network. It must already exist: create_category first if it is new. Leave empty if unsure.", TEXT, False, None),
-        "entities": ("Entities", "Home Assistant entity ids this ticket concerns.", MULTI, False, None),
+        "entities": ("Entities", "Home Assistant entity ids this ticket concerns. People can click through to them.", MULTI, False, None),
+        "devices": ("Devices", "Home Assistant device ids (from the device registry) this ticket concerns; the AI agent looks at all of a device's entities.", MULTI, False, None),
+        "areas": ("Areas", "Home Assistant area ids this ticket concerns, when it is about a place rather than one thing.", MULTI, False, None),
         "actor": ACTOR}),
     "update_ticket": ("Update ticket", "Change a ticket's fields. Pass only what should change; every change is logged on the timeline. To close a ticket use close_ticket so a resolution is recorded.", {
         "ticket_id": TID,
@@ -96,6 +98,8 @@ SERVICES = {
         "add_labels": ("Add labels", "Label names or ids to add. Unknown names are created.", MULTI, False, None),
         "remove_labels": ("Remove labels", "Label names or ids to remove.", MULTI, False, None),
         "entities": ("Entities", "Replace the linked entity ids.", MULTI, False, None),
+        "devices": ("Devices", "Replace the linked device ids.", MULTI, False, None),
+        "areas": ("Areas", "Replace the linked area ids.", MULTI, False, None),
         "resolution": ("Resolution", "Resolution notes.", LONG, False, None),
         "actor": ACTOR}),
     "add_comment": ("Add comment", "Add a comment to a ticket's timeline. Use it to record findings: what you checked, what you found, with times and values.", {

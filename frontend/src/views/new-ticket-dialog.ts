@@ -1,9 +1,10 @@
 import { LitElement, html, css } from "lit";
 import { property, state } from "lit/decorators.js";
 import { safeCustomElement } from "../define";
+import "./ticket-things";
 import { sharedStyles } from "../styles";
 import { PRIORITIES } from "../types";
-import type { Category, Priority } from "../types";
+import type { Category, HomeAssistant, Priority } from "../types";
 import { PRIORITY_LABEL } from "../format";
 
 /** What kind of ticket this is: a built-in label. A household user can pick the first three. */
@@ -76,7 +77,11 @@ export class NewTicketDialog extends LitElement {
 
   @property({ type: Boolean }) isAdmin = false;
   @property({ attribute: false }) categories: Category[] = [];
+  @property({ attribute: false }) hass!: HomeAssistant;
   @state() private _category = "";
+  @state() private _entities: string[] = [];
+  @state() private _devices: string[] = [];
+  @state() private _areas: string[] = [];
   @state() private _title = "";
   @state() private _description = "";
   @state() private _kind = "bug";
@@ -94,6 +99,9 @@ export class NewTicketDialog extends LitElement {
       labels: [this._kind],
       priority: this._priority,
       ...(this.isAdmin && this._category ? { category: this._category } : {}),
+      ...(this.isAdmin && this._entities.length ? { entities: this._entities } : {}),
+      ...(this.isAdmin && this._devices.length ? { devices: this._devices } : {}),
+      ...(this.isAdmin && this._areas.length ? { areas: this._areas } : {}),
     });
   }
 
@@ -140,6 +148,17 @@ export class NewTicketDialog extends LitElement {
                   <option value="" ?selected=${!this._category}>No Category</option>
                   ${this.categories.map((c) => html`<option value=${c.id} ?selected=${c.id === this._category}>${c.name}</option>`)}
                 </select>
+              </div>`
+            : ""}
+          ${this.isAdmin
+            ? html`<div class="field">
+                <label>What is it about?</label>
+                <st-ticket-things .hass=${this.hass} editable .entities=${this._entities} .devices=${this._devices} .areas=${this._areas}
+                  @change=${(e: CustomEvent<{ entities: string[]; devices: string[]; areas: string[] }>) => {
+                    this._entities = e.detail.entities;
+                    this._devices = e.detail.devices;
+                    this._areas = e.detail.areas;
+                  }}></st-ticket-things>
               </div>`
             : ""}
           <div class="actions">

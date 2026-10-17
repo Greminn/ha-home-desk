@@ -5,10 +5,11 @@ import { safeCustomElement } from "../define";
 import "./dropdown";
 import "./ticket-tags";
 import "./ticket-attachments";
+import "./ticket-things";
 import type { HaClient } from "../ha-client";
 import { sharedStyles } from "../styles";
 import { BLOCKED, PRIORITIES } from "../types";
-import type { Category, Priority, Status, Label, Ticket, TicketEvent, TicketPatch } from "../types";
+import type { Category, HomeAssistant, Priority, Status, Label, Ticket, TicketEvent, TicketPatch } from "../types";
 import {
   PRIORITY_LABEL,
   STATE_COLOR,
@@ -397,6 +398,9 @@ export class TicketDetail extends LitElement {
         margin: 4px 0 0 -12px;
         height: 32px;
       }
+      .about {
+        margin-top: 12px;
+      }
       .entities {
         display: flex;
         flex-wrap: wrap;
@@ -669,6 +673,16 @@ export class TicketDetail extends LitElement {
         color: var(--st-fg);
         border-color: var(--st-field-outline-hover);
       }
+      /* "Ask now" runs the AI straight away, which costs; "Assign to" only hands the ticket over for later. */
+      .ask-chip {
+        color: var(--st-accent);
+        border-color: color-mix(in srgb, var(--st-accent) 50%, transparent);
+      }
+      .ask-chip:hover {
+        color: var(--st-accent);
+        background: color-mix(in srgb, var(--st-accent) 10%, transparent);
+        border-color: var(--st-accent);
+      }
       /* Has it now: filled quietly. Picked to take it: accent. Picked to unassign: dashed. */
       .assign-chip.current {
         color: var(--st-fg);
@@ -759,6 +773,12 @@ export class TicketDetail extends LitElement {
   @property() language: string | undefined = undefined;
   /** The AI agent a ticket can be assigned to. */
   @property() agentName = "claude";
+  /** The built-in AI agent can be asked to work on a ticket now (an AI Task agent is chosen in Settings), and its name. */
+  @property({ attribute: false }) hass!: HomeAssistant;
+  @property({ type: Boolean }) canAsk = false;
+  @property() askName = "AI Agent";
+  /** Assigning to the AI Agent starts it straight away (a Settings choice), so the panel will ask first. */
+  @property({ type: Boolean }) autoRuns = false;
   @property({ attribute: false }) labelMap: Map<string, Label> = new Map();
   @property({ attribute: false }) people: Map<string, Person> = new Map();
   @property({ attribute: false }) categoryMap: Map<string, Category> = new Map();
@@ -956,12 +976,24 @@ export class TicketDetail extends LitElement {
     return !!this._comment.trim() || this._agentApplies(t) || !!this._priorityTo;
   }
 
+  /** "Ask now": the built-in AI agent reads the ticket and replies at once. The panel confirms first, because it costs. */
+  private _askChip(t: Ticket) {
+    if (!this.canAsk || t.agent_state) return nothing;
+    const tip = `Ask ${this.askName} to read this ticket and reply now. This uses your AI plan.`;
+    return html`<button class="assign-chip ask-chip" aria-label="Ask ${this.askName} now" title=${tip}
+      @click=${() => this._fire("ask-ai", { body: this._comment.trim(), done: () => { this._comment = ""; this._agentToggle = null; } })}>
+      <ha-icon icon="mdi:star-four-points"></ha-icon><span><span class="verb">Ask </span>${this.askName}<span class="verb"> now</span></span></button>`;
+  }
+
   private _agentChip(t: Ticket) {
     const on = this._agentOn(t);
     const now = this._withAgent(t);
     const title = now
       ? on ? "With the AI Agent. Click to take it back." : "Will be taken back from the AI Agent. Click to keep it with them."
-      : on ? "Will be assigned to the AI Agent. Click to switch off." : "Assign to the AI Agent";
+      : on ? "Will be assigned to the AI Agent. Click to switch off."
+        : this.autoRuns ? "Assign to the AI Agent. It starts work straight away (this uses your AI plan)."
+        : this.canAsk ? "Assign to the AI Agent for later. It is only handed over: nothing runs until it is asked."
+        : "Assign to the AI Agent";
     return html`<button class="assign-chip ${now && on ? "current" : ""} ${on && !now ? "picked" : ""} ${now && !on ? "dropping" : ""}"
       aria-pressed=${on ? "true" : "false"} aria-label="Assign to AI Agent" title=${title}
       @click=${() => (this._agentToggle = !on)}><ha-icon icon="mdi:creation"></ha-icon><span><span class="verb">Assign to </span>AI Agent</span></button>`;
@@ -1234,7 +1266,9 @@ export class TicketDetail extends LitElement {
                   ? html`<st-ticket-attachments class="attached" .client=${this.client} .ticketId=${t.id} .items=${t.attachments}></st-ticket-attachments>`
                   : nothing}
                 ${long ? html`<button class="more" @click=${() => (this._expanded = !this._expanded)}>${this._expanded ? "Show Less" : "Show All"}</button>` : nothing}
-                ${t.entities.length ? html`<div class="entities">${t.entities.map((x) => html`<code>${x}</code>`)}</div>` : nothing}
+                <st-ticket-things class="about" .hass=${this.hass} .client=${this.client} .ticketId=${t.id} .editable=${this.isAdmin}
+                  .entities=${t.entities} .devices=${t.devices ?? []} .areas=${t.areas ?? []} .canAsk=${this.canAsk} .askName=${this.askName}
+                  @change=${(e: CustomEvent<{ entities: string[]; devices: string[]; areas: string[] }>) => this._patch(e.detail)}></st-ticket-things>
               </div>
               <ha-icon class="pin-hint" icon="mdi:chevron-up"></ha-icon>
             </div>`
@@ -1266,7 +1300,7 @@ export class TicketDetail extends LitElement {
           <div class="bar">
             <div class="opts">
               ${this.isAdmin
-                ? html`${this._agentChip(t)}
+                ? html`${this._agentChip(t)}${this._askChip(t)}
                     ${this._priorityPills(t)}`
                 : nothing}
             </div>

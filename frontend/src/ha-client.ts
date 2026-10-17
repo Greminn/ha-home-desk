@@ -1,4 +1,5 @@
 import type {
+  Suggestion,
   HomeAssistant,
   Category,
   HomeDeskSettings,
@@ -18,6 +19,10 @@ export interface NewTicket {
   priority: Priority;
   /** A category id (admins only; household users' tickets start uncategorised). */
   category?: string;
+  /** What it is about (admins): entity ids, device ids and area ids. */
+  entities?: string[];
+  devices?: string[];
+  areas?: string[];
 }
 
 /** Thin wrapper over the home_desk/* WebSocket commands. */
@@ -114,6 +119,16 @@ export class HaClient {
 
   update(ticketId: number, patch: TicketPatch): Promise<Ticket> {
     return this.send("update", { ticket_id: ticketId, ...patch });
+  }
+
+  /** Hand a ticket to the built-in AI agent and have it work on it now. This uses the AI plan. */
+  runAgent(ticketId: number): Promise<Ticket> {
+    return this.send("agent_run", { ticket_id: ticketId });
+  }
+
+  /** Devices, entities and areas a ticket is probably about: guessed from its words, or chosen by the AI agent (a cost). */
+  async suggest(ticketId: number, ai = false): Promise<Suggestion[]> {
+    return (await this.send<{ suggestions: Suggestion[] }>("suggest", { ticket_id: ticketId, ...(ai ? { ai: true } : {}) })).suggestions;
   }
 
   /** Stop the AI agent working on a ticket; the ticket comes back to you. */

@@ -115,12 +115,18 @@ async def _turn(hass: HomeAssistant, ticket_id: int, entity_id: str, name: str, 
         _runs(hass).pop(ticket_id, None)
 
 
-async def async_start_turn(hass: HomeAssistant, ticket_id: int, assignee: str) -> bool:
-    """Start the agent on a ticket just assigned to it, if the built-in agent is set up for that. True if a turn started."""
+async def async_start_turn(hass: HomeAssistant, ticket_id: int, assignee: str, *, force: bool = False) -> bool:
+    """Start the agent on a ticket. Without `force` that only happens when the agent chosen in Settings is set to start work when
+    assigned (otherwise assigning just hands the ticket over, for an agent outside Home Assistant to pick up). `force` is for a
+    person who asked for it. True if a turn started."""
     settings = await async_get_settings(hass)
     entity_id = settings.get("agent") or ""
-    if not entity_id.startswith("ai_task.") or not settings.get("agent_auto", True):
+    if not entity_id.startswith("ai_task."):
+        if force:
+            raise TicketError("Choose an AI Task agent in Settings first")
         return False  # only an AI Task entity can be asked for a turn; a conversation agent can't
+    if not force and not settings.get("agent_auto", False):
+        return False
     name = agent_name(hass, entity_id)
     if _agent_key(assignee) != name.lower():
         return False  # assigned to some other agent, such as one run outside Home Assistant
@@ -131,6 +137,18 @@ async def async_start_turn(hass: HomeAssistant, ticket_id: int, assignee: str) -
         return False
     _runs(hass)[ticket_id] = hass.async_create_task(_turn(hass, ticket_id, entity_id, name, settings))
     return True
+
+
+async def async_run_now(hass: HomeAssistant, ticket_id: int, actor: str) -> dict[str, Any]:
+    """"Ask now": hand the ticket to the built-in agent and have it take a turn straight away (this uses the AI plan)."""
+    settings = await async_get_settings(hass)
+    entity_id = settings.get("agent") or ""
+    if not entity_id.startswith("ai_task."):
+        raise TicketError("Choose an AI Task agent in Settings first")
+    assignee = f"ai:{agent_name(hass, entity_id)}"
+    ticket = await async_update_ticket(hass, ticket_id, actor=actor, assignee=assignee)
+    await async_start_turn(hass, ticket_id, assignee, force=True)
+    return ticket
 
 
 async def async_stop_turn(hass: HomeAssistant, ticket_id: int, actor: str) -> None:

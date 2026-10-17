@@ -109,15 +109,19 @@ def create_ticket(
     labels: list[str] | None = None,
     category: str | None = None,
     entities: list[str] | None = None,
+    devices: list[str] | None = None,
+    areas: list[str] | None = None,
     assignee: str | None = None,
 ) -> dict[str, Any]:
     """Create a ticket. Search first (list_tickets with a query) so you don't file a duplicate.
-    Description is markdown; list affected HA entity ids in `entities`. Label it Bug (something is
+    Description is markdown; list what it is about in `entities` (HA entity ids), `devices` (device ids)
+    and `areas` (area ids), so people can click through and the AI agent knows where to look. Label it Bug (something is
     broken), Enhancement (an idea or request), Task or Question; see list_labels. Give it a `category`
     (what part of the home it is about; see list_categories) when you are sure; it must already exist."""
     return _brief(_call("create_ticket", {
         "title": title, "description": description, "priority": priority,
-        "labels": labels, "category": category, "entities": entities, "assignee": assignee, "actor": ACTOR,
+        "labels": labels, "category": category, "entities": entities, "devices": devices, "areas": areas,
+        "assignee": assignee, "actor": ACTOR,
     }))
 
 
@@ -133,15 +137,17 @@ def update_ticket(
     remove_labels: list[str] | None = None,
     category: str | None = None,
     entities: list[str] | None = None,
+    devices: list[str] | None = None,
+    areas: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Change a ticket's fields. Only pass what should change; each change is logged on the timeline.
+    """Change a ticket's fields. `entities`, `devices` and `areas` replace what the ticket is about. Only pass what should change; each change is logged on the timeline.
     A ticket moves from new to in_progress by itself when you act on it, so you rarely set status.
     To close a ticket use close_ticket so the resolution is recorded. To mark a ticket as waiting on
     something, add the Blocked label."""
     return _brief(_call("update_ticket", {
         "ticket_id": ticket_id, "status": status, "priority": priority, "assignee": assignee, "title": title,
         "description": description, "add_labels": add_labels, "remove_labels": remove_labels,
-        "category": category, "entities": entities, "actor": ACTOR,
+        "category": category, "entities": entities, "devices": devices, "areas": areas, "actor": ACTOR,
     }))
 
 

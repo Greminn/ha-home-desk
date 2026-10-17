@@ -57,7 +57,7 @@ function seed() {
     const ticket = {
       id, title: t.title, description: t.description ?? "", status: t.status ?? "open", priority: t.priority ?? "normal",
       requester: t.requester ?? "Simon", assignee: t.assignee ?? null, labels: t.labels ?? ["home-assistant"],
-      entities: t.entities ?? [], links: [], legacy_ref: t.ref ?? null, source: t.source ?? null, source_key: t.key ?? null,
+      entities: t.entities ?? [], devices: t.devices ?? [], areas: t.areas ?? [], links: [], legacy_ref: t.ref ?? null, source: t.source ?? null, source_key: t.key ?? null,
       resolution: t.resolution ?? null, created_at: iso(created), updated_at: iso(t.updated ?? created),
       closed_at: ["resolved", "closed"].includes(t.status) ? iso(t.updated ?? created) : null,
       events: [{ id: 1, actor: t.requester ?? "Simon", kind: "created", body: null, data: null, created_at: iso(created) }],
@@ -122,7 +122,7 @@ function seed() {
     t.category = CATEGORY_OF.find(([w]) => t.title.includes(w))?.[1] ?? null;
     if (t.source === "Home Assistant Repairs" && !t.category) t.category = "home-assistant";
   }
-  const settings = { auto_close: "7d", agent: "ai_task.claude_ai_task", repairs: true, stt: "", transcribe: true, agent_auto: true, agent_states: true, agent_config: true, agent_related: true, agent_daily_cap: 30, notify: { targets: ["mobile_app_simons_iphone"], new_ticket: true, comment: true, resolved: false } };
+  const settings = { auto_close: "7d", agent: "ai_task.claude_ai_task", repairs: true, stt: "", transcribe: true, agent_auto: false, agent_states: true, agent_config: true, agent_related: true, agent_daily_cap: 30, notify: { targets: ["mobile_app_simons_iphone"], new_ticket: true, comment: true, resolved: false } };
   return { labels, tickets, categories, settings, nextId: n + 2, seen: { base: iso(30 * 60 * 1000), tickets: {} } };
 }
 
@@ -206,6 +206,29 @@ export function createMock() {
       t.events.push({ id: t.events.length + 1, actor: "Home Desk", kind: "comment", body: `Stopped by ${state.user.name}. The ticket is back with you.`, data: null, created_at: iso(0) });
       t.assignee = null; delete t.agent_state; t.updated_at = iso(0); fire(t, "agent", "Home Desk");
       return { stopped: t.id };
+    },
+    // Guesses from the words in a ticket, like the real thing; asking the AI picks the lock.
+    suggest: (m) => {
+      const t = get(m.ticket_id);
+      const taken = new Set([...(t.entities ?? []).map((e) => `entity:${e}`), ...(t.devices ?? []).map((e) => `device:${e}`), ...(t.areas ?? []).map((e) => `area:${e}`)]);
+      const words = new Set(`${t.title} ${t.description}`.toLowerCase().match(/[a-z]{3,}/g) ?? []);
+      const stop = new Set(["the", "doesn", "work", "didn", "turn", "when", "was", "has", "and"]);
+      const things = [
+        { kind: "entity", id: "light.front_deck", name: "Front deck lights", area: "Deck", state: "off" },
+        { kind: "entity", id: "binary_sensor.front_door", name: "Front door", area: "Hallway", state: "on" },
+        { kind: "entity", id: "lock.front_door", name: "Front door lock", area: "Hallway", state: "locked" },
+        { kind: "device", id: "dev_hall_sensor", name: "Hallway sensor", area: "Hallway" },
+        { kind: "area", id: "kitchen", name: "Kitchen", area: "" },
+      ];
+      if (m.ai) return { suggestions: things.filter((x) => x.id === "lock.front_door" && !taken.has(`${x.kind}:${x.id}`)).map((x) => ({ ...x, score: 0, ai: true })) };
+      const hit = (x) => `${x.name}`.toLowerCase().match(/[a-z]{3,}/g).filter((w) => words.has(w) && !stop.has(w) && w !== "light").length;
+      return { suggestions: things.filter((x) => !taken.has(`${x.kind}:${x.id}`) && hit(x) >= 2).map((x) => ({ ...x, score: 4 })) };
+    },
+    agent_run: (m) => {
+      const t = get(m.ticket_id);
+      apply(t, state.user.name, { assignee: "ai:Claude" });
+      if (t.status === "new") apply(t, "Home Desk", { status: "in_progress" });
+      startAgent(t); fire(t, "updated", state.user.name); return t;
     },
     agent_test: () => ({ reply: "Hello! I'm ready to help with your smart home tickets." }),
     list: (m) => {
@@ -291,7 +314,7 @@ export function createMock() {
       const labels = isAdmin() ? m.labels : (m.labels ?? []).filter((l) => ["bug", "enhancement", "question"].includes(l));
       const id = db.nextId++;
       const t = { id, title: m.title, description: m.description ?? "", status: "new", priority: isAdmin() ? m.priority ?? "normal" : "normal", requester: state.user.name, assignee: null,
-        category: null, labels: [...new Set((labels?.length ? labels : ["bug"]).map(ensureLabel))].sort(), entities: m.entities ?? [], links: [], legacy_ref: null, source: null, source_key: null, resolution: null,
+        category: null, labels: [...new Set((labels?.length ? labels : ["bug"]).map(ensureLabel))].sort(), entities: m.entities ?? [], devices: m.devices ?? [], areas: m.areas ?? [], links: [], legacy_ref: null, source: null, source_key: null, resolution: null,
         created_at: iso(0), updated_at: iso(0), closed_at: null, events: [{ id: 1, actor: state.user.name, kind: "created", body: null, data: null, created_at: iso(0) }] };
       db.tickets[id] = t; fire(t, "created", state.user.name); return t;
     },
@@ -404,8 +427,22 @@ export function createMock() {
       "conversation.home_assistant": { state: "unknown", attributes: { friendly_name: "Home Assistant" } },
       // Your real HA profile picture, copied into dev/local/ (git-ignored). Without the file the person icon shows.
       "stt.faster_whisper": { state: "unknown", attributes: { friendly_name: "Faster Whisper" } },
+      "light.front_deck": { state: "off", attributes: { friendly_name: "Front deck lights" } },
+      "binary_sensor.front_door": { state: "on", attributes: { friendly_name: "Front door" } },
+      "lock.front_door": { state: "locked", attributes: { friendly_name: "Front door lock" } },
+      "sensor.rack_temp": { state: "unavailable", attributes: { friendly_name: "Server rack temperature", unit_of_measurement: "°C" } },
       "person.simon": { state: "home", attributes: { friendly_name: "Simon", entity_picture: "/local/simon.jpg" } },
       "person.qionne": { state: "home", attributes: { friendly_name: "Qionne" } },
+    },
+    // Home Assistant's registries, as the panel reads them for names, areas and the picker.
+    areas: {
+      deck: { area_id: "deck", name: "Deck", icon: "mdi:balcony" },
+      hallway: { area_id: "hallway", name: "Hallway" },
+      kitchen: { area_id: "kitchen", name: "Kitchen" },
+    },
+    devices: {
+      dev_hall_sensor: { id: "dev_hall_sensor", name: "Hallway sensor", area_id: "hallway" },
+      dev_deck_lights: { id: "dev_deck_lights", name: "Front deck lights", area_id: "deck" },
     },
     language: "en",
     connection: {

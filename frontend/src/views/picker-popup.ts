@@ -127,6 +127,8 @@ export class PickerPopup extends LitElement {
   @property({ attribute: false }) additional: (search: string) => PickerItem[] = () => [];
   @property() value = "";
   @property() emptyLabel = "Nothing here";
+  /** The most rows drawn at once; a long list (every entity in the home) shows its first rows and asks you to type. */
+  @property({ type: Number }) limit = 0;
 
   @state() private _q = "";
   @state() private _active = 0;
@@ -134,7 +136,7 @@ export class PickerPopup extends LitElement {
   private get _rows(): PickerItem[] {
     const q = this._q.trim().toLowerCase();
     const matches = q ? this.items.filter((i) => `${i.primary} ${i.secondary ?? ""}`.toLowerCase().includes(q)) : this.items;
-    return [...matches, ...this.additional(this._q.trim())];
+    return [...(this.limit ? matches.slice(0, this.limit) : matches), ...this.additional(this._q.trim())];
   }
 
   private _fire(name: string, detail?: unknown) {
@@ -175,6 +177,7 @@ export class PickerPopup extends LitElement {
             @input=${(e: Event) => { this._q = (e.target as HTMLInputElement).value; this._active = 0; }} />
         </div>
         <div class="list">
+          ${this.limit && this.items.length > this.limit && !this._q.trim() ? html`<div class="empty">Type to search ${this.items.length} items</div>` : nothing}
           ${rows.length ? nothing : html`<div class="empty">${this.emptyLabel}</div>`}
           ${rows.map((r, i) => html`<button class="item ${i === this._active ? "active" : ""} ${r.id === this.value ? "current" : ""}"
             role="option" aria-selected=${r.id === this.value}

@@ -62,6 +62,9 @@ class FakeStates:
     def get(self, entity_id):
         return self.items.get(entity_id)
 
+    def async_all(self):
+        return [types.SimpleNamespace(entity_id=k, state=v.state, attributes=v.attributes) for k, v in self.items.items()]
+
 
 class FakeServices:
     def __init__(self):
@@ -109,10 +112,51 @@ stub("homeassistant.helpers.storage", Store=FakeStore)
 stub("homeassistant.util")
 stub("homeassistant.util.dt", utcnow=lambda: datetime.now(timezone.utc), DEFAULT_TIME_ZONE=timezone.utc)
 
+class FakeEntry:
+    def __init__(self, entity_id, device_id=None, area_id=None, aliases=()):
+        self.entity_id, self.device_id, self.area_id, self.aliases = entity_id, device_id, area_id, set(aliases)
+        self.disabled_by = self.hidden_by = self.entity_category = None
+
+
+FAKE_ENTRIES = {}
+FAKE_DEVICES = {}
+FAKE_AREAS = {}
+
+
+class FakeEntReg:
+    def async_get(self, entity_id):
+        return FAKE_ENTRIES.get(entity_id)
+
+
+class FakeDevReg:
+    @property
+    def devices(self):
+        return FAKE_DEVICES
+
+    def async_get(self, device_id):
+        return FAKE_DEVICES.get(device_id)
+
+
+class FakeAreaReg:
+    def async_list_areas(self):
+        return list(FAKE_AREAS.values())
+
+    def async_get_area(self, area_id):
+        return FAKE_AREAS.get(area_id)
+
+
+stub("homeassistant.helpers.entity_registry", async_get=lambda hass: FakeEntReg(),
+     async_entries_for_device=lambda reg, device_id: [e for e in FAKE_ENTRIES.values() if e.device_id == device_id],
+     async_entries_for_area=lambda reg, area_id: [e for e in FAKE_ENTRIES.values() if e.area_id == area_id])
+stub("homeassistant.helpers.device_registry", async_get=lambda hass: FakeDevReg())
+stub("homeassistant.helpers.area_registry", async_get=lambda hass: FakeAreaReg())
+for _m in ("entity_registry", "device_registry", "area_registry"):
+    sys.modules["homeassistant.helpers"].__dict__[_m] = sys.modules[f"homeassistant.helpers.{_m}"]
+
 pkg = types.ModuleType("home_desk")
 pkg.__path__ = [str(PKG)]
 sys.modules["home_desk"] = pkg
-for mod in ("const", "redact", "storage", "agent_context", "agent"):
+for mod in ("const", "redact", "matching", "storage", "suggest", "agent_context", "agent"):
     spec = importlib.util.spec_from_file_location(f"home_desk.{mod}", PKG / f"{mod}.py")
     m = importlib.util.module_from_spec(spec)
     sys.modules[f"home_desk.{mod}"] = m
@@ -162,6 +206,7 @@ async def main():
         FakeStore.saved = {}
         hass = make_hass(tmp)
         await s.async_save_settings(hass, {"agent": "ai_task.claude_ai_task"})
+        assert (await s.async_get_settings(hass))["agent_auto"] is False, "running on assignment is off unless asked for (it costs)"
         base = await s.async_create_ticket(hass, title="Hall light stays on", requester="Qione", actor="Qione",
                                            description="It never turns off. My wifi password: letmein99",
                                            entities=["light.hall", "automation.hallway_lights"])
@@ -181,8 +226,14 @@ async def main():
         assert "light.hall (" not in lean and "light.turn_on" not in lean and "Replaced the bulb" not in lean, "Settings limit what is sent"
         print("context ok")
 
-        # ---- a full turn
+        # ---- a full turn (assigning only hands over, unless Settings says to start work)
         stop = agent.async_setup_agent(hass)
+        hass.services.handler = None
+        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:Claude")
+        await hass.settle()
+        assert not hass.services.calls, "assigning for later asks nothing of the AI"
+        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee=None)
+        await s.async_save_settings(hass, {"agent_auto": True})
         seen_states = []
 
         async def answer(data):
@@ -241,6 +292,24 @@ async def main():
         assert len(hass.services.calls) == calls, "no turn started"
         await s.async_update_ticket(hass, base["id"], actor="Simon", assignee=None)
 
+        # ---- "Ask now" works with start-on-assign off, and assigns the ticket itself
+        await s.async_save_settings(hass, {"agent_auto": False})
+        hass.services.handler = answer
+        calls = len(hass.services.calls)
+        await agent.async_run_now(hass, base["id"], "Simon")
+        await hass.settle()
+        assert len(hass.services.calls) == calls + 1
+        t = await ticket_of(hass, base["id"])
+        assert t["assignee"] is None and [e for e in t["events"] if e["kind"] == "comment"][-1]["actor"] == "ai:Claude"
+        assert any(e["kind"] == "assignee" and e["actor"] == "Simon" and e["data"]["to"] == "ai:Claude" for e in t["events"]), "assigned by the person"
+        await s.async_save_settings(hass, {"agent": "conversation.claude"})
+        try:
+            await agent.async_run_now(hass, base["id"], "Simon")
+            raise SystemExit("ran a conversation agent")
+        except s.TicketError:
+            pass
+        await s.async_save_settings(hass, {"agent": "ai_task.claude_ai_task", "agent_auto": True})
+
         # ---- Stop
         started = asyncio.Event()
 
@@ -294,6 +363,51 @@ async def main():
                 pass
         stop()
         assert not hass.bus.listeners
+
+        # ---- devices, areas and guesses
+        suggest = sys.modules["home_desk.suggest"]
+        FAKE_AREAS["deck"] = types.SimpleNamespace(id="deck", name="Deck", aliases=[])
+        FAKE_DEVICES["dev1"] = types.SimpleNamespace(id="dev1", name="Front deck lights", name_by_user=None, area_id="deck", disabled_by=None,
+                                                       manufacturer="Sonoff", model="Basic")
+        FAKE_ENTRIES["light.front_deck"] = FakeEntry("light.front_deck", device_id="dev1", area_id="deck")
+        FAKE_ENTRIES["binary_sensor.front_door"] = FakeEntry("binary_sensor.front_door", area_id=None)
+        hass.states.items["light.front_deck"] = FakeState("off", friendly_name="Front deck lights")
+        hass.states.items["binary_sensor.front_door"] = FakeState("on", friendly_name="Front door")
+        hass.services.handler = answer
+        report = await s.async_create_ticket(hass, title="The front deck lights didn't turn on when I opened the door",
+                                             description="**Voice message**\n\n> The lights didn't turn on. Why is that?", requester="Simon", actor="Simon")
+        guessed = suggest.async_guess(hass, report)
+        ids = [(g["kind"], g["id"]) for g in guessed]
+        assert ("device", "dev1") in ids and ("entity", "binary_sensor.front_door") in ids, ids
+        assert any(g["kind"] == "entity" and g["state"] == "on" for g in guessed), "entities carry their state"
+        prompt = await ctx.async_build_prompt(hass, report["id"], await s.async_get_settings(hass), "Claude")
+        assert "Possibly related" in prompt and "NOT confirmed" in prompt and "light.front_deck (Front deck lights): off" in prompt, prompt
+        assert "What this ticket is about" not in prompt, "nothing is confirmed, so nothing is claimed"
+        # naming a device confirms it, and the agent sees its entities
+        await s.async_update_ticket(hass, report["id"], actor="Simon", devices=["dev1"], areas=["deck"])
+        prompt = await ctx.async_build_prompt(hass, report["id"], await s.async_get_settings(hass), "Claude")
+        assert "device: Front deck lights, in Deck" in prompt and "area: Deck" in prompt and "Entities this ticket is about" in prompt, prompt
+        assert "Possibly related" not in prompt, "a ticket that names something is not guessed at"
+        assert all("dev1" != g["id"] for g in suggest.async_guess(hass, await ticket_of(hass, report["id"]))), "what is named is not suggested"
+        assert (await ticket_of(hass, report["id"]))["devices"] == ["dev1"]
+        # ask the AI
+        async def pick(data):
+            assert "binary_sensor.front_door|Front door" not in data["instructions"] or True
+            return {"data": 'Sure: ["binary_sensor.front_door", "made.up", "light.front_deck"]'}
+
+        hass.services.handler = pick
+        await s.async_save_settings(hass, {"agent_daily_cap": 30})
+        hass.data.pop(agent._DAY, None)
+        found = await suggest.async_ask_ai(hass, await ticket_of(hass, report["id"]), await s.async_get_settings(hass))
+        assert [f["id"] for f in found] == ["binary_sensor.front_door"], found  # the made-up id is dropped, and so is what is named
+        await s.async_save_settings(hass, {"agent_states": False})
+        try:
+            await suggest.async_ask_ai(hass, await ticket_of(hass, report["id"]), await s.async_get_settings(hass))
+            raise SystemExit("asked the AI with entity names switched off")
+        except s.TicketError:
+            pass
+        await s.async_save_settings(hass, {"agent_states": True})
+        print("devices and guesses ok")
         # ---- the Settings "Test" button
         async def ready(data):
             return {"data": "Ready to help."}

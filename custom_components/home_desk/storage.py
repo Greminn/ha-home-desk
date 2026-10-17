@@ -56,8 +56,12 @@ _EDITABLE = (
     "labels",
     "category",
     "entities",
+    "devices",
+    "areas",
     "resolution",
 )
+# What a ticket is about: Home Assistant entity ids, device ids and area ids.
+_THINGS = ("entities", "devices", "areas")
 # Timeline event kinds only an admin may see (internal working notes).
 INTERNAL_KINDS = ("note",)
 
@@ -231,6 +235,11 @@ def _migrate(data: dict[str, Any]) -> bool:
         for ticket in data["tickets"].values():
             ticket["labels"] = ticket.pop("tags", [])
         changed = True
+    for ticket in data["tickets"].values():
+        for key in _THINGS:  # tickets from before devices and areas could be named
+            if key not in ticket:
+                ticket[key] = []
+                changed = True
     registry = data["label_registry"]
     for label in registry.values():
         if "icon" not in label:  # labels from before icons existed
@@ -401,6 +410,8 @@ def _new_ticket(
     labels: list[str] | None = None,
     category: str | None = None,
     entities: list[str] | None = None,
+    devices: list[str] | None = None,
+    areas: list[str] | None = None,
     actor: str | None = None,
     legacy_ref: str | None = None,
     source: str | None = None,
@@ -435,6 +446,8 @@ def _new_ticket(
         "category": _resolve_category(data, category) if category else None,
         "attachments": [],
         "entities": sorted(set(entities or [])),
+        "devices": sorted(set(devices or [])),
+        "areas": sorted(set(areas or [])),
         "links": [],
         "legacy_ref": legacy_ref,
         "source": source,
@@ -489,9 +502,9 @@ def _apply_update(data: dict[str, Any], ticket: dict[str, Any], actor: str, fiel
             _check(new, STATUSES, "status")
         elif key == "priority":
             _check(new, PRIORITIES, "priority")
-        elif key == "entities":
+        elif key in _THINGS:
             new = sorted(set(new))
-        old = ticket.get(key)
+        old = ticket.get(key, [] if key in _THINGS else None)
         if new == old:
             continue
         ticket[key] = new
@@ -666,6 +679,8 @@ async def async_list_tickets(
                     " ".join(data["label_registry"][i]["name"] for i in t["labels"] if i in data["label_registry"]),
                     _category_name(data, t.get("category")) or "",
                     " ".join(t["entities"]),
+                    " ".join(t.get("devices", [])),
+                    " ".join(t.get("areas", [])),
                     " ".join(e["body"] or "" for e in t["events"]),
                 ]
             ).lower()
@@ -841,7 +856,8 @@ def _merge_into(data: dict[str, Any], target: dict[str, Any], source: dict[str, 
     for n, e in enumerate(target["events"], 1):
         e["id"] = n
     target["labels"] = sorted({*target["labels"], *source["labels"]})
-    target["entities"] = sorted({*target["entities"], *source["entities"]})
+    for key in _THINGS:
+        target[key] = sorted({*target.get(key, []), *source.get(key, [])})
     if rank.get(source["priority"], 0) > rank.get(target["priority"], 0):
         target["priority"] = source["priority"]
     if not target.get("category") and source.get("category"):

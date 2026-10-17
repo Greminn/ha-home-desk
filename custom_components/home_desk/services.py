@@ -94,6 +94,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             labels=d.get("labels"),
             category=d.get("category"),
             entities=d.get("entities"),
+            devices=d.get("devices"),
+            areas=d.get("areas"),
             actor=actor,
         )
 
@@ -261,6 +263,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Optional("labels"): _LABELS,
         vol.Optional("category"): vol.Any(cv.string, None),
         vol.Optional("entities"): _LABELS,
+        vol.Optional("devices"): _LABELS,
+        vol.Optional("areas"): _LABELS,
         **_LEGACY,
         **_ACTOR,
     }), supports_response=both)
@@ -290,6 +294,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Optional("remove_labels"): _LABELS,
         vol.Optional("category"): vol.Any(cv.string, None),
         vol.Optional("entities"): _LABELS,
+        vol.Optional("devices"): _LABELS,
+        vol.Optional("areas"): _LABELS,
         vol.Optional("add_tags"): _LABELS,
         vol.Optional("remove_tags"): _LABELS,
         **_LEGACY,

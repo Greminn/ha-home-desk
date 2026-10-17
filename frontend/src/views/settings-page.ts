@@ -2,6 +2,7 @@ import { LitElement, html, css, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { safeCustomElement } from "../define";
 import "./dropdown";
+import "./confirm-dialog";
 import { sharedStyles } from "../styles";
 import type { HomeAssistant, HomeDeskSettings } from "../types";
 import type { HaClient } from "../ha-client";
@@ -175,6 +176,8 @@ export class SettingsPage extends LitElement {
   @state() private _s: HomeDeskSettings | null = null;
   @state() private _error = "";
   @state() private _test: { busy: boolean; reply?: string; error?: string } | null = null;
+  /** The Test button sends a (tiny) request to the AI provider, so it asks first. */
+  @state() private _confirmTest = false;
 
   private async _runTest() {
     this._test = { busy: true };
@@ -308,8 +311,8 @@ export class SettingsPage extends LitElement {
           : nothing}
         <div class="srow">
           <div class="text">
-            <div class="name">Start work when assigned</div>
-            <div class="desc">Assigning a ticket to the AI Agent makes it read the ticket and reply, straight away. It can only read and reply: it never changes anything in your home. Turn this off if you work tickets with an agent outside Home Assistant.</div>
+            <div class="name">Run the AI Agent when a ticket is assigned</div>
+            <div class="desc">Off (recommended): assigning a ticket only hands it over, for an agent outside Home Assistant to pick up later, and <b>Ask now</b> on a ticket runs the AI Agent when you choose. On: assigning also runs it straight away, which uses your AI plan every time (you are asked to confirm first). It can only read and reply: it never changes anything in your home.</div>
           </div>
           ${this._switch(s.agent_auto, "Start work when assigned", (v) => void this._save({ agent_auto: v }))}
         </div>
@@ -327,7 +330,7 @@ export class SettingsPage extends LitElement {
             <div class="name">Test the agent</div>
             <div class="desc">Sends a harmless question, with nothing from your home, to check it answers.</div>
           </div>
-          <button class="tbtn" ?disabled=${!s.agent || this._test?.busy} @click=${() => void this._runTest()}>${this._test?.busy ? "Asking…" : "Test"}</button>
+          <button class="tbtn" ?disabled=${!s.agent || this._test?.busy} @click=${() => (this._confirmTest = true)}>${this._test?.busy ? "Asking…" : "Test"}</button>
         </div>
         ${this._test?.reply ? html`<div class="test-out">${this._test.reply}</div>` : nothing}
         ${this._test?.error ? html`<div class="test-out bad">${this._test.error}</div>` : nothing}
@@ -378,6 +381,15 @@ export class SettingsPage extends LitElement {
             )
           : html`<div class="note">Home Assistant has no notify services yet. Install the Companion app on a phone to get one.</div>`}
       </div>
+      ${this._confirmTest
+        ? html`<st-confirm-dialog heading="Use your AI plan?" confirmLabel="Yes, test it"
+            body="This sends one short question, with nothing from your home, to the AI Agent. It uses a very small amount of your AI plan."
+            @cancel=${() => (this._confirmTest = false)}
+            @confirm=${() => {
+              this._confirmTest = false;
+              void this._runTest();
+            }}></st-confirm-dialog>`
+        : nothing}
     </div>`;
   }
 }

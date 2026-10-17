@@ -1,6 +1,6 @@
 # Proposal: tickets that point at devices and entities
 
-*A design for review, 2026-10-17. Nothing here is built. It comes from ticket #234 ("The front deck lights didn't turn on"): the built-in AI agent answered with generic questions because the ticket named nothing in the home, so it had no states, history or automations to look at.*
+*2026-10-17. Decided: devices, entities and areas; suggest rather than attach; AI choosing on request, after a confirmation. Built (steps 1 to 3): the tags and chips, the guesses and the agent context. Not built: Home Assistant's own target picker (a picker styled like it is used, since that one can't be loaded reliably from a panel), following entity renames, and "Show tickets about this". It comes from ticket #234 ("The front deck lights didn't turn on"): the built-in AI agent answered with generic questions because the ticket named nothing in the home, so it had no states, history or automations to look at.*
 
 ## The problem
 

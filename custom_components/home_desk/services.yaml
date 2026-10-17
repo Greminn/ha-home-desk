@@ -231,7 +231,15 @@ create_ticket:
       selector: {"text": {}}
     entities:
       name: "Entities"
-      description: "Home Assistant entity ids this ticket concerns."
+      description: "Home Assistant entity ids this ticket concerns. People can click through to them."
+      selector: {"text": {"multiple": true}}
+    devices:
+      name: "Devices"
+      description: "Home Assistant device ids (from the device registry) this ticket concerns; the AI agent looks at all of a device's entities."
+      selector: {"text": {"multiple": true}}
+    areas:
+      name: "Areas"
+      description: "Home Assistant area ids this ticket concerns, when it is about a place rather than one thing."
       selector: {"text": {"multiple": true}}
     actor:
       name: "Actor"
@@ -285,6 +293,14 @@ update_ticket:
     entities:
       name: "Entities"
       description: "Replace the linked entity ids."
+      selector: {"text": {"multiple": true}}
+    devices:
+      name: "Devices"
+      description: "Replace the linked device ids."
+      selector: {"text": {"multiple": true}}
+    areas:
+      name: "Areas"
+      description: "Replace the linked area ids."
       selector: {"text": {"multiple": true}}
     resolution:
       name: "Resolution"

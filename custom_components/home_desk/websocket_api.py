@@ -14,7 +14,8 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
 from .const import AUTO_CLOSE_SECONDS, DOMAIN, LABEL_COLORS, PRIORITIES, STATUS_ALIASES, STATUSES
-from .agent import async_stop_turn, async_test_agent
+from .agent import async_run_now, async_stop_turn, async_test_agent
+from .suggest import async_ask_ai, async_guess
 from .storage import (
     TicketError,
     async_add_comment,
@@ -150,6 +151,8 @@ async def ws_stats(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
         vol.Optional("labels"): _LABELS,
         vol.Optional("category"): str,
         vol.Optional("entities"): [str],
+        vol.Optional("devices"): [str],
+        vol.Optional("areas"): [str],
     }
 )
 @websocket_api.async_response
@@ -167,6 +170,8 @@ async def ws_create(hass: HomeAssistant, connection: websocket_api.ActiveConnect
             labels=msg.get("labels") if admin else [x for x in msg.get("labels", []) if x in HOUSEHOLD_LABELS] or None,
             category=msg.get("category") if admin else None,
             entities=msg.get("entities"),
+            devices=msg.get("devices"),
+            areas=msg.get("areas"),
             actor=actor,
         )
     except TicketError as err:
@@ -187,6 +192,8 @@ async def ws_create(hass: HomeAssistant, connection: websocket_api.ActiveConnect
         vol.Optional("labels"): _LABELS,
         vol.Optional("category"): vol.Any(str, None),
         vol.Optional("entities"): [str],
+        vol.Optional("devices"): [str],
+        vol.Optional("areas"): [str],
         vol.Optional("resolution"): vol.Any(str, None),
     }
 )
@@ -460,6 +467,41 @@ async def ws_settings_save(hass: HomeAssistant, connection: websocket_api.Active
     connection.send_result(msg["id"], result)
 
 
+@websocket_api.websocket_command(
+    {vol.Required("type"): "home_desk/suggest", vol.Required("ticket_id"): int, vol.Optional("ai"): bool}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_suggest(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Devices, entities and areas a ticket is probably about: guessed from its words, or (with `ai`) chosen by the AI agent."""
+    try:
+        ticket = await async_get_ticket(hass, msg["ticket_id"])
+        if msg.get("ai"):
+            found = await async_ask_ai(hass, ticket, await async_get_settings(hass))
+        else:
+            found = async_guess(hass, ticket)
+    except TicketError as err:
+        _fail(connection, msg, "invalid", str(err))
+        return
+    except Exception as err:  # noqa: BLE001 - shown to the person who asked
+        _fail(connection, msg, "failed", str(err).strip().splitlines()[0][:300] if str(err).strip() else err.__class__.__name__)
+        return
+    connection.send_result(msg["id"], {"suggestions": found})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "home_desk/agent_run", vol.Required("ticket_id"): int})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_agent_run(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Hand a ticket to the built-in AI agent and have it work on it now (this uses the AI plan)."""
+    try:
+        ticket = await async_run_now(hass, msg["ticket_id"], _actor(connection))
+    except TicketError as err:
+        _fail(connection, msg, "invalid", str(err))
+        return
+    connection.send_result(msg["id"], ticket)
+
+
 @websocket_api.websocket_command({vol.Required("type"): "home_desk/agent_stop", vol.Required("ticket_id"): int})
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -496,6 +538,6 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_list, ws_get, ws_mark_read, ws_stats, ws_create, ws_update, ws_comment, ws_close, ws_link, ws_merge,
         ws_labels, ws_label_create, ws_label_update, ws_label_delete,
         ws_categories, ws_category_create, ws_category_update, ws_category_delete,
-        ws_settings, ws_settings_save, ws_agent_stop, ws_agent_test,
+        ws_settings, ws_settings_save, ws_agent_run, ws_agent_stop, ws_agent_test, ws_suggest,
     ):
         websocket_api.async_register_command(hass, command)
