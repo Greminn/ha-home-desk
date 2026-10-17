@@ -498,12 +498,22 @@ export class TicketDetail extends LitElement {
           animation: none;
         }
       }
-      .ev .label.new-tag {
-        background: var(--st-accent);
-        color: var(--st-on-accent, #fff);
+      /* What is new since you last looked: a small dot and "New", the same dot the list uses for unread. */
+      .ev .new-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-left: 8px;
+        font-size: var(--st-fs-caption);
+        font-weight: 500;
+        color: var(--st-accent);
       }
-      .ev.new .bubble {
-        box-shadow: -3px 0 0 var(--st-accent);
+      .ev .new-tag::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--st-accent);
       }
       .ev.system .new-text {
         color: var(--st-accent);
@@ -1078,7 +1088,7 @@ export class TicketDetail extends LitElement {
         <div class="ev ${fresh ? "new" : ""}">
           ${this._avatar(e.actor)}
           <div>
-            <div class="who"><b>${actorLabel(e.actor)}</b> · <span class="when">${when}</span>${fresh ? html`<span class="label dense new-tag">new</span>` : nothing}${e.kind === "note" ? html`<span class="label dense">internal note</span>` : nothing}${(e.data as { merged_from?: number } | null)?.merged_from ? html`<span class="label dense" title="Copied here when a ticket was merged">from #${(e.data as { merged_from: number }).merged_from}</span>` : nothing}</div>
+            <div class="who"><b>${actorLabel(e.actor)}</b> · <span class="when">${when}</span>${fresh ? html`<span class="new-tag">New</span>` : nothing}${e.kind === "note" ? html`<span class="label dense">internal note</span>` : nothing}${(e.data as { merged_from?: number } | null)?.merged_from ? html`<span class="label dense" title="Copied here when a ticket was merged">from #${(e.data as { merged_from: number }).merged_from}</span>` : nothing}</div>
             <div class="bubble md ${e.kind === "note" ? "note" : ""}">${unsafeHTML(renderMarkdown(e.body ?? ""))}</div>
           </div>
         </div>`;
