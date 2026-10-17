@@ -16,6 +16,7 @@ import "./views/category-manager";
 import "./views/settings-page";
 import "./views/app-header";
 import "./views/list-toolbar";
+import "./views/report-form";
 import type { Page } from "./views/app-header";
 import "./views/dropdown";
 import "./views/confirm-dialog";
@@ -223,7 +224,8 @@ export class HomeDeskPanel extends LitElement {
   }
 
   private async _refresh() {
-    if (!this._client) return;
+    // A household user only has the report form: there is nothing to load for them.
+    if (!this._client || !this._admin) return;
     try {
       [this._tickets, this._labelList, this._categoryList] = await Promise.all([
         this._client.list(),
@@ -460,7 +462,9 @@ export class HomeDeskPanel extends LitElement {
         @view-change=${(e: CustomEvent<string>) => this._setView(e.detail)}
         @refresh=${() => void this._refresh()}></st-app-header>
       ${this._error ? html`<div class="banner">${this._error}</div>` : nothing}
-      ${this._page === "labels" && this._client
+      ${!this._admin && this._client
+        ? html`<st-report-form .client=${this._client}></st-report-form>`
+        : this._page === "labels" && this._client
         ? html`<st-label-manager .client=${this._client} .labels=${this._labelList}
             @labels-changed=${() => void this._refresh()}></st-label-manager>`
         : this._page === "categories" && this._client

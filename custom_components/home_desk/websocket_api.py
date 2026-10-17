@@ -1,7 +1,7 @@
 """WebSocket API for Home Desk (used by the sidebar panel).
 
-Admins see and change everything. Other household users can raise tickets and
-comment on their own, and see their own tickets without internal notes.
+Admins see and change everything. Other household users can raise a ticket (and list their own), and nothing else:
+they can't open a ticket or comment on it, so anything more is talked through in person.
 """
 
 from __future__ import annotations
@@ -94,6 +94,7 @@ async def ws_list(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
 
 
 @websocket_api.websocket_command({vol.Required("type"): "home_desk/get", vol.Required("ticket_id"): int})
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_get(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
     try:
@@ -185,6 +186,7 @@ async def ws_update(hass: HomeAssistant, connection: websocket_api.ActiveConnect
         vol.Optional("internal"): bool,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_comment(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
     try:

@@ -199,8 +199,9 @@ async def main():
     FakeStore.saved = {}
     t = await s.async_create_ticket(hass, title="Qionne's ticket", requester="Qionne")
     mine, theirs = t["id"], (await s.async_create_ticket(hass, title="Someone else's", requester="Jo"))["id"]
-    # What a household user may do: raise a ticket, and see and comment on their own (checked below). Everything else is for admins.
-    open_to_household = {"list", "get", "create", "comment", "labels", "categories"}
+    # What a household user may do: raise a ticket, and list their own. Everything else is for admins (they can't open a
+    # ticket or comment on it, even their own: anything more is talked through in person).
+    open_to_household = {"list", "create", "labels", "categories"}
     for name in names:
         if name in open_to_household:
             continue
@@ -208,17 +209,9 @@ async def main():
         assert conn.error and conn.error[0] == "unauthorized", f"{name} must be admin only, got {conn.error} {conn.result}"
     print("admin-only commands ok:", sorted(set(names) - open_to_household))
 
-    # a household user sees only their own tickets, and comments on them without internal notes
+    # a household user sees only their own tickets in the list
     await s.async_add_comment(hass, mine, actor="Simon", body="private working note", internal=True)
-    conn = await call(hass, "get", HOUSEHOLD(), ticket_id=mine)
-    assert conn.result["title"] == "Qionne's ticket" and not [e for e in conn.result["events"] if e["kind"] == "note"], "no internal notes"
-    conn = await call(hass, "get", HOUSEHOLD(), ticket_id=theirs)
-    assert conn.error and conn.error[0] == "unauthorized", "someone else's ticket"
-    conn = await call(hass, "comment", HOUSEHOLD(), ticket_id=theirs, body="hi")
-    assert conn.error and conn.error[0] == "unauthorized"
-    conn = await call(hass, "comment", HOUSEHOLD(), ticket_id=mine, body="it happened again", internal=True)
-    assert [e["kind"] for e in conn.result["events"] if e["actor"] == "Qionne" and e["body"]] == ["comment"], "a household user can't leave an internal note"
-    assert (await call(hass, "get", ADMIN(), ticket_id=mine)).result["events"][-1]["kind"] in ("comment", "status")
+    assert (await call(hass, "get", ADMIN(), ticket_id=mine)).result["events"][-1]["kind"] in ("note", "status")
     # ...and can raise a ticket, but can't set what a manager sets
     conn = await call(hass, "list", HOUSEHOLD(), status="all")
     assert [x["title"] for x in conn.result["tickets"]] == ["Qionne's ticket"], conn.result
