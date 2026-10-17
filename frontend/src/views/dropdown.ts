@@ -32,6 +32,22 @@ export class Dropdown extends LitElement {
         font-size: var(--st-fs-body);
         justify-content: space-between;
       }
+      /* A filled field, as in Home Assistant's settings: a grey box with a line under it. */
+      :host([field]) button.dd {
+        height: 56px;
+        padding: 0 12px 0 16px;
+        border: none;
+        border-bottom: 1px solid color-mix(in srgb, var(--st-fg) 60%, transparent);
+        border-radius: 4px 4px 0 0;
+        background: var(--ha-color-fill-neutral-quiet-resting, color-mix(in srgb, var(--st-fg) 22%, transparent));
+        font-size: var(--st-fs-field);
+      }
+      :host([field]) button.dd:hover {
+        border-bottom-color: var(--st-fg);
+      }
+      :host([field]) button.dd[aria-expanded="true"] {
+        border-bottom: 2px solid var(--st-accent);
+      }
       button.dd:hover {
         background-image: linear-gradient(var(--st-hover), var(--st-hover));
       }
@@ -102,6 +118,8 @@ export class Dropdown extends LitElement {
   @property() placeholder = "";
   /** A value picker (status, priority), not a filter: no highlight when something is chosen. */
   @property({ type: Boolean }) plain = false;
+  /** Drawn as a filled field (a grey box with a line under it), for settings. */
+  @property({ type: Boolean, reflect: true }) field = false;
   /** Open the menu above the button instead of below it. */
   @property({ type: Boolean, reflect: true }) up = false;
   @state() private _open = false;

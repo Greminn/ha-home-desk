@@ -748,7 +748,7 @@
         color: var(--st-fg-secondary);
         font-size: var(--st-fs-row);
       }
-    `],e([de({attribute:!1})],Fe.prototype,"tickets",void 0),e([de({type:Number})],Fe.prototype,"selectedId",void 0),e([de()],Fe.prototype,"language",void 0),e([de({type:Boolean})],Fe.prototype,"isAdmin",void 0),e([de({attribute:!1})],Fe.prototype,"categoryMap",void 0),e([de({attribute:!1})],Fe.prototype,"labelMap",void 0),e([de({attribute:!1})],Fe.prototype,"checked",void 0),e([de({type:Boolean})],Fe.prototype,"ticking",void 0),Fe=e([pe("st-ticket-list")],Fe);const Ge=2;class Ze{constructor(e){}get _$AU(){return this._$AM._$AU}_$AT(e,t,i){this._$Ct=e,this._$AM=t,this._$Ci=i}_$AS(e,t){return this.update(e,t)}update(e,t){return this.render(...t)}}class Ve extends Ze{constructor(e){if(super(e),this.it=F,e.type!==Ge)throw Error(this.constructor.directiveName+"() can only be used in child bindings")}render(e){if(e===F||null==e)return this._t=void 0,this.it=e;if(e===W)return e;if("string"!=typeof e)throw Error(this.constructor.directiveName+"() called with a non-string value");if(e===this.it)return this._t;this.it=e;const t=[e];return t.raw=t,this._t={_$litType$:this.constructor.resultType,strings:t,values:[]}}}Ve.directiveName="unsafeHTML",Ve.resultType=1;const Ye=(e=>(...t)=>({_$litDirective$:e,values:t}))(Ve);let Xe=class extends re{constructor(){super(...arguments),this.options=[],this.value="",this.label="",this.placeholder="",this.plain=!1,this.up=!1,this._open=!1,this._at=""}_toggle(e){if(this._open)return void(this._open=!1);const t=e.currentTarget.getBoundingClientRect(),i=window.innerHeight-t.bottom,s=this.up||i<260&&t.top>i,o=Math.max(120,(s?t.top:i)-12);this._at=`left:${t.left}px;min-width:${t.width}px;max-height:${Math.min(o,.6*window.innerHeight)}px;${s?`bottom:${window.innerHeight-t.top+4}px`:`top:${t.bottom+4}px`}`,this._open=!0}_pick(e){this._open=!1,e!==this.value&&this.dispatchEvent(new CustomEvent("change",{detail:e,bubbles:!0,composed:!0}))}render(){const e=this.options.find(e=>e.id===this.value)??this.options[0];return q`
+    `],e([de({attribute:!1})],Fe.prototype,"tickets",void 0),e([de({type:Number})],Fe.prototype,"selectedId",void 0),e([de()],Fe.prototype,"language",void 0),e([de({type:Boolean})],Fe.prototype,"isAdmin",void 0),e([de({attribute:!1})],Fe.prototype,"categoryMap",void 0),e([de({attribute:!1})],Fe.prototype,"labelMap",void 0),e([de({attribute:!1})],Fe.prototype,"checked",void 0),e([de({type:Boolean})],Fe.prototype,"ticking",void 0),Fe=e([pe("st-ticket-list")],Fe);const Ge=2;class Ze{constructor(e){}get _$AU(){return this._$AM._$AU}_$AT(e,t,i){this._$Ct=e,this._$AM=t,this._$Ci=i}_$AS(e,t){return this.update(e,t)}update(e,t){return this.render(...t)}}class Ve extends Ze{constructor(e){if(super(e),this.it=F,e.type!==Ge)throw Error(this.constructor.directiveName+"() can only be used in child bindings")}render(e){if(e===F||null==e)return this._t=void 0,this.it=e;if(e===W)return e;if("string"!=typeof e)throw Error(this.constructor.directiveName+"() called with a non-string value");if(e===this.it)return this._t;this.it=e;const t=[e];return t.raw=t,this._t={_$litType$:this.constructor.resultType,strings:t,values:[]}}}Ve.directiveName="unsafeHTML",Ve.resultType=1;const Ye=(e=>(...t)=>({_$litDirective$:e,values:t}))(Ve);let Xe=class extends re{constructor(){super(...arguments),this.options=[],this.value="",this.label="",this.placeholder="",this.plain=!1,this.field=!1,this.up=!1,this._open=!1,this._at=""}_toggle(e){if(this._open)return void(this._open=!1);const t=e.currentTarget.getBoundingClientRect(),i=window.innerHeight-t.bottom,s=this.up||i<260&&t.top>i,o=Math.max(120,(s?t.top:i)-12);this._at=`left:${t.left}px;min-width:${t.width}px;max-height:${Math.min(o,.6*window.innerHeight)}px;${s?`bottom:${window.innerHeight-t.top+4}px`:`top:${t.bottom+4}px`}`,this._open=!0}_pick(e){this._open=!1,e!==this.value&&this.dispatchEvent(new CustomEvent("change",{detail:e,bubbles:!0,composed:!0}))}render(){const e=this.options.find(e=>e.id===this.value)??this.options[0];return q`
       <button class="dd ${this.value&&!this.plain?"active":""}" aria-haspopup="listbox" aria-expanded=${this._open}
         aria-label=${this.label} @click=${e=>this._toggle(e)}
         @keydown=${e=>"Escape"===e.key&&(this._open=!1)}>
@@ -777,6 +777,22 @@
         font-weight: 400;
         font-size: var(--st-fs-body);
         justify-content: space-between;
+      }
+      /* A filled field, as in Home Assistant's settings: a grey box with a line under it. */
+      :host([field]) button.dd {
+        height: 56px;
+        padding: 0 12px 0 16px;
+        border: none;
+        border-bottom: 1px solid color-mix(in srgb, var(--st-fg) 60%, transparent);
+        border-radius: 4px 4px 0 0;
+        background: var(--ha-color-fill-neutral-quiet-resting, color-mix(in srgb, var(--st-fg) 22%, transparent));
+        font-size: var(--st-fs-field);
+      }
+      :host([field]) button.dd:hover {
+        border-bottom-color: var(--st-fg);
+      }
+      :host([field]) button.dd[aria-expanded="true"] {
+        border-bottom: 2px solid var(--st-accent);
       }
       button.dd:hover {
         background-image: linear-gradient(var(--st-hover), var(--st-hover));
@@ -837,7 +853,7 @@
         color: var(--st-accent);
         background: color-mix(in srgb, var(--st-accent) 12%, transparent);
       }
-    `],e([de({attribute:!1})],Xe.prototype,"options",void 0),e([de()],Xe.prototype,"value",void 0),e([de()],Xe.prototype,"label",void 0),e([de()],Xe.prototype,"placeholder",void 0),e([de({type:Boolean})],Xe.prototype,"plain",void 0),e([de({type:Boolean,reflect:!0})],Xe.prototype,"up",void 0),e([he()],Xe.prototype,"_open",void 0),e([he()],Xe.prototype,"_at",void 0),Xe=e([pe("st-dropdown")],Xe);const Ke=16e3;async function Qe(e){try{const t=await createImageBitmap(e,{imageOrientation:"from-image"}),i=Math.min(1,1600/Math.max(t.width,t.height)),s=document.createElement("canvas");s.width=Math.max(1,Math.round(t.width*i)),s.height=Math.max(1,Math.round(t.height*i));const o=s.getContext("2d");if(!o)return e;o.drawImage(t,0,0,s.width,s.height),t.close();const n=await new Promise(e=>s.toBlob(e,"image/jpeg",.85));return n&&n.size<e.size||i<1&&n?n:e}catch{return e}}function Je(e,t){const i=t===Ke?e:function(e,t,i){const s=t/i,o=new Float32Array(Math.floor(e.length/s));for(let t=0;t<o.length;t++){const i=Math.floor(t*s),n=Math.min(e.length,Math.max(i+1,Math.floor((t+1)*s)));let r=0;for(let t=i;t<n;t++)r+=e[t];o[t]=r/(n-i)}return o}(e,t,Ke),s=new ArrayBuffer(44+2*i.length),o=new DataView(s),n=(e,t)=>[...t].forEach((t,i)=>o.setUint8(e+i,t.charCodeAt(0)));return n(0,"RIFF"),o.setUint32(4,36+2*i.length,!0),n(8,"WAVE"),n(12,"fmt "),o.setUint32(16,16,!0),o.setUint16(20,1,!0),o.setUint16(22,1,!0),o.setUint32(24,Ke,!0),o.setUint32(28,32e3,!0),o.setUint16(32,2,!0),o.setUint16(34,16,!0),n(36,"data"),o.setUint32(40,2*i.length,!0),i.forEach((e,t)=>o.setInt16(44+2*t,32767*Math.max(-1,Math.min(1,e)),!0)),new Blob([s],{type:"audio/wav"})}const et=e=>`${Math.floor(e/60)}:${String(e%60).padStart(2,"0")}`;let tt=class extends re{constructor(){super(...arguments),this.ticketId=0,this.items=[],this._urls={},this._open="",this._signedFor=""}willUpdate(){const e=`${this.ticketId}:${this.items.map(e=>e.id).join(",")}`;if(e===this._signedFor||!this.client)return;this._signedFor=e,this._urls={};const t=this.ticketId;for(const e of this.items)this.client.attachmentUrl(t,e.id).then(i=>{t===this.ticketId&&(this._urls={...this._urls,[e.id]:i})}).catch(()=>{})}render(){const e=this.items.filter(e=>"image"===e.kind),t=this.items.filter(e=>"audio"===e.kind);return e.length||t.length?q`
+    `],e([de({attribute:!1})],Xe.prototype,"options",void 0),e([de()],Xe.prototype,"value",void 0),e([de()],Xe.prototype,"label",void 0),e([de()],Xe.prototype,"placeholder",void 0),e([de({type:Boolean})],Xe.prototype,"plain",void 0),e([de({type:Boolean,reflect:!0})],Xe.prototype,"field",void 0),e([de({type:Boolean,reflect:!0})],Xe.prototype,"up",void 0),e([he()],Xe.prototype,"_open",void 0),e([he()],Xe.prototype,"_at",void 0),Xe=e([pe("st-dropdown")],Xe);const Ke=16e3;async function Qe(e){try{const t=await createImageBitmap(e,{imageOrientation:"from-image"}),i=Math.min(1,1600/Math.max(t.width,t.height)),s=document.createElement("canvas");s.width=Math.max(1,Math.round(t.width*i)),s.height=Math.max(1,Math.round(t.height*i));const o=s.getContext("2d");if(!o)return e;o.drawImage(t,0,0,s.width,s.height),t.close();const n=await new Promise(e=>s.toBlob(e,"image/jpeg",.85));return n&&n.size<e.size||i<1&&n?n:e}catch{return e}}function Je(e,t){const i=t===Ke?e:function(e,t,i){const s=t/i,o=new Float32Array(Math.floor(e.length/s));for(let t=0;t<o.length;t++){const i=Math.floor(t*s),n=Math.min(e.length,Math.max(i+1,Math.floor((t+1)*s)));let r=0;for(let t=i;t<n;t++)r+=e[t];o[t]=r/(n-i)}return o}(e,t,Ke),s=new ArrayBuffer(44+2*i.length),o=new DataView(s),n=(e,t)=>[...t].forEach((t,i)=>o.setUint8(e+i,t.charCodeAt(0)));return n(0,"RIFF"),o.setUint32(4,36+2*i.length,!0),n(8,"WAVE"),n(12,"fmt "),o.setUint32(16,16,!0),o.setUint16(20,1,!0),o.setUint16(22,1,!0),o.setUint32(24,Ke,!0),o.setUint32(28,32e3,!0),o.setUint16(32,2,!0),o.setUint16(34,16,!0),n(36,"data"),o.setUint32(40,2*i.length,!0),i.forEach((e,t)=>o.setInt16(44+2*t,32767*Math.max(-1,Math.min(1,e)),!0)),new Blob([s],{type:"audio/wav"})}const et=e=>`${Math.floor(e/60)}:${String(e%60).padStart(2,"0")}`;let tt=class extends re{constructor(){super(...arguments),this.ticketId=0,this.items=[],this._urls={},this._open="",this._signedFor=""}willUpdate(){const e=`${this.ticketId}:${this.items.map(e=>e.id).join(",")}`;if(e===this._signedFor||!this.client)return;this._signedFor=e,this._urls={};const t=this.ticketId;for(const e of this.items)this.client.attachmentUrl(t,e.id).then(i=>{t===this.ticketId&&(this._urls={...this._urls,[e.id]:i})}).catch(()=>{})}render(){const e=this.items.filter(e=>"image"===e.kind),t=this.items.filter(e=>"audio"===e.kind);return e.length||t.length?q`
       ${e.length?q`<div class="photos">
             ${e.map(e=>this._urls[e.id]?q`<button title=${e.name} aria-label=${`Open ${e.name}`} @click=${()=>this._open=e.id}>
                     <img src=${this._urls[e.id]} alt=${e.name} loading="lazy" />
@@ -2770,7 +2786,7 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
             <div class="name">Close resolved tickets</div>
             <div class="desc">A resolved ticket closes by itself after this long. A new comment on it can reopen it first.</div>
           </div>
-          <st-dropdown plain label="Close resolved tickets" .value=${e.auto_close} .options=${Ys}
+          <st-dropdown plain field label="Close resolved tickets" .value=${e.auto_close} .options=${Ys}
             @change=${e=>{this._save({auto_close:e.detail})}}></st-dropdown>
         </div>
         <div class="srow">
@@ -2796,7 +2812,7 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
             <div class="name">Speech-to-text</div>
             <div class="desc">Which engine listens. The default is the one your Assist setup uses.</div>
           </div>
-          <st-dropdown plain label="Speech-to-text" .value=${e.stt} .options=${[{id:"",label:"Assist default"},...this._engines]}
+          <st-dropdown plain field label="Speech-to-text" .value=${e.stt} .options=${[{id:"",label:"Assist default"},...this._engines]}
             @change=${e=>{this._save({stt:e.detail})}}></st-dropdown>
         </div>
       </div>
@@ -2808,7 +2824,7 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
             <div class="name">AI Agent</div>
             <div class="desc">The agent a ticket is assigned to. Pick one of the AI agents set up in Home Assistant.</div>
           </div>
-          <st-dropdown plain label="AI Agent" .value=${e.agent} .options=${t}
+          <st-dropdown plain field label="AI Agent" .value=${e.agent} .options=${t}
             @change=${e=>{this._save({agent:e.detail})}}></st-dropdown>
         </div>
         ${e.agent&&!e.agent.startsWith("ai_task.")?q`<div class="note">Home Desk can only hand tickets to an <b>AI Task</b> agent to work on them. A conversation agent can still be named as the assignee.</div>`:F}
@@ -2824,7 +2840,7 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
             <div class="name">Daily limit</div>
             <div class="desc">The most turns it takes in a day. Past that, tickets come straight back to you.</div>
           </div>
-          <st-dropdown plain label="Daily limit" .value=${String(e.agent_daily_cap)}
+          <st-dropdown plain field label="Daily limit" .value=${String(e.agent_daily_cap)}
             .options=${[...new Set([10,30,100,300,e.agent_daily_cap])].sort((e,t)=>e-t).map(e=>({id:String(e),label:`${e} a day`}))}
             @change=${e=>{this._save({agent_daily_cap:Number(e.detail)})}}></st-dropdown>
         </div>
@@ -2833,7 +2849,7 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
             <div class="name">Test the agent</div>
             <div class="desc">Sends a harmless question, with nothing from your home, to check it answers.</div>
           </div>
-          <button ?disabled=${!e.agent||this._test?.busy} @click=${()=>{this._runTest()}}>${this._test?.busy?"Asking…":"Test"}</button>
+          <button class="tbtn" ?disabled=${!e.agent||this._test?.busy} @click=${()=>{this._runTest()}}>${this._test?.busy?"Asking…":"Test"}</button>
         </div>
         ${this._test?.reply?q`<div class="test-out">${this._test.reply}</div>`:F}
         ${this._test?.error?q`<div class="test-out bad">${this._test.error}</div>`:F}
@@ -2940,8 +2956,18 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         color: var(--st-fg-secondary);
       }
       .srow st-dropdown {
-        width: 220px;
+        width: 240px;
         flex: none;
+      }
+      /* A text button, as in Home Assistant: accent-coloured words, no box. */
+      .srow button.tbtn {
+        height: 40px;
+        padding: 0 16px;
+        border-radius: var(--st-r-pill);
+        background: transparent;
+        color: var(--st-accent);
+        font-weight: 500;
+        font-size: var(--st-fs-body);
       }
       /* HA's switch: a 52x32 pill with an outline. Off, a small grey thumb; on, a large accent-coloured thumb on a tinted track. */
       .switch {

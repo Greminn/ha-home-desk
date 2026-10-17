@@ -88,8 +88,18 @@ export class SettingsPage extends LitElement {
         color: var(--st-fg-secondary);
       }
       .srow st-dropdown {
-        width: 220px;
+        width: 240px;
         flex: none;
+      }
+      /* A text button, as in Home Assistant: accent-coloured words, no box. */
+      .srow button.tbtn {
+        height: 40px;
+        padding: 0 16px;
+        border-radius: var(--st-r-pill);
+        background: transparent;
+        color: var(--st-accent);
+        font-weight: 500;
+        font-size: var(--st-fs-body);
       }
       /* HA's switch: a 52x32 pill with an outline. Off, a small grey thumb; on, a large accent-coloured thumb on a tinted track. */
       .switch {
@@ -252,7 +262,7 @@ export class SettingsPage extends LitElement {
             <div class="name">Close resolved tickets</div>
             <div class="desc">A resolved ticket closes by itself after this long. A new comment on it can reopen it first.</div>
           </div>
-          <st-dropdown plain label="Close resolved tickets" .value=${s.auto_close} .options=${AUTO_CLOSE}
+          <st-dropdown plain field label="Close resolved tickets" .value=${s.auto_close} .options=${AUTO_CLOSE}
             @change=${(e: CustomEvent<string>) => void this._save({ auto_close: e.detail })}></st-dropdown>
         </div>
         <div class="srow">
@@ -278,7 +288,7 @@ export class SettingsPage extends LitElement {
             <div class="name">Speech-to-text</div>
             <div class="desc">Which engine listens. The default is the one your Assist setup uses.</div>
           </div>
-          <st-dropdown plain label="Speech-to-text" .value=${s.stt} .options=${[{ id: "", label: "Assist default" }, ...this._engines]}
+          <st-dropdown plain field label="Speech-to-text" .value=${s.stt} .options=${[{ id: "", label: "Assist default" }, ...this._engines]}
             @change=${(e: CustomEvent<string>) => void this._save({ stt: e.detail })}></st-dropdown>
         </div>
       </div>
@@ -290,7 +300,7 @@ export class SettingsPage extends LitElement {
             <div class="name">AI Agent</div>
             <div class="desc">The agent a ticket is assigned to. Pick one of the AI agents set up in Home Assistant.</div>
           </div>
-          <st-dropdown plain label="AI Agent" .value=${s.agent} .options=${agents}
+          <st-dropdown plain field label="AI Agent" .value=${s.agent} .options=${agents}
             @change=${(e: CustomEvent<string>) => void this._save({ agent: e.detail })}></st-dropdown>
         </div>
         ${s.agent && !s.agent.startsWith("ai_task.")
@@ -308,7 +318,7 @@ export class SettingsPage extends LitElement {
             <div class="name">Daily limit</div>
             <div class="desc">The most turns it takes in a day. Past that, tickets come straight back to you.</div>
           </div>
-          <st-dropdown plain label="Daily limit" .value=${String(s.agent_daily_cap)}
+          <st-dropdown plain field label="Daily limit" .value=${String(s.agent_daily_cap)}
             .options=${[...new Set([10, 30, 100, 300, s.agent_daily_cap])].sort((a, b) => a - b).map((n) => ({ id: String(n), label: `${n} a day` }))}
             @change=${(e: CustomEvent<string>) => void this._save({ agent_daily_cap: Number(e.detail) })}></st-dropdown>
         </div>
@@ -317,7 +327,7 @@ export class SettingsPage extends LitElement {
             <div class="name">Test the agent</div>
             <div class="desc">Sends a harmless question, with nothing from your home, to check it answers.</div>
           </div>
-          <button ?disabled=${!s.agent || this._test?.busy} @click=${() => void this._runTest()}>${this._test?.busy ? "Asking…" : "Test"}</button>
+          <button class="tbtn" ?disabled=${!s.agent || this._test?.busy} @click=${() => void this._runTest()}>${this._test?.busy ? "Asking…" : "Test"}</button>
         </div>
         ${this._test?.reply ? html`<div class="test-out">${this._test.reply}</div>` : nothing}
         ${this._test?.error ? html`<div class="test-out bad">${this._test.error}</div>` : nothing}
