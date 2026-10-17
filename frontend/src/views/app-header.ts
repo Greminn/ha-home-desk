@@ -5,9 +5,9 @@ import { sharedStyles } from "../styles";
 import { VIEWS } from "../list-model";
 import type { TicketSummary } from "../types";
 
-export type Page = "" | "home" | "labels" | "categories" | "settings";
+export type Page = "" | "home" | "report" | "labels" | "categories" | "settings";
 
-const CRUMBS: Record<Exclude<Page, "" | "home">, string> = { labels: "Labels", categories: "Categories", settings: "Settings" };
+const CRUMBS: Record<Exclude<Page, "" | "home">, string> = { report: "Report", labels: "Labels", categories: "Categories", settings: "Settings" };
 
 /**
  * The panel's header, laid out like Home Assistant's own: the title (or a back arrow and the page's name), the view
@@ -252,6 +252,7 @@ export class AppHeader extends LitElement {
             ? html`<button class="menu-backdrop" aria-label="Close menu" @click=${() => (this._menuOpen = false)}></button>
                 <div class="menu-popover" role="menu">
                   <button role="menuitem" @click=${() => { this._menuOpen = false; this._fire("refresh"); }}><ha-icon icon="mdi:refresh"></ha-icon>Refresh</button>
+                  <button role="menuitem" @click=${() => this._choose("report")}><ha-icon icon="mdi:message-alert-outline"></ha-icon>Report a Problem or Idea</button>
                   <button role="menuitem" @click=${() => { this._menuOpen = false; this._fire("mark-all-read"); }}><ha-icon icon="mdi:email-open-multiple-outline"></ha-icon>Mark All as Read</button>
                   ${this.admin
                     ? html`<button role="menuitem" @click=${() => this._choose("labels")}><ha-icon icon="mdi:label-multiple-outline"></ha-icon>Manage Labels</button>

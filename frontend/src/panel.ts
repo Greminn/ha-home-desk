@@ -593,6 +593,8 @@ export class HomeDeskPanel extends LitElement {
         ? html`<st-report-form .client=${this._client}></st-report-form>`
         : this._page === "home" && this._client && this._compact
           ? this._homeTemplate(true)
+        : this._page === "report" && this._client
+        ? html`<st-report-form .client=${this._client}></st-report-form>`
         : this._page === "labels" && this._client
         ? html`<st-label-manager .client=${this._client} .labels=${this._labelList}
             @labels-changed=${() => void this._refresh()}></st-label-manager>`
