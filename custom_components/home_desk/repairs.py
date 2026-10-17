@@ -148,9 +148,10 @@ async def async_setup_repairs(hass: HomeAssistant, options: dict[str, Any]) -> C
             return
         present = set()
         for (domain, issue_id), issue in list(ir.async_get(hass).issues.items()):
-            if issue.active:
-                present.add((domain, issue_id))
-                _cancel((domain, issue_id))
+            if not issue.active:
+                continue  # Home Assistant keeps inactive records (a repair that is not raised right now): treated as missing, below
+            present.add((domain, issue_id))
+            _cancel((domain, issue_id))
             await _sync(hass, domain, issue_id, ignored)
         for domain, issue_id in await async_open_repair_keys(hass):
             if (domain, issue_id) in present:

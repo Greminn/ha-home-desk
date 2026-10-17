@@ -475,9 +475,13 @@ async def main():
     }
     # an old repair ticket whose repair vanished while HA was off must be resolved on start
     await s.async_sync_repair(hass3, domain="mqtt", issue_id="stale", active=True, title="stale repair")
+    # Home Assistant also keeps inactive records of repairs that are not raised right now (Spook's, after a restart): an open ticket
+    # for one must not be resolved at once either
+    await s.async_sync_repair(hass3, domain="zha", issue_id="gone", active=True, title="zha gone")
     stop = await repairs.async_setup_repairs(hass3, {"repairs_ignored_domains": ["hacs"]})
     tix = {x["source_key"]: x for x in (await s.async_list_tickets(hass3, status="all"))["tickets"]}
-    assert set(tix) == {"repair:hue:old_fw", "repair:mqtt:stale"}, set(tix)  # hacs skipped, inactive zha ignored
+    assert set(tix) == {"repair:hue:old_fw", "repair:mqtt:stale", "repair:zha:gone"}, set(tix)  # hacs skipped
+    assert tix["repair:zha:gone"]["status"] == "new", "an inactive record in the registry is not a cleared repair"
     hue = await s.async_get_ticket(hass3, tix["repair:hue:old_fw"]["id"])
     assert hue["title"] == "Bridge Lounge needs an update" and hue["priority"] == "high", hue["title"]
     assert "Update Lounge in the Hue app." in hue["description"] and "[Learn more](https://example.com/hue)" in hue["description"]
@@ -485,8 +489,9 @@ async def main():
     # a repair missing at start is not resolved at once: many integrations raise theirs again only after their own delayed checks
     assert tix["repair:mqtt:stale"]["status"] == "new", "not cleared while HA has only just started"
     waiting = [t for t in TIMERS if not t[2]]
-    assert [t[0] for t in waiting] == [repairs.START_GRACE], waiting
-    await fire_timers()  # the grace period passes and the repair is still missing
+    assert sorted(t[0] for t in waiting) == [repairs.START_GRACE, repairs.START_GRACE], waiting  # mqtt:stale and the inactive zha:gone
+    await fire_timers()  # the grace period passes and the repairs are still missing
+    assert (await s.async_get_ticket(hass3, tix["repair:zha:gone"]["id"]))["status"] == "resolved"
     stale = await s.async_get_ticket(hass3, tix["repair:mqtt:stale"]["id"])
     assert stale["status"] == "resolved" and "15 minutes after Home Assistant started" in stale["resolution"], stale["resolution"]
     # a repair that comes back during the grace period is never resolved
