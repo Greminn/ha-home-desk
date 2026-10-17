@@ -282,6 +282,35 @@ export class TicketDetail extends LitElement {
         align-items: center;
         gap: 8px 10px;
       }
+      /* The ticket number: an outlined pill like the category's; click to copy it. */
+      .num {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 24px;
+        padding: 0 10px;
+        box-sizing: border-box;
+        border: 1px solid var(--st-outline);
+        border-radius: var(--st-r-pill);
+        background: transparent;
+        color: var(--st-fg-secondary);
+        font-size: var(--st-fs-caption);
+        font-weight: var(--ha-font-weight-medium, 500);
+        font-variant-numeric: tabular-nums;
+        cursor: pointer;
+      }
+      .num:hover,
+      .num:focus-visible {
+        color: var(--st-fg);
+        border-color: var(--st-field-outline-hover);
+      }
+      .num ha-icon {
+        --mdc-icon-size: 14px;
+      }
+      .num.copied {
+        color: var(--st-success);
+        border-color: var(--st-success);
+      }
       /* Each item (icon and words) is a centred row, so icons line up with the text whatever the font. */
       .meta-line > span {
         display: inline-flex;
@@ -1071,6 +1100,29 @@ export class TicketDetail extends LitElement {
       : html`<div class="avatar"><ha-icon .icon=${actorIcon(actor)}></ha-icon></div>`;
   }
 
+  @state() private _copied = false;
+
+  /** Copy "#123" to the clipboard (with a fallback for pages served over plain http, where the clipboard API is missing). */
+  private async _copyNumber(id: number) {
+    const text = `#${id}`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const box = document.createElement("textarea");
+      box.value = text;
+      box.style.cssText = "position:fixed;opacity:0";
+      document.body.appendChild(box);
+      box.select();
+      try {
+        document.execCommand("copy");
+      } finally {
+        box.remove();
+      }
+    }
+    this._copied = true;
+    window.setTimeout(() => (this._copied = false), 1500);
+  }
+
   /** A change by someone else since you last looked at this ticket. */
   private _isNew(e: TicketEvent): boolean {
     return !!this.seenAt && e.created_at > this.seenAt && e.actor !== this.me;
@@ -1154,6 +1206,8 @@ export class TicketDetail extends LitElement {
             : nothing}
           <!-- Second line: the category, status and priority, then the labels (which wrap on to their own line if they don't fit). -->
           <div class="tag-line">
+            <button class="num ${this._copied ? "copied" : ""}" title=${this._copied ? "Copied" : "Copy the ticket number"} aria-label="Ticket ${t.id}: copy the number"
+              @click=${() => void this._copyNumber(t.id)}>${this._copied ? html`<ha-icon icon="mdi:check"></ha-icon>Copied` : html`#${t.id}`}</button>
             <st-ticket-tags show="category" .ticket=${t} .categoryMap=${this.categoryMap} .labelMap=${this.labelMap} .isAdmin=${this.isAdmin}></st-ticket-tags>
             <span class="status" style="--state: ${STATE_COLOR[t.status]}"><ha-icon .icon=${STATE_ICON[t.status]}></ha-icon>${STATUS_LABEL[t.status]}</span>
             ${t.priority === "urgent" || t.priority === "high"

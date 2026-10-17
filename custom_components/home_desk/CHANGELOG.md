@@ -13,6 +13,7 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 - **The Home Assistant label is gone: it is a category now.** It is removed from tickets and from `list_labels`. Repair tickets get the category Home Assistant, plus the labels Bug and Repair. Tickets that were only labelled Home Assistant are now uncategorised.
 
 ### Added
+- **The ticket number on the ticket.** A pill with "#123" sits at the start of the category and label line; clicking it copies the number to the clipboard.
 - **Administrators can use the report form too.** More options → Report a Problem or Idea opens the same form household members see (a line, detail, photos and a voice message), so you can try it, or log something as yourself. It raises an ordinary ticket from you.
 - **Previous and Next ticket.** Two arrows at the top of a ticket step through the list you came from (the tab and filters as you have them), and the list scrolls to keep the open ticket in view.
 - **A Home page.** Clicking the Home Desk mark or name (on a phone, the mark) takes you Home, and Home is where the panel opens. On a wide screen it is the usual list-and-detail layout with the Inbox list (and its search, New Ticket and filters) on the left and, where a ticket would open, a greeting and an overview: tiles for the Inbox, In Progress, Assigned to AI, Urgent / High and Unread counts and this week's opened and resolved tickets (each tile opens that list). Opening a ticket keeps the Inbox on the left. On a phone, Home shows the Inbox and then the overview.
