@@ -4,13 +4,12 @@ import { safeCustomElement } from "../define";
 import { sharedStyles } from "../styles";
 import type { TicketSummary } from "../types";
 import { VIEWS } from "../list-model";
-import { STATE_ICON, STATE_COLOR, actorLabel, actorName, isAgent, metaIcon, relativeTime } from "../format";
+import { STATE_ICON, STATE_COLOR, actorLabel, actorName, metaIcon, relativeTime } from "../format";
 
 const WEEK_MS = 7 * 24 * 3600 * 1000;
 const HISTORY = "history";
 
 const live = (t: TicketSummary) => (t.status === "new" || t.status === "in_progress") && !t.merged_into && !t.labels.includes(HISTORY);
-const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
 /** The Home page: what needs you, what the AI Agent is doing, and what has happened lately. Everything links through. */
 @safeCustomElement("st-home-page")
@@ -49,7 +48,6 @@ export class HomePage extends LitElement {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
         gap: 12px;
-        margin-bottom: 24px;
       }
       .tile {
         display: flex;
@@ -84,7 +82,8 @@ export class HomePage extends LitElement {
         color: var(--st-fg);
       }
       .tile .sub-n {
-        font-size: var(--st-fs-body);
+        display: block;
+        font-size: var(--st-fs-caption);
         font-weight: 400;
         color: var(--st-fg-secondary);
       }
@@ -98,7 +97,8 @@ export class HomePage extends LitElement {
       }
       .cols {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+        /* The inbox on the left (the wider side), the overview on the right; one column on a narrow screen. */
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
         gap: 24px;
         align-items: start;
       }
@@ -204,7 +204,7 @@ export class HomePage extends LitElement {
     return html`<button class="tile ${go ? "" : "static"} ${n && opts.cls ? opts.cls : ""}"
       @click=${() => go && this._fire("go-view", { view: opts.view, priority: opts.priority ?? "" })}>
       <span class="top"><ha-icon .icon=${icon}></ha-icon>${label}</span>
-      <span class="n">${n}${opts.sub ? html`<span class="sub-n"> ${opts.sub}</span>` : nothing}</span>
+      <span class="n">${n}${opts.sub ? html`<span class="sub-n">${opts.sub}</span>` : nothing}</span>
     </button>`;
   }
 
@@ -237,51 +237,32 @@ export class HomePage extends LitElement {
     const all = this.tickets.filter((t) => !t.merged_into);
     const view = (id: string) => all.filter(VIEWS.find((v) => v.id === id)!.match).length;
     const now = Date.now();
+    const inbox = all
+      .filter(VIEWS.find((v) => v.id === "active")!.match)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
     const urgent = all.filter((t) => live(t) && (t.priority === "urgent" || t.priority === "high"));
     const unread = all.filter((t) => t.unread);
-    const working = all.filter((t) => t.agent_state);
-    const attention = all
-      .filter((t) => live(t) && (t.unread || t.priority === "urgent" || t.priority === "high" || t.status === "new"))
-      .sort(
-        (a, b) =>
-          Number(!!b.unread) - Number(!!a.unread) ||
-          (PRIORITY_RANK[a.priority] ?? 2) - (PRIORITY_RANK[b.priority] ?? 2) ||
-          b.updated_at.localeCompare(a.updated_at),
-      )
-      .slice(0, 6);
-    const aiReplies = all
-      .filter((t) => !t.agent_state && t.updated_by && isAgent(t.updated_by) && !t.labels.includes(HISTORY))
-      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-      .slice(0, 4);
-    const recent = all
-      .filter((t) => !t.labels.includes(HISTORY))
-      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-      .slice(0, 8);
     const opened = all.filter((t) => now - new Date(t.created_at).getTime() < WEEK_MS && !t.labels.includes(HISTORY)).length;
     const resolved = all.filter(
       (t) => (t.status === "resolved" || t.status === "closed") && t.closed_at && now - new Date(t.closed_at).getTime() < WEEK_MS && !t.labels.includes(HISTORY),
     ).length;
     return html`<div class="page">
       <h1>${this._greeting()}</h1>
-      <p class="lead">${attention.length ? "Here's what needs a look." : "Nothing needs you right now."}</p>
-
-      <div class="tiles">
-        ${this._tile("mdi:inbox-outline", "Inbox", view("active"), { view: "active", cls: "hot" })}
-        ${this._tile("mdi:progress-wrench", "In Progress", view("progress"), { view: "progress" })}
-        ${this._tile("mdi:star-four-points-outline", "Assigned to AI", view("agent"), { view: "agent" })}
-        ${this._tile("mdi:alert-outline", "Urgent / High", urgent.length, { view: "progress", cls: "warn" })}
-        ${this._tile("mdi:email-open-outline", "Unread", unread.length, { view: "all", cls: "hot" })}
-        ${this._tile("mdi:calendar-week", "This week", opened, { sub: `opened · ${resolved} resolved` })}
-      </div>
+      <p class="lead">${inbox.length ? `${inbox.length} new ${inbox.length === 1 ? "ticket is" : "tickets are"} waiting in your inbox.` : "Your inbox is empty."}</p>
 
       <div class="cols">
-        <div>
-          ${this._card("Needs attention", attention, "All clear.")}
-          ${working.length || aiReplies.length || view("agent")
-            ? this._card("AI Agent", [...working, ...aiReplies], "The AI Agent has nothing in hand.")
-            : nothing}
-        </div>
-        <div>${this._card("Recent activity", recent, "Nothing has happened yet.")}</div>
+        ${this._card("Inbox", inbox, "Nothing new. All clear.")}
+        <section>
+          <h2>Overview</h2>
+          <div class="tiles">
+            ${this._tile("mdi:inbox-outline", "Inbox", view("active"), { view: "active", cls: "hot" })}
+            ${this._tile("mdi:progress-wrench", "In Progress", view("progress"), { view: "progress" })}
+            ${this._tile("mdi:star-four-points-outline", "Assigned to AI", view("agent"), { view: "agent" })}
+            ${this._tile("mdi:alert-outline", "Urgent / High", urgent.length, { view: "progress", cls: "warn" })}
+            ${this._tile("mdi:email-open-outline", "Unread", unread.length, { view: "all", cls: "hot" })}
+            ${this._tile("mdi:calendar-week", "This week", opened, { sub: `opened · ${resolved} resolved` })}
+          </div>
+        </section>
       </div>
     </div>`;
   }
