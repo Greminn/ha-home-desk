@@ -53,8 +53,6 @@ export class HomeDeskPanel extends LitElement {
   @state() private _category = "";
   /** A requester's name (as stored), or "" for anyone. */
   @state() private _person = "";
-  /** "" for any, "with" for tickets assigned to the AI agent, "without" for the rest. */
-  @state() private _agentFilter = "";
   @state() private _filtersOpen = false;
   /** True when only one pane fits: the list or the ticket, not both. */
   @state() private _compact = window.matchMedia(COMPACT_QUERY).matches;
@@ -405,7 +403,6 @@ export class HomeDeskPanel extends LitElement {
     if (c.scope !== undefined) this._scope = c.scope;
     if (c.category !== undefined) this._category = c.category;
     if (c.person !== undefined) this._person = c.person;
-    if (c.agent !== undefined) this._agentFilter = c.agent;
     if (c.priority !== undefined) this._priority = c.priority;
     if (c.label !== undefined) this._label = c.label;
   }
@@ -413,7 +410,7 @@ export class HomeDeskPanel extends LitElement {
   private get _filters(): ListFilters {
     return {
       view: this._view, scope: this._scope, category: this._category, priority: this._priority,
-      label: this._label, person: this._person, agent: this._agentFilter,
+      label: this._label, person: this._person,
     };
   }
 

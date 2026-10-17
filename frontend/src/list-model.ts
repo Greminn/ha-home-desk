@@ -22,6 +22,8 @@ export const VIEWS: View[] = [
   // New work that hasn't been started. Ideas have their own tab so they don't bury problems.
   { id: "active", icon: "mdi:inbox-outline", label: "Inbox", count: true, match: (t) => t.status === "new" && !isHistory(t) && !isEnhancement(t) },
   { id: "progress", icon: "mdi:progress-wrench", label: "In Progress", count: true, match: (t) => (t.status === "in_progress" || t.status === "open") && !isHistory(t) },
+  // What the AI Agent has been handed, whatever stage it is at.
+  { id: "agent", icon: "mdi:star-four-points-outline", label: "Assigned to AI", count: true, match: (t) => isActive(t) && isAgent(t.assignee ?? "") },
   { id: "enhancements", icon: "mdi:lightbulb-outline", label: "Enhancements", count: true, match: (t) => isActive(t) && isEnhancement(t) },
   { id: "all", icon: "mdi:format-list-bulleted", label: "All", match: () => true },
 ];
@@ -47,8 +49,6 @@ export interface ListFilters {
   label: string;
   /** A requester's name, as stored. */
   person: string;
-  /** "with" or "without" the AI agent. */
-  agent: string;
 }
 
 /** The tickets to show: the tab, then each filter, and the search's matching ids if a search is running. */
@@ -62,25 +62,19 @@ export function filterTickets(tickets: TicketSummary[], f: ListFilters, matchIds
       (!f.priority || t.priority === f.priority) &&
       (!f.label || t.labels.includes(f.label)) &&
       (!f.person || t.requester === f.person) &&
-      (!f.agent || isAgent(t.assignee ?? "") === (f.agent === "with")) &&
       (!f.category || (f.category === "none" ? !t.category : t.category === f.category)),
   );
 }
 
 /** How many filters are on (the dot on the filter button). The scope only counts on the All tab. */
 export function filterCount(f: ListFilters): number {
-  return [f.category, f.priority, f.label, f.person, f.agent, f.view === "all" ? f.scope : ""].filter(Boolean).length;
+  return [f.category, f.priority, f.label, f.person, f.view === "all" ? f.scope : ""].filter(Boolean).length;
 }
-
-export const agentOptions = (): DropdownOption[] => [
-  { id: "", label: "Any AI Agent" },
-  { id: "with", label: "With AI Agent" },
-  { id: "without", label: "Not with AI Agent" },
-];
 
 export const priorityOptions = (): DropdownOption[] => [
   { id: "", label: "Any Priority" },
-  ...PRIORITIES.map((id) => ({ id, label: PRIORITY_LABEL[id] })),
+  // Low is no longer offered anywhere (Normal, High and Urgent are the choices), so it isn't a filter either.
+  ...PRIORITIES.filter((id) => id !== "low").map((id) => ({ id, label: PRIORITY_LABEL[id] })),
 ];
 
 export const categoryOptions = (categories: Category[]): DropdownOption[] => [

@@ -4,7 +4,7 @@ import { safeCustomElement } from "../define";
 import "./dropdown";
 import { sharedStyles } from "../styles";
 import {
-  SCOPES_OPTIONS, agentOptions, categoryOptions, filterCount, labelOptions, personOptions, priorityOptions,
+  SCOPES_OPTIONS, categoryOptions, filterCount, labelOptions, personOptions, priorityOptions,
   type ListFilters,
 } from "../list-model";
 import type { Category, Label, TicketSummary } from "../types";
@@ -225,10 +225,10 @@ export class ListToolbar extends LitElement {
               : nothing}
             <st-dropdown label="Category" placeholder="Category" .options=${categoryOptions(this.categories)} .value=${f.category}
               @change=${this._change("category")}></st-dropdown>
-            <st-dropdown label="Raised By" placeholder="Raised By" .options=${personOptions(this.tickets, f.person)} .value=${f.person}
-              @change=${this._change("person")}></st-dropdown>
-            <st-dropdown label="AI Agent" placeholder="AI Agent" .options=${agentOptions()} .value=${f.agent}
-              @change=${this._change("agent")}></st-dropdown>
+            ${f.person
+              ? html`<st-dropdown label="Raised By" placeholder="Raised By" .options=${personOptions(this.tickets, f.person)} .value=${f.person}
+                  @change=${this._change("person")}></st-dropdown>`
+              : nothing}
             <st-dropdown label="Priority" placeholder="Priority" .options=${priorityOptions()} .value=${f.priority}
               @change=${this._change("priority")}></st-dropdown>
             <st-dropdown label="Label" placeholder="Label" .options=${labelOptions(this.labels)} .value=${f.label}
