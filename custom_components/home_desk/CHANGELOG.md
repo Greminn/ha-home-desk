@@ -26,6 +26,7 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 ### Changed
 - Settings, Home, and the household report form now follow Home Assistant's card style: a lighter box with its title inside, filled fields, HA-style switches and select fields. Text fields in dialogs are filled fields too.
 ### Fixed
+- Scrolling to the bottom of a ticket with a short thread kept flicking back up: the long description folded away, which shortened the page so much that it jumped to the top and unfolded again, over and over. It now leaves a short thread alone.
 - Drop-down menus (such as the AI Agent choice in Settings) were cut off inside a Settings card; they now open over everything and are as wide as their choices.
 - Saving the speech-to-text engine and "Write out voice messages" in Settings was refused by the websocket schema.
 - **"Updated … by …" on every ticket.** The list rows and the ticket's header now say when it last changed and who changed it (a person, an AI agent, or Home Assistant). Tickets and the websocket `home_desk/list` and `home_desk/get` carry `updated_by`.

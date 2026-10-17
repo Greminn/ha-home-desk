@@ -857,8 +857,12 @@ export class TicketDetail extends LitElement {
   /** Collapse a long description to one line on the first scroll; open it again on a return to the top. */
   private _onScroll(e: Event) {
     if (Date.now() < this._descSettle || this._descFull <= 56) return;
-    const top = (e.currentTarget as HTMLElement).scrollTop;
-    if (!this._descCollapsed && top > 4) this._setDescCollapsed(true);
+    const area = e.currentTarget as HTMLElement;
+    const top = area.scrollTop;
+    // Collapsing shortens the page by the description's folded height. If that would leave the thread too short to scroll,
+    // the page would jump up, expand again at the top, and so flick back and forth: leave a short thread alone.
+    const spare = area.scrollHeight - area.clientHeight - (this._descFull - 56);
+    if (!this._descCollapsed && top > 4 && spare > 40) this._setDescCollapsed(true);
     else if (this._descCollapsed && top <= 0) this._setDescCollapsed(false);
   }
 
