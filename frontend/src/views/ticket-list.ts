@@ -176,14 +176,15 @@ export class TicketList extends LitElement {
         align-items: center;
         flex-wrap: wrap;
         gap: 6px;
-        margin-top: 8px;
+        margin-top: 10px;
       }
       .meta {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 2px 10px;
-        margin-top: 4px;
+        gap: 6px 12px;
+        margin-top: 6px;
+        line-height: 1.4;
         font-size: var(--st-fs-caption);
         color: var(--st-fg-secondary);
       }
@@ -210,7 +211,9 @@ export class TicketList extends LitElement {
         color: var(--st-warning);
         font-weight: 500;
       }
+      /* "Opened…" always has its own line; "Updated…", the comment count and the rest follow on the next. */
       .ref {
+        flex-basis: 100%;
         font-variant-numeric: tabular-nums;
       }
       /*
