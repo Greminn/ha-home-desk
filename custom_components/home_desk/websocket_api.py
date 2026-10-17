@@ -17,6 +17,8 @@ from .const import AUTO_CLOSE_SECONDS, DOMAIN, LABEL_COLORS, PRIORITIES, STATUS_
 from .agent import async_run_now, async_stop_turn, async_test_agent
 from .suggest import async_ask_ai, async_guess
 from .storage import (
+    async_apply_proposal,
+    async_dismiss_proposal,
     TicketError,
     async_add_comment,
     async_close_ticket,
@@ -489,6 +491,22 @@ async def ws_suggest(hass: HomeAssistant, connection: websocket_api.ActiveConnec
     connection.send_result(msg["id"], {"suggestions": found})
 
 
+@websocket_api.websocket_command(
+    {vol.Required("type"): "home_desk/proposal", vol.Required("ticket_id"): int, vol.Required("event_id"): int, vol.Required("do"): vol.In(["apply", "dismiss"])}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_proposal(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Apply or dismiss the changes the AI agent proposed in a comment."""
+    try:
+        act = async_apply_proposal if msg["do"] == "apply" else async_dismiss_proposal
+        ticket = await act(hass, msg["ticket_id"], msg["event_id"], actor=_actor(connection))
+    except TicketError as err:
+        _fail(connection, msg, "invalid", str(err))
+        return
+    connection.send_result(msg["id"], ticket)
+
+
 @websocket_api.websocket_command({vol.Required("type"): "home_desk/agent_run", vol.Required("ticket_id"): int})
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -538,6 +556,6 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_list, ws_get, ws_mark_read, ws_stats, ws_create, ws_update, ws_comment, ws_close, ws_link, ws_merge,
         ws_labels, ws_label_create, ws_label_update, ws_label_delete,
         ws_categories, ws_category_create, ws_category_update, ws_category_delete,
-        ws_settings, ws_settings_save, ws_agent_run, ws_agent_stop, ws_agent_test, ws_suggest,
+        ws_settings, ws_settings_save, ws_proposal, ws_agent_run, ws_agent_stop, ws_agent_test, ws_suggest,
     ):
         websocket_api.async_register_command(hass, command)

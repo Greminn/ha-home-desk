@@ -191,7 +191,7 @@ export function createMock() {
       setTimeout(() => {
         agentRuns.delete(t.id);
         if (!t.agent_state) return;
-        t.events.push({ id: t.events.length + 1, actor: `ai:${name}`, kind: "comment", body: "From the entity history, the light stayed on after the motion sensor cleared. The automation only has a turn-on action, so add a **turn off** action after a delay.", data: null, created_at: iso(0) });
+        t.events.push({ id: t.events.length + 1, actor: `ai:${name}`, kind: "comment", body: "The warnings come from upstream add-ons, with nothing to fix here. I'd close it as not actionable: I've proposed that below.", data: { proposal: { actions: [{ action: "set_priority", priority: "low" }, { action: "close", status: "closed", resolution: "Upstream add-on warnings, not actionable." }], state: "pending" } }, created_at: iso(0) });
         t.assignee = null; delete t.agent_state; t.updated_at = iso(0);
         fire(t, "comment", `ai:${name}`);
       }, 6000),
@@ -200,6 +200,22 @@ export function createMock() {
   };
 
   const handlers = {
+    proposal: (m) => {
+      const t = get(m.ticket_id);
+      const ev = t.events.find((e) => e.id === m.event_id);
+      const p = ev?.data?.proposal;
+      if (!p) throw { message: "That comment has no proposed changes" };
+      if (p.state !== "pending") throw { message: `That proposal was already ${p.state}` };
+      if (t.events.filter((e) => e.data?.proposal).at(-1) !== ev) throw { message: "A newer proposal replaces this one" };
+      if (m.do === "apply") {
+        for (const a of p.actions) {
+          if (a.action === "set_priority") apply(t, state.user.name, { priority: a.priority });
+          if (a.action === "close") { apply(t, state.user.name, { status: a.status, resolution: a.resolution }); t.events.push({ id: t.events.length + 1, actor: state.user.name, kind: "comment", body: `**Resolution:** ${a.resolution}`, data: null, created_at: iso(0) }); }
+        }
+      }
+      Object.assign(p, { state: m.do === "apply" ? "applied" : "dismissed", by: state.user.name, at: iso(0) });
+      fire(t, "proposal", state.user.name); return t;
+    },
     agent_stop: (m) => {
       const t = get(m.ticket_id);
       (agentRuns.get(t.id) ?? []).forEach(clearTimeout); agentRuns.delete(t.id);

@@ -184,6 +184,8 @@ export class TicketThings extends LitElement {
   /** The AI agent can be asked to choose (it costs, so the panel confirms first). */
   @property({ type: Boolean }) canAsk = false;
   @property() askName = "AI Agent";
+  /** How dialogs name the agent, e.g. "AI Agent (Claude)". */
+  @property() agentLabel = "AI Agent";
   /** Label for the add button when nothing is named yet. */
   @property() addLabel = "Add device, entity or area";
 
@@ -320,7 +322,7 @@ export class TicketThings extends LitElement {
   private _askAi() {
     if (this.ticketId === null || !this.client) return;
     const id = this.ticketId;
-    const name = this.askName;
+    const name = this.agentLabel;
     this.dispatchEvent(
       new CustomEvent("confirm-cost", {
         bubbles: true,

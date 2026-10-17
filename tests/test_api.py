@@ -193,7 +193,7 @@ async def main():
     wsapi.async_register_commands(hass)
     # The decorators wrap each handler, so they are matched to names by registration order (see async_register_commands).
     names = ["list", "get", "mark_read", "stats", "create", "update", "comment", "close", "link", "merge", "labels", "label_create", "label_update",
-             "label_delete", "categories", "category_create", "category_update", "category_delete", "settings", "settings_save", "agent_run", "agent_stop", "agent_test", "suggest"]
+             "label_delete", "categories", "category_create", "category_update", "category_delete", "settings", "settings_save", "proposal", "agent_run", "agent_stop", "agent_test", "suggest"]
     assert len(REGISTERED) == len(names), (len(REGISTERED), "commands registered")
     HANDLERS.update(dict(zip(names, REGISTERED)))
 

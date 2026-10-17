@@ -364,6 +364,64 @@ async def main():
         stop()
         assert not hass.bus.listeners
 
+        # ---- proposed changes: parsed out of the reply, validated, applied only on request, newest only
+        stop = agent.async_setup_agent(hass)
+        await s.async_save_settings(hass, {"agent_auto": True, "agent_daily_cap": 100})
+        hass.data.pop(agent._DAY, None)
+        pt = await s.async_create_ticket(hass, title="Add-on warnings", requester="simon", actor="simon", priority="normal")
+        replies = iter([
+            'Upstream issue, so close it.\n\n```home-desk-actions\n[{"action":"close","status":"closed","resolution":"Upstream, not actionable."},{"action":"add_label","label":"Nope"},{"action":"set_priority","priority":"low"}]\n```',
+            "Second thought: set it low.\n\n```home-desk-actions\n[{\"action\":\"set_priority\",\"priority\":\"low\"}]\n```",
+        ])
+
+        async def propose(data):
+            return {"data": next(replies)}
+
+        hass.services.handler = propose
+        await s.async_update_ticket(hass, pt["id"], actor="Simon", assignee="ai:Claude")
+        await hass.settle()
+        t = await ticket_of(hass, pt["id"])
+        first = [e for e in t["events"] if e["kind"] == "comment"][-1]
+        assert "home-desk-actions" not in first["body"] and first["body"] == "Upstream issue, so close it."
+        prop = first["data"]["proposal"]
+        assert prop["state"] == "pending" and [a["action"] for a in prop["actions"]] == ["close", "set_priority"], prop  # unknown label dropped
+        assert t["status"] == "in_progress" and t["resolution"] is None, "nothing changed until someone applies it"
+        await s.async_update_ticket(hass, pt["id"], actor="Simon", assignee="ai:Claude")
+        await hass.settle()
+        t = await ticket_of(hass, pt["id"])
+        second = [e for e in t["events"] if e["kind"] == "comment"][-1]
+        try:
+            await s.async_apply_proposal(hass, pt["id"], first["id"], actor="Simon")
+            raise SystemExit("applied a superseded proposal")
+        except s.TicketError as err:
+            assert "newer" in str(err)
+        t = await s.async_apply_proposal(hass, pt["id"], second["id"], actor="Simon")
+        assert t["priority"] == "low" and t["status"] == "in_progress"
+        assert [e for e in t["events"] if e["id"] == second["id"]][0]["data"]["proposal"]["state"] == "applied"
+        assert any(e["kind"] == "priority" and e["actor"] == "Simon" for e in t["events"]), "applied as the person, not the agent"
+        try:
+            await s.async_apply_proposal(hass, pt["id"], second["id"], actor="Simon")
+            raise SystemExit("applied twice")
+        except s.TicketError:
+            pass
+        # a close proposal closes with its resolution; dismissing changes nothing
+        replies = iter(['Close it.\n```home-desk-actions\n[{"action":"close","status":"closed","resolution":"Upstream."}]\n```'])
+        await s.async_update_ticket(hass, pt["id"], actor="Simon", assignee="ai:Claude")
+        await hass.settle()
+        closing = [e for e in (await ticket_of(hass, pt["id"]))["events"] if e["kind"] == "comment"][-1]
+        done = await s.async_apply_proposal(hass, pt["id"], closing["id"], actor="Simon")
+        assert done["status"] == "closed" and done["resolution"] == "Upstream."
+        d = await s.async_create_ticket(hass, title="Dismiss me", requester="simon", actor="simon")
+        replies = iter(['Close.\n```home-desk-actions\n[{"action":"close","status":"closed","resolution":"x"}]\n```'])
+        await s.async_update_ticket(hass, d["id"], actor="Simon", assignee="ai:Claude")
+        await hass.settle()
+        c = [e for e in (await ticket_of(hass, d["id"]))["events"] if e["kind"] == "comment"][-1]
+        t = await s.async_dismiss_proposal(hass, d["id"], c["id"], actor="Simon")
+        assert t["status"] != "closed" and [e for e in t["events"] if e["id"] == c["id"]][0]["data"]["proposal"]["state"] == "dismissed"
+        assert "Never list options" in (await ctx.async_build_prompt(hass, d["id"], await s.async_get_settings(hass), "Claude")), "the agent is told to decide"
+        stop()
+        print("proposals ok")
+
         # ---- devices, areas and guesses
         suggest = sys.modules["home_desk.suggest"]
         FAKE_AREAS["deck"] = types.SimpleNamespace(id="deck", name="Deck", aliases=[])

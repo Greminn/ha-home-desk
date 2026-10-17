@@ -9,7 +9,7 @@ import "./ticket-things";
 import type { HaClient } from "../ha-client";
 import { sharedStyles } from "../styles";
 import { BLOCKED, PRIORITIES } from "../types";
-import type { Category, HomeAssistant, Priority, Status, Label, Ticket, TicketEvent, TicketPatch } from "../types";
+import type { Category, HomeAssistant, Priority, ProposedAction, Status, Label, Ticket, TicketEvent, TicketPatch } from "../types";
 import {
   PRIORITY_LABEL,
   STATE_COLOR,
@@ -532,6 +532,41 @@ export class TicketDetail extends LitElement {
         }
       }
       /* What is new since you last looked: a small dot and "New", the same dot the list uses for unread. */
+      /* Changes the AI Agent proposes: a flat box under its comment with what it would do, and Apply and Dismiss. */
+      .proposal {
+        margin-top: 8px;
+        padding: 12px 16px;
+        border: 1px solid var(--st-outline);
+        border-radius: var(--ha-border-radius-lg, 12px);
+        font-size: var(--st-fs-body);
+      }
+      .proposal .p-head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 500;
+        color: var(--st-accent);
+      }
+      .proposal .p-head ha-icon,
+      .proposal .p-state ha-icon {
+        --mdc-icon-size: 18px;
+      }
+      .proposal ul {
+        margin: 6px 0 0;
+        padding-left: 22px;
+      }
+      .proposal .p-acts {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .proposal .p-state {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        color: var(--st-fg-secondary);
+      }
       .ev .new-tag {
         display: inline-flex;
         align-items: center;
@@ -777,6 +812,7 @@ export class TicketDetail extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
   @property({ type: Boolean }) canAsk = false;
   @property() askName = "AI Agent";
+  @property() agentLabel = "AI Agent";
   /** Assigning to the AI Agent starts it straight away (a Settings choice), so the panel will ask first. */
   @property({ type: Boolean }) autoRuns = false;
   @property({ attribute: false }) labelMap: Map<string, Label> = new Map();
@@ -1160,6 +1196,40 @@ export class TicketDetail extends LitElement {
     return !!this.seenAt && e.created_at > this.seenAt && e.actor !== this.me;
   }
 
+  /** One proposed change in words. */
+  private _actionWords(a: ProposedAction): string {
+    switch (a.action) {
+      case "close":
+        return `${a.status === "closed" ? "Close" : "Resolve"} this ticket: ${a.resolution}`;
+      case "set_priority":
+        return `Set the priority to ${PRIORITY_LABEL[a.priority] ?? a.priority}`;
+      case "add_label":
+        return `Add the label ${a.label}`;
+      case "remove_label":
+        return `Remove the label ${a.label}`;
+      case "set_category":
+        return `Move it to the category ${a.category}`;
+    }
+  }
+
+  /** Changes the AI Agent proposed in a comment: what they are, and Apply and Dismiss while it is the newest and waiting. */
+  private _proposal(e: TicketEvent) {
+    const p = e.data?.proposal;
+    if (!p || !this.ticket) return nothing;
+    const newest = [...this.ticket.events].reverse().find((x) => x.data?.proposal)?.id === e.id;
+    const open = p.state === "pending" && newest && this.isAdmin;
+    const fire = (action: "apply" | "dismiss") => this._fire("proposal", { eventId: e.id, action });
+    return html`<div class="proposal">
+      <div class="p-head"><ha-icon icon="mdi:star-four-points"></ha-icon>Proposed change${p.actions.length > 1 ? "s" : ""}</div>
+      <ul>${p.actions.map((a) => html`<li>${this._actionWords(a)}</li>`)}</ul>
+      ${open
+        ? html`<div class="p-acts"><button class="primary" @click=${() => fire("apply")}>Apply</button><button @click=${() => fire("dismiss")}>Dismiss</button></div>`
+        : html`<div class="p-state"><ha-icon .icon=${p.state === "applied" ? "mdi:check" : "mdi:close"}></ha-icon>${
+            p.state === "applied" ? `Applied by ${actorName(p.by ?? "")}` : p.state === "dismissed" ? `Dismissed by ${actorName(p.by ?? "")}` : "Replaced by a newer reply"
+          }</div>`}
+    </div>`;
+  }
+
   private _eventTemplate(e: TicketEvent) {
     const fresh = this._isNew(e);
     // With history on, every entry shows its exact date and time; otherwise comments say "25 minutes ago".
@@ -1174,6 +1244,7 @@ export class TicketDetail extends LitElement {
           <div>
             <div class="who"><b>${actorLabel(e.actor)}</b> · <span class="when">${when}</span>${fresh ? html`<span class="new-tag">New</span>` : nothing}${e.kind === "note" ? html`<span class="label dense">internal note</span>` : nothing}${(e.data as { merged_from?: number } | null)?.merged_from ? html`<span class="label dense" title="Copied here when a ticket was merged">from #${(e.data as { merged_from: number }).merged_from}</span>` : nothing}</div>
             <div class="bubble md ${e.kind === "note" ? "note" : ""}">${unsafeHTML(renderMarkdown(e.body ?? ""))}</div>
+            ${this._proposal(e)}
           </div>
         </div>`;
     }
@@ -1267,7 +1338,7 @@ export class TicketDetail extends LitElement {
                   : nothing}
                 ${long ? html`<button class="more" @click=${() => (this._expanded = !this._expanded)}>${this._expanded ? "Show Less" : "Show All"}</button>` : nothing}
                 <st-ticket-things class="about" .hass=${this.hass} .client=${this.client} .ticketId=${t.id} .editable=${this.isAdmin}
-                  .entities=${t.entities} .devices=${t.devices ?? []} .areas=${t.areas ?? []} .canAsk=${this.canAsk} .askName=${this.askName}
+                  .entities=${t.entities} .devices=${t.devices ?? []} .areas=${t.areas ?? []} .canAsk=${this.canAsk} .askName=${this.askName} .agentLabel=${this.agentLabel}
                   @change=${(e: CustomEvent<{ entities: string[]; devices: string[]; areas: string[] }>) => this._patch(e.detail)}></st-ticket-things>
               </div>
               <ha-icon class="pin-hint" icon="mdi:chevron-up"></ha-icon>

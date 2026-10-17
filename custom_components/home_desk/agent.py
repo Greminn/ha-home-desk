@@ -17,12 +17,15 @@ from typing import Any
 from homeassistant.core import Event, HomeAssistant, callback
 
 from .agent_context import async_build_prompt
+from .proposals import clean as clean_actions, split_reply
 from .const import AGENT_TIMEOUT, DOMAIN, EVENT_TICKET
 from .storage import (
     TicketError,
     _agent_key,
     async_add_comment,
     async_get_settings,
+    async_list_categories,
+    async_list_labels,
     async_get_ticket,
     async_set_agent_state,
     async_update_ticket,
@@ -102,7 +105,14 @@ async def _turn(hass: HomeAssistant, ticket_id: int, entity_id: str, name: str, 
         if not is_agent(ticket["assignee"]):
             await async_set_agent_state(hass, ticket_id, None)  # handed to someone else while it thought: drop the answer
             return
-        await async_add_comment(hass, ticket_id, actor=f"ai:{name}", body=reply)
+        body, raw = split_reply(reply)
+        labels = {x["name"].lower() for x in await async_list_labels(hass)} | {x["id"].lower() for x in await async_list_labels(hass)}
+        categories = {x["name"].lower() for x in await async_list_categories(hass)} | {x["id"].lower() for x in await async_list_categories(hass)}
+        actions = clean_actions(raw, labels=labels, categories=categories)
+        await async_add_comment(
+            hass, ticket_id, actor=f"ai:{name}", body=body or reply,
+            event_data={"proposal": {"actions": actions, "state": "pending"}} if actions else None,
+        )
     except asyncio.CancelledError:
         raise  # Stop: async_stop_turn tidies up
     except TimeoutError:

@@ -131,6 +131,11 @@ export class HaClient {
     return (await this.send<{ suggestions: Suggestion[] }>("suggest", { ticket_id: ticketId, ...(ai ? { ai: true } : {}) })).suggestions;
   }
 
+  /** Apply or dismiss the changes the AI agent proposed in a comment. */
+  proposal(ticketId: number, eventId: number, action: "apply" | "dismiss"): Promise<Ticket> {
+    return this.send("proposal", { ticket_id: ticketId, event_id: eventId, do: action });
+  }
+
   /** Stop the AI agent working on a ticket; the ticket comes back to you. */
   stopAgent(ticketId: number): Promise<{ stopped: number }> {
     return this.send("agent_stop", { ticket_id: ticketId });

@@ -752,6 +752,62 @@ async def async_update_ticket(
     return ticket
 
 
+def _proposal_event(ticket: dict[str, Any], event_id: int) -> dict[str, Any]:
+    ev = next((e for e in ticket["events"] if e["id"] == event_id), None)
+    if not ev or not (ev.get("data") or {}).get("proposal"):
+        raise TicketError("That comment has no proposed changes")
+    return ev
+
+
+async def async_apply_proposal(hass: HomeAssistant, ticket_id: int, event_id: int, *, actor: str) -> dict[str, Any]:
+    """Apply the changes the AI agent proposed in a comment, as `actor` (the person who pressed Apply). Only the newest
+    proposal on a ticket, and only while it is waiting, can be applied."""
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _get(data, ticket_id)
+        ev = _proposal_event(ticket, event_id)
+        newest = [e for e in ticket["events"] if (e.get("data") or {}).get("proposal")][-1]
+        proposal = ev["data"]["proposal"]
+        if proposal.get("state") != "pending":
+            raise TicketError(f"That proposal was already {proposal.get('state')}")
+        if newest["id"] != event_id:
+            raise TicketError("A newer proposal replaces this one")
+        actions = [dict(a) for a in proposal["actions"]]
+    for a in actions:
+        kind = a["action"]
+        if kind == "close":
+            await async_close_ticket(hass, ticket_id, actor=actor, resolution=a["resolution"], status=a["status"])
+        elif kind == "set_priority":
+            await async_update_ticket(hass, ticket_id, actor=actor, priority=a["priority"])
+        elif kind == "add_label":
+            await async_update_ticket(hass, ticket_id, actor=actor, add_labels=[a["label"]])
+        elif kind == "remove_label":
+            await async_update_ticket(hass, ticket_id, actor=actor, remove_labels=[a["label"]])
+        elif kind == "set_category":
+            await async_update_ticket(hass, ticket_id, actor=actor, category=a["category"])
+    return await _set_proposal_state(hass, ticket_id, event_id, "applied", actor)
+
+
+async def async_dismiss_proposal(hass: HomeAssistant, ticket_id: int, event_id: int, *, actor: str) -> dict[str, Any]:
+    async with _lock(hass):
+        data = await _load(hass)
+        proposal = _proposal_event(_get(data, ticket_id), event_id)["data"]["proposal"]
+        if proposal.get("state") != "pending":
+            raise TicketError(f"That proposal was already {proposal.get('state')}")
+    return await _set_proposal_state(hass, ticket_id, event_id, "dismissed", actor)
+
+
+async def _set_proposal_state(hass: HomeAssistant, ticket_id: int, event_id: int, state: str, actor: str) -> dict[str, Any]:
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _get(data, ticket_id)
+        proposal = _proposal_event(ticket, event_id)["data"]["proposal"]
+        proposal.update({"state": state, "by": actor, "at": _now()})
+        await _save(hass, data)
+    _fire(hass, ticket, "proposal", actor)
+    return ticket
+
+
 async def async_set_agent_state(hass: HomeAssistant, ticket_id: int, state: dict[str, Any] | None) -> dict[str, Any]:
     """Say that the AI agent is working on a ticket (`state` like {"state": "working", "agent", "since", "note"}), or clear it."""
     async with _lock(hass):
@@ -773,6 +829,7 @@ async def async_add_comment(
     actor: str,
     body: str,
     internal: bool = False,
+    event_data: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     body = (body or "").strip()
     if not body:
@@ -782,7 +839,7 @@ async def async_add_comment(
         data = await _load(hass)
         ticket = _get(data, ticket_id)
         ts = _now()
-        _event(ticket, actor, "note" if internal else "comment", body, None, ts)
+        _event(ticket, actor, "note" if internal else "comment", body, event_data, ts)
         ticket["updated_at"] = ts
         _progress(ticket, actor, ts)
         _hand_back(ticket, actor, ts)

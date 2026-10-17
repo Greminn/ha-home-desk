@@ -120,6 +120,20 @@ export interface Suggestion {
   ai?: boolean;
 }
 
+/** One change the AI agent proposes to a ticket. */
+export type ProposedAction =
+  | { action: "close"; status: "resolved" | "closed"; resolution: string }
+  | { action: "set_priority"; priority: Priority }
+  | { action: "add_label" | "remove_label"; label: string }
+  | { action: "set_category"; category: string };
+
+export interface Proposal {
+  actions: ProposedAction[];
+  state: "pending" | "applied" | "dismissed";
+  by?: string;
+  at?: string;
+}
+
 export interface TicketEvent {
   id: number;
   actor: string;
@@ -135,7 +149,7 @@ export interface TicketEvent {
     | "merge"
     | "attachment";
   body: string | null;
-  data: Record<string, unknown> | null;
+  data: (Record<string, unknown> & { proposal?: Proposal }) | null;
   created_at: string;
 }
 

@@ -45,3 +45,21 @@ assert ("device", "dev-deck-lights") not in [(c["kind"], c["id"]) for c in left]
 assert ("entity", "light.front_deck") not in [(c["kind"], c["id"]) for c in left], "a named device covers its entities"
 assert len(m.best(text, HOME, limit=2)) <= 2
 print("matching ok")
+
+# ---- the AI agent's proposed changes (proposals.py is pure too)
+spec2 = importlib.util.spec_from_file_location("proposals", Path(__file__).resolve().parents[1] / "custom_components" / "home_desk" / "proposals.py")
+p = importlib.util.module_from_spec(spec2)
+spec2.loader.exec_module(p)
+
+reply = 'Fine, close it.\n\n```home-desk-actions\n[{"action":"close","status":"closed","resolution":"Upstream, nothing to do."},{"action":"add_label","label":"Blocked"},{"action":"add_label","label":"Nope"},{"action":"set_priority","priority":"low"},{"action":"delete","id":1},{"action":"set_category","category":"home assistant"}]\n```'
+body, raw = p.split_reply(reply)
+assert body == "Fine, close it." and len(raw) == 6, (body, raw)
+ok = p.clean(raw, labels={"blocked", "bug"}, categories={"home assistant"})
+assert [a["action"] for a in ok] == ["close", "add_label", "set_priority", "set_category"], ok  # unknown label and unknown action dropped
+assert p.split_reply("No block here.") == ("No block here.", [])
+assert p.split_reply("x\n```home-desk-actions\nnot json\n```")[1] == [], "broken JSON is ignored, and the block still comes out of the text"
+assert "home-desk-actions" not in p.split_reply("x\n```home-desk-actions\nnot json\n```")[0]
+assert p.clean([{"action": "close", "status": "weird"}], labels=set(), categories=set()) == []
+assert p.clean([{"action": "close"}], labels=set(), categories=set())[0]["status"] == "resolved"
+assert len(p.clean([{"action": "set_priority", "priority": "high"}] * 9, labels=set(), categories=set())) == p.MAX_ACTIONS
+print("proposals ok")

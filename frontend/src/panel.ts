@@ -272,8 +272,14 @@ export class HomeDeskPanel extends LitElement {
     return !!this._settings?.agent?.startsWith("ai_task.");
   }
 
+  /** What buttons call it: "AI Agent". */
   private get _askName(): string {
-    return this._agentName.replace(/^ai:/, "") || "Claude";
+    return "AI Agent";
+  }
+
+  /** What dialogs call it, so it is clear which one: "AI Agent (Claude)". */
+  private get _agentLabel(): string {
+    return `AI Agent (${this._agentName.replace(/^ai:/, "") || "Claude"})`;
   }
 
   /** Ask before anything that costs: the person sees what will happen, and "Cancel" does nothing. */
@@ -284,7 +290,7 @@ export class HomeDeskPanel extends LitElement {
   private _askNow(detail: { body: string; done: () => void }) {
     const ticket = this._selected;
     if (!ticket || !this._client) return;
-    const name = this._askName;
+    const name = this._agentLabel;
     this._askCost(
       `Ask ${name} to read ticket #${ticket.id} and reply now? The ticket${detail.body ? ", with your comment," : ""} is sent to ${name} through Home Assistant, which uses your AI plan and may cost money. You can stop it from the ticket while it works.`,
       async () => {
@@ -302,7 +308,7 @@ export class HomeDeskPanel extends LitElement {
     if (!ticket) return;
     const toAgent = typeof patch.assignee === "string" && isAgent(patch.assignee);
     if (toAgent && this._canAsk && this._settings?.agent_auto && !isAgent(ticket.assignee ?? "")) {
-      const name = this._askName;
+      const name = this._agentLabel;
       this._askCost(
         `Assigning ticket #${ticket.id} to ${name} starts it straight away: the ticket is sent to ${name} through Home Assistant, which uses your AI plan and may cost money. Assign it now?`,
         () => this._act((c) => c.update(ticket.id, patch)),
@@ -708,6 +714,8 @@ export class HomeDeskPanel extends LitElement {
           .hass=${this.hass}
           .canAsk=${this._canAsk}
           .askName=${this._askName}
+          .agentLabel=${this._agentLabel}
+          @proposal=${(e: CustomEvent<{ eventId: number; action: "apply" | "dismiss" }>) => this._selected && void this._act((c) => c.proposal(this._selected!.id, e.detail.eventId, e.detail.action))}
           .autoRuns=${this._canAsk && !!this._settings?.agent_auto}
           @confirm-cost=${(e: CustomEvent<{ text: string; run: () => Promise<void> }>) => this._askCost(e.detail.text, e.detail.run)}
           @ask-ai=${(e: CustomEvent<{ body: string; done: () => void }>) => this._askNow(e.detail)}
