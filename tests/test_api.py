@@ -190,7 +190,7 @@ async def main():
     hass = FakeHass()
     wsapi.async_register_commands(hass)
     # The decorators wrap each handler, so they are matched to names by registration order (see async_register_commands).
-    names = ["list", "get", "stats", "create", "update", "comment", "close", "link", "merge", "labels", "label_create", "label_update",
+    names = ["list", "get", "mark_read", "stats", "create", "update", "comment", "close", "link", "merge", "labels", "label_create", "label_update",
              "label_delete", "categories", "category_create", "category_update", "category_delete", "settings", "settings_save"]
     assert len(REGISTERED) == len(names), (len(REGISTERED), "commands registered")
     HANDLERS.update(dict(zip(names, REGISTERED)))
@@ -208,6 +208,12 @@ async def main():
         conn = await call(hass, name, HOUSEHOLD(), ticket_id=mine, merge_ids=[theirs], label_id="bug", category_id="home-assistant")
         assert conn.error and conn.error[0] == "unauthorized", f"{name} must be admin only, got {conn.error} {conn.result}"
     print("admin-only commands ok:", sorted(set(names) - open_to_household))
+
+    # marking read: admins only (checked above); it answers with how many, and the list carries the person's own unread marks
+    marked = (await call(hass, "mark_read", ADMIN(), ticket_ids=[mine])).result
+    assert marked == {"marked": 1}
+    listed = (await call(hass, "list", ADMIN(), status="all")).result["tickets"]
+    assert all("unread" in row for row in listed), "the list says what is unread"
 
     # a household user sees only their own tickets in the list
     await s.async_add_comment(hass, mine, actor="Simon", body="private working note", internal=True)

@@ -72,6 +72,8 @@ export class HomeDeskPanel extends LitElement {
   @state() private _checked = new Set<number>();
   @state() private _ticking = false;
   private _lastChecked: number | null = null;
+  /** When the open ticket was last looked at, from before it was opened (so what is new stays marked while it is open). */
+  @state() private _seenAt = "";
   @state() private _pickingLabel: { ticket: TicketSummary; rect: DOMRect } | null = null;
   @state() private _picking: { ticket: TicketSummary; rect: DOMRect } | null = null;
   /** The New category dialog, and the ticket the new category goes on. */
@@ -250,12 +252,26 @@ export class HomeDeskPanel extends LitElement {
   private async _loadSelected(id: number) {
     if (!this._client) return;
     try {
-      this._selected = await this._client.get(id);
+      const ticket = await this._client.get(id);
+      if (this._selected?.id !== id || !this._seenAt) this._seenAt = ticket.seen_at ?? "";
+      this._selected = ticket;
+      if (this._tickets.find((t) => t.id === id)?.unread) void this._markRead([id]);
     } catch (err) {
       this._selected = null;
       this._selectedId = null;
       this._navigate(this._prefix);
       this._error = this._message(err);
+    }
+  }
+
+  /** Mark tickets (or all, with no ids) as read: the list updates at once, the server in the background. */
+  private async _markRead(ids?: number[]) {
+    if (!this._client) return;
+    this._tickets = this._tickets.map((t) => (!ids || ids.includes(t.id) ? { ...t, unread: false } : t));
+    try {
+      await this._client.markRead(ids);
+    } catch {
+      // The next refresh shows the truth.
     }
   }
 
@@ -290,6 +306,7 @@ export class HomeDeskPanel extends LitElement {
   }
 
   private async _open(id: number, navigate = true) {
+    if (this._selectedId !== id) this._seenAt = "";
     this._selectedId = id;
     if (navigate) this._navigate(`${this._prefix}/${id}`);
     await this._loadSelected(id);
@@ -527,7 +544,8 @@ export class HomeDeskPanel extends LitElement {
       <st-app-header .page=${this._page} .view=${this._view} .tickets=${this._tickets} .narrow=${this.narrow} .admin=${this._admin}
         @page-change=${(e: CustomEvent<Page>) => (this._page = e.detail)}
         @view-change=${(e: CustomEvent<string>) => this._setView(e.detail)}
-        @refresh=${() => void this._refresh()}></st-app-header>
+        @refresh=${() => void this._refresh()}
+        @mark-all-read=${() => void this._markRead()}></st-app-header>
       ${this._error ? html`<div class="banner">${this._error}</div>` : nothing}
       ${!this._admin && this._client
         ? html`<st-report-form .client=${this._client}></st-report-form>`
@@ -547,6 +565,7 @@ export class HomeDeskPanel extends LitElement {
             .selectable=${this._admin} .selecting=${this._ticking} .checkedCount=${this._checked.size}
             @toggle-select=${() => (this._ticking ? this._clearChecked() : (this._ticking = true))}
             @clear-selection=${() => this._clearChecked()}
+            @mark-read-selected=${() => void this._markRead([...this._checked]).then(() => this._clearChecked())}
             @select-all=${() => (this._checked = new Set(this._filtered.map((t) => t.id)))}
             @merge-selected=${(e: CustomEvent<{ rect: DOMRect }>) => (this._merging = { rect: e.detail.rect, ids: this._tickets.filter((t) => this._checked.has(t.id) && !t.merged_into).map((t) => t.id) })}
             @search=${(e: CustomEvent<string>) => this._search(e.detail)}
@@ -578,6 +597,8 @@ export class HomeDeskPanel extends LitElement {
           .isAdmin=${this._admin}
           .narrow=${this._compact}
           .language=${lang}
+          .seenAt=${this._seenAt}
+          .me=${this.hass.user?.name ?? ""}
           .agentName=${this._agentName}
           .labelMap=${this._labelMap}
           .people=${this._people}

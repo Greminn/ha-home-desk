@@ -95,6 +95,10 @@ export interface TicketSummary {
   attachment_count?: number;
   /** Set on a ticket that was folded into another: that ticket's number. */
   merged_into?: number | null;
+  /** True when someone else changed the ticket since you last looked at it. */
+  unread?: boolean;
+  /** What the newest change by someone else was (only with `unread`). */
+  activity?: { actor: string; kind: TicketEvent["kind"]; at: string };
 }
 
 export interface TicketEvent {
@@ -136,6 +140,8 @@ export interface Ticket extends TicketSummary {
   resolution: string | null;
   events: TicketEvent[];
   related?: { id: number; title: string; status: Status }[];
+  /** When you last looked at this ticket, so what is newer can be marked as new. */
+  seen_at?: string;
 }
 
 export interface TicketPatch {

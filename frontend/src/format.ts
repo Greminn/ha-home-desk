@@ -186,3 +186,19 @@ export interface Person {
   name: string;
   picture?: string;
 }
+
+const ACTIVITY_VERB: Record<string, string> = {
+  created: "opened this",
+  comment: "commented",
+  note: "added a note",
+  status: "changed the status",
+  priority: "changed the priority",
+  assignee: "changed the assignee",
+  field: "edited it",
+  link: "linked a ticket",
+  merge: "merged a ticket",
+  attachment: "added a file",
+};
+
+/** What someone did, in words: "commented", "changed the status". */
+export const activityVerb = (kind: string): string => ACTIVITY_VERB[kind] ?? "updated it";

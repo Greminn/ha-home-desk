@@ -123,7 +123,7 @@ function seed() {
     if (t.source === "Home Assistant Repairs" && !t.category) t.category = "home-assistant";
   }
   const settings = { auto_close: "7d", agent: "ai_task.claude_ai_task", repairs: true, stt: "", transcribe: true, notify: { targets: ["mobile_app_simons_iphone"], new_ticket: true, comment: true, resolved: false } };
-  return { labels, tickets, categories, settings, nextId: n + 2 };
+  return { labels, tickets, categories, settings, nextId: n + 2, seen: { base: iso(30 * 60 * 1000), tickets: {} } };
 }
 
 export function createMock() {
@@ -181,9 +181,20 @@ export function createMock() {
       rows.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
       rows.sort((a, b) => prio[a.priority] - prio[b.priority]);
       rows.sort((a, b) => Number(["resolved", "closed"].includes(a.status)) - Number(["resolved", "closed"].includes(b.status)));
-      return { total: rows.length, tickets: rows.map(summary) };
+      const since = (t) => (db.seen.tickets[t.id] > db.seen.base ? db.seen.tickets[t.id] : db.seen.base);
+      const mark = (t) => {
+        const e = [...t.events].reverse().find((x) => x.created_at > since(t) && x.actor !== state.user.name && (isAdmin() || x.kind !== "note"));
+        return e ? { unread: true, activity: { actor: e.actor, kind: e.kind, at: e.created_at } } : { unread: false };
+      };
+      return { total: rows.length, tickets: rows.map((t) => ({ ...summary(t), ...mark(t) })) };
     },
-    get: (m) => { const t = get(m.ticket_id); return { ...view(t), related: t.links.map((i) => db.tickets[i]).filter(Boolean).map((r) => ({ id: r.id, title: r.title, status: r.status })) }; },
+    mark_read: (m) => {
+      const now = iso(0);
+      if (m.ticket_ids) m.ticket_ids.forEach((id) => (db.seen.tickets[id] = now));
+      else { db.seen.base = now; db.seen.tickets = {}; }
+      return { marked: m.ticket_ids ? m.ticket_ids.length : Object.keys(db.tickets).length };
+    },
+    get: (m) => { const t = get(m.ticket_id); return { ...view(t), seen_at: db.seen.tickets[t.id] > db.seen.base ? db.seen.tickets[t.id] : db.seen.base, related: t.links.map((i) => db.tickets[i]).filter(Boolean).map((r) => ({ id: r.id, title: r.title, status: r.status })) }; },
     labels: () => ({ labels: labelList() }),
     category_create: (m) => {
       const id = slug(m.name);

@@ -281,7 +281,7 @@ def _migrate(data: dict[str, Any]) -> bool:
         if categories.get(builtin["id"]) != want:
             categories[builtin["id"]] = want
             changed = True
-    for key, default in (("settings", dict(DEFAULT_SETTINGS)), ("notify", {})):
+    for key, default in (("settings", dict(DEFAULT_SETTINGS)), ("notify", {}), ("seen", {})):
         if key not in data:
             data[key] = default
             changed = True
@@ -529,17 +529,50 @@ def _hand_back(ticket: dict[str, Any], actor: str, ts: str) -> bool:
 # ---------------------------------------------------------------- public API
 
 
-async def async_get_ticket(hass: HomeAssistant, ticket_id: int) -> dict[str, Any]:
+async def async_get_ticket(hass: HomeAssistant, ticket_id: int, *, user_id: str | None = None) -> dict[str, Any]:
+    """A ticket. With a `user_id`, `seen_at` says when that person last looked, so what is new since can be marked."""
     async with _lock(hass):
         data = await _load(hass)
         ticket = _get(data, ticket_id)
         out = dict(ticket)
+        if user_id:
+            marks, _ = _seen(data, user_id)
+            out["seen_at"] = _since(marks, ticket_id)
         out["related"] = [
             {"id": t["id"], "title": t["title"], "status": t["status"]}
             for i in ticket["links"]
             if (t := data["tickets"].get(str(i)))
         ]
         return out
+
+
+def _seen(data: dict[str, Any], user_id: str) -> tuple[dict[str, Any], bool]:
+    """One person's read marks: everything up to `base` counts as read, plus each ticket opened since.
+    A person seen for the first time starts with everything read. Returns the marks and whether they were just made."""
+    seen = data.setdefault("seen", {})
+    fresh = user_id not in seen
+    if fresh:
+        seen[user_id] = {"base": _now(), "tickets": {}}
+    return seen[user_id], fresh
+
+
+def _latest_by_others(ticket: dict[str, Any], name: str, admin: bool, since: str) -> dict[str, Any] | None:
+    """The newest change after `since` that someone else made (internal notes only for managers).
+    A person's or agent's change is preferred over Home Desk's own follow-on (such as moving a ticket to In Progress)."""
+    fallback = None
+    for e in reversed(ticket["events"]):
+        if e["created_at"] <= since:
+            continue
+        if e["actor"] == name or (not admin and e["kind"] in INTERNAL_KINDS):
+            continue
+        if e["actor"] != "Home Desk":
+            return e
+        fallback = fallback or e
+    return fallback
+
+
+def _since(marks: dict[str, Any], ticket_id: int) -> str:
+    return max(marks["base"], marks["tickets"].get(str(ticket_id), ""))
 
 
 async def async_list_tickets(
@@ -555,14 +588,22 @@ async def async_list_tickets(
     include_history: bool = True,
     limit: int = 500,
     offset: int = 0,
+    viewer: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Filter tickets. `status` is a status, a comma list, 'active' or 'all'."""
+    """Filter tickets. `status` is a status, a comma list, 'active' or 'all'.
+
+    With a `viewer` ({id, name, admin}) each ticket also says whether it changed since that person last looked."""
     if status and status not in ("all", "active"):
         status = ",".join(_status(x) for x in status.split(","))
         for s in status.split(","):
             _check(s, STATUSES, "status")
     async with _lock(hass):
         data = await _load(hass)
+        marks = None
+        if viewer:
+            marks, fresh = _seen(data, viewer["id"])
+            if fresh:
+                await _save(hass, data)
     needle = (q or "").lower()
     label_id = None
     if label:
@@ -615,10 +656,35 @@ async def async_list_tickets(
     rows.sort(key=lambda t: t["updated_at"], reverse=True)
     rows.sort(key=lambda t: prio[t["priority"]])
     rows.sort(key=lambda t: t["status"] in ("resolved", "closed"))
-    return {
-        "total": len(rows),
-        "tickets": [_summary(t) for t in rows[offset : offset + limit]],
-    }
+    out = []
+    for t in rows[offset : offset + limit]:
+        row = _summary(t)
+        if viewer and marks:
+            latest = _latest_by_others(t, viewer["name"], viewer["admin"], _since(marks, t["id"]))
+            row["unread"] = latest is not None
+            if latest:
+                row["activity"] = {"actor": latest["actor"], "kind": latest["kind"], "at": latest["created_at"]}
+        out.append(row)
+    return {"total": len(rows), "tickets": out}
+
+
+async def async_mark_read(hass: HomeAssistant, user_id: str, ticket_ids: list[int] | None = None) -> int:
+    """Mark tickets read for one person; with no ids, mark everything read. Returns how many ids were marked."""
+    async with _lock(hass):
+        data = await _load(hass)
+        marks, _ = _seen(data, user_id)
+        now = _now()
+        if ticket_ids is None:
+            marks["base"] = now
+            marks["tickets"] = {}
+            count = len(data["tickets"])
+        else:
+            for tid in ticket_ids:
+                if str(tid) in data["tickets"]:
+                    marks["tickets"][str(tid)] = now
+            count = len(ticket_ids)
+        await _save(hass, data)
+        return count
 
 
 async def async_create_ticket(hass: HomeAssistant, **kwargs: Any) -> dict[str, Any]:

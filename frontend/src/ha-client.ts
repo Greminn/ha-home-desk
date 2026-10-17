@@ -111,6 +111,11 @@ export class HaClient {
     return this.send("update", { ticket_id: ticketId, ...patch });
   }
 
+  /** Mark tickets as read for you; with no ids, mark everything. */
+  markRead(ticketIds?: number[]): Promise<{ marked: number }> {
+    return this.send("mark_read", ticketIds ? { ticket_ids: ticketIds } : {});
+  }
+
   /** Fold other tickets into `ticketId`: their conversation moves over and they are closed as merged. */
   merge(ticketId: number, mergeIds: number[]): Promise<Ticket> {
     return this.send("merge", { ticket_id: ticketId, merge_ids: mergeIds });

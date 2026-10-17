@@ -9,6 +9,7 @@ import {
   PRIORITY_LABEL,
   STATE_ICON,
   STATUS_LABEL,
+  activityVerb,
   actorName,
   isAgent,
   metaIcon,
@@ -47,6 +48,24 @@ export class TicketList extends LitElement {
       }
       .row:hover:not(.selected) {
         background: var(--st-hover);
+      }
+      /* Unread: a dot in the left margin, a bolder title, and what changed in the accent colour. */
+      .row.unread::after {
+        content: "";
+        position: absolute;
+        left: 5px;
+        top: 20px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--st-accent);
+      }
+      .row.unread .title {
+        font-weight: 600;
+      }
+      .meta .activity {
+        color: var(--st-accent);
+        font-weight: 500;
       }
       .row.selected {
         background: var(--st-selected, var(--st-hover));
@@ -261,7 +280,7 @@ export class TicketList extends LitElement {
       const done = t.status === "resolved" || t.status === "closed";
       return html`
         <button
-          class="row s-${t.status} ${done ? "done" : ""} ${t.id === this.selectedId ? "selected" : ""} ${this.checked.has(t.id) ? "checked" : ""} ${this.ticking ? "ticking" : ""}"
+          class="row s-${t.status} ${done ? "done" : ""} ${t.id === this.selectedId ? "selected" : ""} ${this.checked.has(t.id) ? "checked" : ""} ${this.ticking ? "ticking" : ""} ${t.unread ? "unread" : ""}"
           @click=${(e: MouseEvent) => this._rowClick(t.id, e)}
           @pointerdown=${(e: PointerEvent) => e.pointerType === "touch" && this._pressStart(t.id)}
           @pointerup=${() => this._pressEnd()}
@@ -284,6 +303,9 @@ export class TicketList extends LitElement {
               <span class="ref">Opened ${relativeTime(t.created_at, this.language)} by <span class="who" role="button" tabindex="0" aria-label="Show tickets from ${actorName(t.requester)}"
                 @click=${(e: Event) => this._filterPerson(e, t.requester)}
                 @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && this._filterPerson(e, t.requester)}><ha-icon icon=${metaIcon(t.requester)}></ha-icon> ${actorName(t.requester)}</span></span>
+              ${t.unread && t.activity && t.activity.kind !== "created"
+                ? html`<span class="activity"><ha-icon icon=${metaIcon(t.activity.actor)}></ha-icon> ${actorName(t.activity.actor)} ${activityVerb(t.activity.kind)} ${relativeTime(t.activity.at, this.language)}</span>`
+                : nothing}
               ${t.assignee && isAgent(t.assignee)
                 ? html`<span><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> With AI Agent</span>`
                 : nothing}

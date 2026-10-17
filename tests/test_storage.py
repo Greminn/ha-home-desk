@@ -602,6 +602,48 @@ async def main():
     assert sorted(await s.async_open_repair_keys(hass8)) == []
     print("merge ok")
 
+    # Unread marks: per person, nothing unread at first, other people's changes count, one's own don't.
+    FakeStore.saved = {}
+    hass9 = FakeHass()
+    tick = [0]
+    real_now = s._now
+
+    def fake_now():
+        tick[0] += 1
+        return f"2026-01-01T00:{tick[0] // 60:02d}:{tick[0] % 60:02d}+00:00"
+
+    s._now = fake_now
+    try:
+        old = await s.async_create_ticket(hass9, title="Old one", requester="Qione", actor="Qione")
+        me = {"id": "u1", "name": "Simon", "admin": True}
+        first = (await s.async_list_tickets(hass9, status="all", viewer=me))["tickets"]
+        assert [t["unread"] for t in first] == [False], "a first look starts with everything read"
+        new = await s.async_create_ticket(hass9, title="Fresh", requester="Qione", actor="Qione")
+        await s.async_add_comment(hass9, old["id"], body="Checked it", actor="ai:Claude")
+        await s.async_add_comment(hass9, new["id"], body="Mine", actor="Simon")
+        rows = {t["id"]: t for t in (await s.async_list_tickets(hass9, status="all", viewer=me))["tickets"]}
+        assert rows[old["id"]]["unread"] and rows[old["id"]]["activity"]["actor"] == "ai:Claude"
+        assert rows[new["id"]]["unread"] and rows[new["id"]]["activity"]["kind"] == "created", "a new request is unread"
+        await s.async_add_comment(hass9, new["id"], body="Note", actor="Simon", internal=True)
+        other = {"id": "u2", "name": "Qione", "admin": False}
+        theirs = {t["id"]: t for t in (await s.async_list_tickets(hass9, status="all", viewer=other))["tickets"]}
+        assert not any(t["unread"] for t in theirs.values()), "another person's marks are their own"
+        await s.async_add_comment(hass9, new["id"], body="Hidden", actor="Simon", internal=True)
+        theirs = {t["id"]: t for t in (await s.async_list_tickets(hass9, status="all", viewer=other))["tickets"]}
+        assert not theirs[new["id"]]["unread"], "internal notes don't show as updates to a household member"
+        assert (await s.async_get_ticket(hass9, old["id"], user_id="u1"))["seen_at"]
+        await s.async_mark_read(hass9, "u1", [old["id"]])
+        rows = {t["id"]: t for t in (await s.async_list_tickets(hass9, status="all", viewer=me))["tickets"]}
+        assert not rows[old["id"]]["unread"] and rows[new["id"]]["unread"]
+        await s.async_add_comment(hass9, old["id"], body="Again", actor="ai:Claude")
+        rows = {t["id"]: t for t in (await s.async_list_tickets(hass9, status="all", viewer=me))["tickets"]}
+        assert rows[old["id"]]["unread"], "a change after reading is unread again"
+        await s.async_mark_read(hass9, "u1")
+        assert not any(t["unread"] for t in (await s.async_list_tickets(hass9, status="all", viewer=me))["tickets"])
+    finally:
+        s._now = real_now
+    print("unread ok")
+
 
 asyncio.run(main())
 

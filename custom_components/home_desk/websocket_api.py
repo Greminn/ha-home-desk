@@ -25,6 +25,7 @@ from .storage import (
     async_delete_category,
     async_delete_label,
     async_get_settings,
+    async_mark_read,
     async_get_ticket,
     async_link_tickets,
     async_merge_tickets,
@@ -58,6 +59,12 @@ def _can_see(connection: websocket_api.ActiveConnection, ticket: dict[str, Any])
     return _is_admin(connection) or ticket["requester"] == _actor(connection)
 
 
+def _viewer(connection: websocket_api.ActiveConnection) -> dict[str, Any] | None:
+    if not connection.user:
+        return None
+    return {"id": connection.user.id, "name": _actor(connection), "admin": _is_admin(connection)}
+
+
 def _fail(connection: websocket_api.ActiveConnection, msg: dict, code: str, text: str) -> None:
     connection.send_error(msg["id"], code, text)
 
@@ -87,6 +94,7 @@ async def ws_list(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
             category=msg.get("category"),
             requester=None if _is_admin(connection) else _actor(connection),
             include_history=msg.get("include_history", True),
+            viewer=_viewer(connection),
         )
     except TicketError as err:
         _fail(connection, msg, "invalid", str(err))
@@ -99,7 +107,7 @@ async def ws_list(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
 @websocket_api.async_response
 async def ws_get(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
     try:
-        ticket = await async_get_ticket(hass, msg["ticket_id"])
+        ticket = await async_get_ticket(hass, msg["ticket_id"], user_id=connection.user.id if connection.user else None)
     except TicketError as err:
         _fail(connection, msg, "not_found", str(err))
         return
@@ -109,6 +117,20 @@ async def ws_get(hass: HomeAssistant, connection: websocket_api.ActiveConnection
     out = view(ticket, admin=_is_admin(connection))
     out["related"] = ticket["related"]
     connection.send_result(msg["id"], out)
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "home_desk/mark_read", vol.Optional("ticket_ids"): [int]}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_mark_read(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Mark some tickets (or, with no ids, all of them) as read for the signed-in person."""
+    if not connection.user:
+        _fail(connection, msg, "unauthorized", "Sign in first")
+        return
+    count = await async_mark_read(hass, connection.user.id, msg.get("ticket_ids"))
+    connection.send_result(msg["id"], {"marked": count})
 
 
 @websocket_api.websocket_command({vol.Required("type"): "home_desk/stats"})
@@ -432,7 +454,7 @@ async def ws_settings_save(hass: HomeAssistant, connection: websocket_api.Active
 
 def async_register_commands(hass: HomeAssistant) -> None:
     for command in (
-        ws_list, ws_get, ws_stats, ws_create, ws_update, ws_comment, ws_close, ws_link, ws_merge,
+        ws_list, ws_get, ws_mark_read, ws_stats, ws_create, ws_update, ws_comment, ws_close, ws_link, ws_merge,
         ws_labels, ws_label_create, ws_label_update, ws_label_delete,
         ws_categories, ws_category_create, ws_category_update, ws_category_delete,
         ws_settings, ws_settings_save,

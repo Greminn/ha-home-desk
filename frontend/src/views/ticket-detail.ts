@@ -455,6 +455,16 @@ export class TicketDetail extends LitElement {
       .ev .bubble.note {
         background: color-mix(in srgb, var(--st-warning) 14%, transparent);
       }
+      .ev .label.new-tag {
+        background: var(--st-accent);
+        color: var(--st-on-accent, #fff);
+      }
+      .ev.new .bubble {
+        box-shadow: -3px 0 0 var(--st-accent);
+      }
+      .ev.system .new-text {
+        color: var(--st-accent);
+      }
       .ev.system {
         margin-bottom: 8px;
         align-items: center;
@@ -657,6 +667,9 @@ export class TicketDetail extends LitElement {
 
   @property({ attribute: false }) ticket: Ticket | null = null;
   @property({ attribute: false }) client?: HaClient;
+  /** When you last looked at this ticket, and your name: what others changed since is marked new. */
+  @property() seenAt = "";
+  @property() me = "";
   @property({ type: Boolean }) isAdmin = false;
   @property({ type: Boolean }) narrow = false;
   @property() language: string | undefined = undefined;
@@ -1003,7 +1016,13 @@ export class TicketDetail extends LitElement {
       : html`<div class="avatar"><ha-icon .icon=${actorIcon(actor)}></ha-icon></div>`;
   }
 
+  /** A change by someone else since you last looked at this ticket. */
+  private _isNew(e: TicketEvent): boolean {
+    return !!this.seenAt && e.created_at > this.seenAt && e.actor !== this.me;
+  }
+
   private _eventTemplate(e: TicketEvent) {
+    const fresh = this._isNew(e);
     // With history on, every entry shows its exact date and time; otherwise comments say "25 minutes ago".
     const exact = fullTime(e.created_at, this.language);
     const when = this._showHistory
@@ -1011,21 +1030,21 @@ export class TicketDetail extends LitElement {
       : html`<span title=${exact}>${relativeTime(e.created_at, this.language)}</span>`;
     if (e.kind === "comment" || e.kind === "note") {
       return html`
-        <div class="ev">
+        <div class="ev ${fresh ? "new" : ""}">
           ${this._avatar(e.actor)}
           <div>
-            <div class="who"><b>${actorLabel(e.actor)}</b> · <span class="when">${when}</span>${e.kind === "note" ? html`<span class="label dense">internal note</span>` : nothing}${(e.data as { merged_from?: number } | null)?.merged_from ? html`<span class="label dense" title="Copied here when a ticket was merged">from #${(e.data as { merged_from: number }).merged_from}</span>` : nothing}</div>
+            <div class="who"><b>${actorLabel(e.actor)}</b> · <span class="when">${when}</span>${fresh ? html`<span class="label dense new-tag">new</span>` : nothing}${e.kind === "note" ? html`<span class="label dense">internal note</span>` : nothing}${(e.data as { merged_from?: number } | null)?.merged_from ? html`<span class="label dense" title="Copied here when a ticket was merged">from #${(e.data as { merged_from: number }).merged_from}</span>` : nothing}</div>
             <div class="bubble md ${e.kind === "note" ? "note" : ""}">${unsafeHTML(renderMarkdown(e.body ?? ""))}</div>
           </div>
         </div>`;
     }
     const d = this._detail(e);
     return html`
-      <div class="ev system">
+      <div class="ev system ${fresh ? "new" : ""}">
         <ha-icon .icon=${d.icon}></ha-icon>
         <div class="line">
           <span><b>${d.field}</b> ${d.to}${d.from !== undefined ? html`<s>${d.from}</s>` : nothing}</span>
-          <span class="stamp">${actorLabel(e.actor)} · ${exact}</span>
+          <span class="stamp">${fresh ? html`<b class="new-text">New · </b>` : nothing}${actorLabel(e.actor)} · ${exact}</span>
         </div>
       </div>`;
   }

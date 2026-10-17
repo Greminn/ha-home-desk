@@ -110,6 +110,12 @@ export class AppHeader extends LitElement {
         border-radius: 10px;
         background: color-mix(in srgb, currentColor 18%, transparent);
       }
+      /* Something in this tab changed since you looked: the count lights up. */
+      .tab .count.unread {
+        background: var(--st-accent);
+        color: var(--st-on-accent, #fff);
+        font-weight: 500;
+      }
       .tab.active {
         color: var(--st-accent);
         border-bottom-color: var(--st-accent);
@@ -208,7 +214,7 @@ export class AppHeader extends LitElement {
                 (v) => html`<button class="tab ${v.id === this.view ? "active" : ""}" role="tab" title=${v.label} aria-label=${v.label}
                   aria-selected=${v.id === this.view} @click=${() => this._fire("view-change", v.id)}>
                   <ha-icon .icon=${v.icon}></ha-icon><span class="tab-text">${v.label}</span>${v.count
-                    ? html`<span class="count">${this.tickets.filter(v.match).length}</span>`
+                    ? html`<span class="count ${this.tickets.some((t) => t.unread && v.match(t)) ? "unread" : ""}" title=${this.tickets.some((t) => t.unread && v.match(t)) ? "Has updates you haven't seen" : ""}>${this.tickets.filter(v.match).length}</span>`
                     : nothing}
                 </button>`,
               )}
@@ -225,6 +231,7 @@ export class AppHeader extends LitElement {
             ? html`<button class="menu-backdrop" aria-label="Close menu" @click=${() => (this._menuOpen = false)}></button>
                 <div class="menu-popover" role="menu">
                   <button role="menuitem" @click=${() => { this._menuOpen = false; this._fire("refresh"); }}><ha-icon icon="mdi:refresh"></ha-icon>Refresh</button>
+                  <button role="menuitem" @click=${() => { this._menuOpen = false; this._fire("mark-all-read"); }}><ha-icon icon="mdi:email-open-multiple-outline"></ha-icon>Mark All as Read</button>
                   ${this.admin
                     ? html`<button role="menuitem" @click=${() => this._choose("labels")}><ha-icon icon="mdi:label-multiple-outline"></ha-icon>Manage Labels</button>
                         <button role="menuitem" @click=${() => this._choose("categories")}><ha-icon icon="mdi:shape-outline"></ha-icon>Manage Categories</button>`

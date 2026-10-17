@@ -233,6 +233,9 @@ export class ListToolbar extends LitElement {
           <ha-icon icon="mdi:close"></ha-icon>
         </button>
         <span class="count">${this.checkedCount} selected</span>
+        <button class="icon" title="Mark as read" aria-label="Mark as read" @click=${() => this._fire("mark-read-selected")}>
+          <ha-icon icon="mdi:email-open-outline"></ha-icon>
+        </button>
         <button class="icon" title="Select all" aria-label="Select all" @click=${() => this._fire("select-all")}>
           <ha-icon icon="mdi:select-all"></ha-icon>
         </button>
