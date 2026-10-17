@@ -26,6 +26,12 @@ def _registries(hass: HomeAssistant):
     return er.async_get(hass), dr.async_get(hass), ar.async_get(hass)
 
 
+def _device_entries(dev_reg: Any) -> list[Any]:
+    """Every device in the registry. Home Assistant is retiring the registry's `devices` as a mapping (`.values()`, `[id]`) in
+    favour of iterating it for the entries; an older Home Assistant gives the device ids when iterated, so those are looked up."""
+    return [dev_reg.devices[item] if isinstance(item, str) else item for item in dev_reg.devices]
+
+
 def _exposed(hass: HomeAssistant, entity_id: str) -> bool:
     """Whether the entity is exposed to Assist: someone has already chosen it as one that matters."""
     try:
@@ -43,7 +49,7 @@ def async_candidates(hass: HomeAssistant) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for area in area_reg.async_list_areas():
         out.append({"kind": "area", "id": area.id, "name": area.name, "aliases": sorted(area.aliases or [])})
-    for device in dev_reg.devices.values():
+    for device in _device_entries(dev_reg):
         if device.disabled_by:
             continue
         out.append({

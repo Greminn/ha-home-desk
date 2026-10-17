@@ -128,10 +128,25 @@ class FakeEntReg:
         return FAKE_ENTRIES.get(entity_id)
 
 
+class NewDeviceItems:
+    """The device registry's `devices` in a current Home Assistant: iterate it for the entries; using it as a mapping is deprecated."""
+
+    def __iter__(self):
+        return iter(FAKE_DEVICES.values())
+
+    def values(self):
+        raise AssertionError("the device registry was used as a mapping (.values())")
+
+    def __getitem__(self, key):
+        raise AssertionError("the device registry was used as a mapping ([id])")
+
+
 class FakeDevReg:
+    legacy = False
+
     @property
     def devices(self):
-        return FAKE_DEVICES
+        return FAKE_DEVICES if self.legacy else NewDeviceItems()
 
     def async_get(self, device_id):
         return FAKE_DEVICES.get(device_id)
@@ -438,6 +453,9 @@ async def main():
         report = await s.async_create_ticket(hass, title="The front deck lights didn't turn on when I opened the door",
                                              description="**Voice message**\n\n> The lights didn't turn on. Why is that?", requester="Simon", actor="Simon")
         guessed = suggest.async_guess(hass, report)
+        FakeDevReg.legacy = True  # an older Home Assistant: `devices` is a mapping, iterating gives the ids
+        assert [(g["kind"], g["id"]) for g in suggest.async_guess(hass, report)] == [(g["kind"], g["id"]) for g in guessed], "same on an older Home Assistant"
+        FakeDevReg.legacy = False
         ids = [(g["kind"], g["id"]) for g in guessed]
         assert ("device", "dev1") in ids and ("entity", "binary_sensor.front_door") in ids, ids
         assert any(g["kind"] == "entity" and g["state"] == "on" for g in guessed), "entities carry their state"
