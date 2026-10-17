@@ -2763,8 +2763,8 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
       @click=${()=>i(!e)}></button>`}_toggleTarget(e){const t=this._s;if(!t)return;const i=t.notify.targets.includes(e);this._save({notify:{targets:i?t.notify.targets.filter(t=>t!==e):[...t.notify.targets,e]}})}render(){const e=this._s;if(!e)return q`<div class="page"><p class="help">Loading…</p></div>`;const t=[{id:"",label:"None"},...this._agents];return q`<div class="page">
       ${this._error?q`<div class="error">${this._error}</div>`:F}
 
-      <h2>Tickets</h2>
       <div class="card">
+        <h2>Tickets</h2>
         <div class="srow">
           <div class="text">
             <div class="name">Close resolved tickets</div>
@@ -2782,8 +2782,8 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         </div>
       </div>
 
-      <h2>Voice messages</h2>
       <div class="card">
+        <h2>Voice messages</h2>
         <div class="srow">
           <div class="text">
             <div class="name">Write out voice messages</div>
@@ -2801,8 +2801,8 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         </div>
       </div>
 
-      <h2>AI Agent</h2>
       <div class="card">
+        <h2>AI Agent</h2>
         <div class="srow">
           <div class="text">
             <div class="name">AI Agent</div>
@@ -2839,9 +2839,9 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         ${this._test?.error?q`<div class="test-out bad">${this._test.error}</div>`:F}
       </div>
 
-      <h2>What the AI Agent is sent</h2>
-      <p class="help">The ticket and its comments are always sent. Everything sent goes to your AI provider, with passwords, keys, coordinates and email addresses taken out first.</p>
       <div class="card">
+        <h2>What the AI Agent is sent</h2>
+        <p class="help">The ticket and its comments are always sent. Everything sent goes to your AI provider, with passwords, keys, coordinates and email addresses taken out first.</p>
         <div class="srow">
           <div class="text"><div class="name">Entity states</div><div class="desc">The state, attributes and last day of changes of the entities a ticket names.</div></div>
           ${this._switch(e.agent_states,"Entity states",e=>{this._save({agent_states:e})})}
@@ -2856,12 +2856,10 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         </div>
       </div>
 
-      <h2>Notifications</h2>
-      <p class="help">These are your own settings. Each manager chooses where their notifications go and what they hear about.</p>
       <div class="card">
-        <div class="srow">
-          <div class="text"><div class="name">Notify me when</div></div>
-        </div>
+        <h2>Notifications</h2>
+        <p class="help">These are your own settings. Each manager chooses where their notifications go and what they hear about.</p>
+        <div class="sub">Notify me when</div>
         <div class="srow">
           <div class="text"><div class="name">A new ticket is raised</div><div class="desc">From a household member, an AI agent or a repair.</div></div>
           ${this._switch(e.notify.new_ticket,"New ticket raised",e=>{this._save({notify:{new_ticket:e}})})}
@@ -2875,8 +2873,8 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
           ${this._switch(e.notify.resolved,"A ticket is resolved",e=>{this._save({notify:{resolved:e}})})}
         </div>
       </div>
-      <h2>Send notifications to</h2>
       <div class="card">
+        <h2>Send notifications to</h2>
         ${this._targets.length?this._targets.map(t=>q`<label class="srow pick">
                 <input class="check" type="checkbox" .checked=${e.notify.targets.includes(t)} @change=${()=>this._toggleTarget(t)} />
                 <div class="text"><div class="name">${this._targetName(t)}</div></div>
@@ -2895,36 +2893,39 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         margin: 0 auto;
         padding: 24px 16px 48px;
       }
-      h2 {
-        margin: 24px 0 8px;
-        font-size: var(--st-fs-title);
-        font-weight: 500;
-      }
-      h2:first-child {
-        margin-top: 0;
-      }
-      .help {
-        margin: 0 0 12px;
-        font-size: var(--st-fs-body);
-        color: var(--st-fg-secondary);
-      }
+      /* Home Assistant's settings cards: the title is inside the card, rows have no dividers, and the box is lighter than the page. */
       .card {
-        border: 1px solid var(--st-outline);
-        border-radius: var(--ha-border-radius-xl, 12px);
-        /* Home Assistant's settings boxes are lighter than the page behind them. */
-        background: var(--ha-card-background, var(--st-surface));
+        margin-bottom: 24px;
+        padding: 8px 0;
+        border: 1px solid var(--ha-card-border-color, var(--st-outline));
+        border-radius: var(--ha-card-border-radius, var(--ha-border-radius-xl, 12px));
+        background: var(--ha-card-background, var(--card-background-color, var(--st-surface)));
         overflow: hidden;
+      }
+      .card h2 {
+        margin: 0;
+        padding: 16px 16px 8px;
+        font-size: var(--ha-font-size-2xl, 24px);
+        font-weight: 400;
+        line-height: 1.3;
+      }
+      .card .help {
+        margin: 0;
+        padding: 0 16px 8px;
+        font-size: var(--st-fs-body);
+        color: var(--st-fg);
+      }
+      .card .sub {
+        padding: 16px 16px 4px;
+        font-size: var(--st-fs-body);
+        font-weight: 600;
       }
       .srow {
         display: flex;
         align-items: center;
         gap: 16px;
-        min-height: 64px;
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--st-divider);
-      }
-      .srow:last-child {
-        border-bottom: 0;
+        min-height: 56px;
+        padding: 8px 16px;
       }
       .srow .text {
         flex: 1;
@@ -2942,36 +2943,40 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         width: 220px;
         flex: none;
       }
-      /* HA's switch: a 36x14 track with a 20px thumb. */
+      /* HA's switch: a 52x32 pill with an outline. Off, a small grey thumb; on, a large accent-coloured thumb on a tinted track. */
       .switch {
         position: relative;
         flex: none;
-        width: 36px;
-        height: 14px;
+        box-sizing: border-box;
+        width: 52px;
+        height: 32px;
         padding: 0;
-        border-radius: 7px;
-        background: color-mix(in srgb, var(--st-fg) 38%, transparent);
-        transition: background-color 150ms ease-in-out;
+        border: 2px solid color-mix(in srgb, var(--st-fg) 55%, transparent);
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--st-fg) 8%, var(--st-surface));
+        transition: background-color 150ms ease-in-out, border-color 150ms ease-in-out;
       }
       .switch::after {
         content: "";
         position: absolute;
-        top: -3px;
-        left: -2px;
-        width: 20px;
-        height: 20px;
+        top: 6px;
+        left: 6px;
+        width: 16px;
+        height: 16px;
         border-radius: 50%;
-        /* Off: a light grey thumb, as in Home Assistant, so it shows against the track and the box. */
-        background: var(--switch-unchecked-button-color, color-mix(in srgb, var(--st-fg) 70%, var(--st-surface)));
-        box-shadow: var(--st-shadow-m);
-        transition: transform 150ms ease-in-out, background-color 150ms ease-in-out;
+        background: var(--switch-unchecked-button-color, color-mix(in srgb, var(--st-fg) 55%, var(--st-surface)));
+        transition: all 150ms ease-in-out;
       }
       .switch[aria-checked="true"] {
-        background: color-mix(in srgb, var(--st-accent) 54%, transparent);
+        border-color: var(--st-accent);
+        background: color-mix(in srgb, var(--st-accent) 24%, var(--st-surface));
       }
       .switch[aria-checked="true"]::after {
-        background: var(--st-accent);
-        transform: translateX(22px);
+        top: 2px;
+        left: 20px;
+        width: 24px;
+        height: 24px;
+        background: var(--switch-checked-button-color, var(--st-accent));
       }
       .check {
         flex: none;
