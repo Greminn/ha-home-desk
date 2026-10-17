@@ -268,7 +268,8 @@ class AttachmentView(HomeAssistantView):
             return self.json_message("Not found", 404)
         if not (user.is_admin or ticket["requester"] == user.name):
             return self.json_message("Not yours to see", 403)
-        path = _root(hass) / str(ticket["id"]) / f"{attachment['id']}.{attachment['ext']}"
+        # A file that came with a merged ticket stays in that ticket's folder.
+        path = _root(hass) / str(attachment.get("ticket", ticket["id"])) / f"{attachment['id']}.{attachment['ext']}"
         if not await hass.async_add_executor_job(path.is_file):
             return self.json_message("Not found", 404)
         return web.FileResponse(path, headers={

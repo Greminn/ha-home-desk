@@ -389,6 +389,24 @@
         }
       }
     },
+    "merge_tickets": {
+      "name": "Merge tickets",
+      "description": "Fold duplicate tickets into one. `ticket_id` is the ticket to keep; the tickets in `merge_ids` have their comments, description, labels, files and linked repairs moved onto it and are closed as merged. Do this for tickets that are really the same problem; it can't be undone.",
+      "fields": {
+        "ticket_id": {
+          "name": "Ticket to keep",
+          "description": "The ticket the others are merged into."
+        },
+        "merge_ids": {
+          "name": "Tickets to merge",
+          "description": "Numbers of the tickets to fold in, e.g. [12, 15]."
+        },
+        "actor": {
+          "name": "Actor",
+          "description": "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+        }
+      }
+    },
     "import_file": {
       "name": "Import file",
       "description": "Admin: bulk-import tickets from a JSON file inside the config directory. Idempotent: tickets whose source_key already exists are skipped.",

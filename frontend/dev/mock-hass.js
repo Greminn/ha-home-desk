@@ -268,6 +268,22 @@ export function createMock() {
       t.events.push({ id: t.events.length + 1, actor: state.user.name, kind: "comment", body: `**Resolution:** ${m.resolution}`, data: null, created_at: iso(0) });
       fire(t, "closed", state.user.name); return t;
     },
+    merge: (m) => {
+      const t = get(m.ticket_id);
+      for (const id of m.merge_ids) {
+        const src = get(id);
+        if (src.id === t.id || src.merged_into) throw { message: `#${id} can't be merged` };
+        if (src.description.trim()) t.events.push({ id: 0, actor: src.requester, kind: "comment", body: `**From #${src.id}: ${src.title}**\n\n${src.description}`, data: { merged_from: src.id }, created_at: src.created_at });
+        for (const e of src.events) if ((e.kind === "comment" || e.kind === "note") && e.body) t.events.push({ ...e, data: { merged_from: src.id } });
+        t.labels = [...new Set([...t.labels, ...src.labels])].sort();
+        t.events.push({ id: 0, actor: state.user.name, kind: "merge", body: null, data: { from: src.id, title: src.title }, created_at: iso(0) });
+        src.events.push({ id: 0, actor: state.user.name, kind: "merge", body: null, data: { into: t.id, title: t.title }, created_at: iso(0) });
+        Object.assign(src, { status: "closed", resolution: `Merged into #${t.id}`, merged_into: t.id, assignee: null, closed_at: iso(0), updated_at: iso(0) });
+        for (const x of [t, src]) x.events.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).forEach((e, i) => (e.id = i + 1));
+        fire(src, "closed", state.user.name);
+      }
+      t.updated_at = iso(0); fire(t, "updated", state.user.name); return view(t);
+    },
     link: (m) => { const a = get(m.ticket_id), b = get(m.other_id); a.links.push(b.id); b.links.push(a.id); return a; },
     stats: () => ({ total: Object.keys(db.tickets).length }),
   };

@@ -354,7 +354,9 @@ def _summary(ticket: dict[str, Any]) -> dict[str, Any]:
     """The list-row view: everything but the body and timeline."""
     comments = [e for e in ticket["events"] if e["kind"] in ("comment", "note")]
     return {
-        **{k: v for k, v in ticket.items() if k not in ("description", "events", "resolution", "attachments")},
+        **{k: v for k, v in ticket.items() if k not in (
+            "description", "events", "resolution", "attachments", "repair_members", "repair_base", "repair_generic", "source_aliases",
+        )},
         "comment_count": len(comments),
         "attachment_count": len(ticket.get("attachments", [])),
         "has_resolution": bool(ticket.get("resolution")),
@@ -713,6 +715,103 @@ async def async_link_tickets(
     return a
 
 
+def _merge_into(data: dict[str, Any], target: dict[str, Any], source: dict[str, Any], actor: str) -> None:
+    """Fold `source` into `target`: its conversation, labels, entities, files and the repairs it stands for.
+
+    The source is closed with a note saying where it went and linked to the target; its comments are copied
+    (with their original author and time) so nothing is lost. A repair ticket's source keys move to the target
+    so the repair doesn't open a new ticket when it next changes.
+    """
+    sid, tid = source["id"], target["id"]
+    rank = {p: n for n, p in enumerate(PRIORITIES)}
+    # What the source said, in the order it was said.
+    intro = source["description"].strip()
+    if intro:
+        _event(target, source["requester"], "comment", f"**From #{sid}: {source['title']}**\n\n{intro}", {"merged_from": sid},
+               at=source["created_at"])
+    for e in source["events"]:
+        if e["kind"] in ("comment", "note") and e["body"]:
+            copy = dict(e, data={**(e.get("data") or {}), "merged_from": sid})
+            target["events"].append(copy)
+    if source.get("resolution"):
+        _event(target, source["requester"], "comment", f"**Resolution on #{sid}:** {source['resolution']}", {"merged_from": sid})
+    target["events"].sort(key=lambda e: e["created_at"])
+    for n, e in enumerate(target["events"], 1):
+        e["id"] = n
+    target["labels"] = sorted({*target["labels"], *source["labels"]})
+    target["entities"] = sorted({*target["entities"], *source["entities"]})
+    if rank.get(source["priority"], 0) > rank.get(target["priority"], 0):
+        target["priority"] = source["priority"]
+    if not target.get("category") and source.get("category"):
+        target["category"] = source["category"]
+    # Files stay where they were saved; each attachment remembers which ticket's folder it is in.
+    target.setdefault("attachments", [])
+    for a in source.get("attachments", []):
+        target["attachments"].append({**a, "ticket": a.get("ticket", sid)})
+    # Repairs: the target takes over the source's repair keys and members.
+    keys = [k for k in (source.get("source_key"), *source.get("source_aliases", ())) if k and k.startswith(REPAIR_PREFIX)]
+    if keys or source.get("repair_members"):
+        _members_of(target)
+        for member_key, member in _members_of(source).items():
+            target["repair_members"].setdefault(member_key, member)
+        aliases = set(target.get("source_aliases", ())) | set(keys)
+        aliases.discard(target.get("source_key"))
+        target["source_aliases"] = sorted(aliases)
+        if target.get("repair_base") is None and source.get("repair_base") is not None:
+            target["repair_base"] = target["description"] if target["description"] else source["repair_base"]
+    # Anything that linked to the source now links to the target as well.
+    for other in data["tickets"].values():
+        if other is source or other is target or sid not in other["links"]:
+            continue
+        other["links"] = sorted({tid if i == sid else i for i in other["links"]})
+        if other["id"] not in target["links"]:
+            target["links"].append(other["id"])
+    for x, y in ((target, source), (source, target)):
+        if y["id"] not in x["links"]:
+            x["links"].append(y["id"])
+    now = _now()
+    _event(target, actor, "merge", None, {"from": sid, "title": source["title"]})
+    _event(source, actor, "merge", None, {"into": tid, "title": target["title"]})
+    source.update(
+        status="closed", resolution=f"Merged into #{tid}", closed_at=now, updated_at=now, assignee=None,
+        merged_into=tid, source_key=None, source_aliases=[],
+    )
+    source.pop("repair_members", None)
+    target["updated_at"] = now
+
+
+async def async_merge_tickets(hass: HomeAssistant, target_id: int, source_ids: list[int], *, actor: str) -> dict[str, Any]:
+    """Merge one or more tickets into `target_id`. The others are closed as merged; returns the target."""
+    ids = list(dict.fromkeys(int(i) for i in source_ids))
+    if not ids:
+        raise TicketError("Say which tickets to merge")
+    if target_id in ids:
+        raise TicketError("A ticket can't be merged into itself")
+    if len(ids) > 50:
+        raise TicketError("Merge at most 50 tickets at a time")
+    async with _lock(hass):
+        data = await _load(hass)
+        target = _get(data, target_id)
+        if target.get("merged_into"):
+            raise TicketError(f"#{target_id} was merged into #{target['merged_into']}; merge into that one")
+        sources = [_get(data, i) for i in ids]
+        for src in sources:
+            if src.get("merged_into"):
+                raise TicketError(f"#{src['id']} was already merged into #{src['merged_into']}")
+        reopen = False
+        for src in sources:
+            if src["status"] in ACTIVE_STATUSES and target["status"] in ("resolved", "closed"):
+                reopen = True
+            _merge_into(data, target, src, actor)
+        if reopen:
+            _apply_update(data, target, actor, {"status": "in_progress"})
+        await _save(hass, data)
+    for src in sources:
+        _fire(hass, src, "closed", actor)
+    _fire(hass, target, "updated", actor)
+    return target
+
+
 async def async_stats(hass: HomeAssistant) -> dict[str, Any]:
     async with _lock(hass):
         data = await _load(hass)
@@ -785,17 +884,133 @@ def repair_key(domain: str, issue_id: str) -> str:
     return f"{REPAIR_PREFIX}{domain}:{issue_id}"
 
 
+def _member_key(domain: str, issue_id: str) -> str:
+    return f"{domain}:{issue_id}"
+
+
+def _find_by_source_key(data: dict[str, Any], key: str) -> dict[str, Any] | None:
+    """The ticket for a source key, including keys it took over when tickets were merged into it."""
+    return next(
+        (t for t in data["tickets"].values() if t.get("source_key") == key or key in t.get("source_aliases", ())),
+        None,
+    )
+
+
+def _members_of(ticket: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """The repairs a ticket stands for, by "domain:issue_id". A ticket made for a single repair is converted on demand."""
+    members = ticket.get("repair_members")
+    if members is None:
+        members = ticket["repair_members"] = {}
+        key = ticket.get("source_key") or ""
+        if key.startswith(REPAIR_PREFIX):
+            domain, _, issue_id = key[len(REPAIR_PREFIX):].partition(":")
+            members[_member_key(domain, issue_id)] = _member(
+                domain, issue_id, ticket["title"], ticket["status"] in ACTIVE_STATUSES
+            )
+    return members
+
+
+def _member(domain: str, issue_id: str, title: str, active: bool, *, name: str = "", ignored: bool = False) -> dict[str, Any]:
+    short = re.sub(r"^[0-9A-Z]{26}_", "", issue_id)
+    return {"domain": domain, "issue_id": issue_id, "name": name or short, "title": title, "active": active, "ignored": ignored}
+
+
 async def async_open_repair_keys(hass: HomeAssistant) -> list[tuple[str, str]]:
-    """(domain, issue_id) of every repair ticket that is still open."""
+    """(domain, issue_id) of every repair that still has an open ticket."""
     async with _lock(hass):
         data = await _load(hass)
     out = []
     for t in data["tickets"].values():
+        if t["status"] not in ACTIVE_STATUSES:
+            continue
+        if t.get("repair_members"):
+            out.extend((m["domain"], m["issue_id"]) for m in t["repair_members"].values() if m["active"])
+            continue
         key = t.get("source_key") or ""
-        if key.startswith(REPAIR_PREFIX) and t["status"] in ACTIVE_STATUSES:
+        if key.startswith(REPAIR_PREFIX):
             domain, _, issue_id = key[len(REPAIR_PREFIX):].partition(":")
             out.append((domain, issue_id))
     return out
+
+
+def _affected_text(members: list[dict[str, Any]]) -> str:
+    return f"**Affected ({len(members)}):**\n" + "\n".join(f"- {m['name']}" for m in members)
+
+
+def _group_fields(ticket: dict[str, Any]) -> dict[str, Any]:
+    """The title, description and Blocked label a ticket for several repairs should have right now."""
+    active = [m for m in ticket["repair_members"].values() if m["active"]]
+    fields: dict[str, Any] = {}
+    if not active:
+        return fields
+    titles = {m["title"] for m in active if m["title"]}
+    title = next(iter(titles)) if len(titles) == 1 else ticket.get("repair_generic") or ticket["title"]
+    renamed = any((e.get("data") or {}).get("field") == "title" for e in ticket["events"])
+    if not renamed and title and title != ticket["title"]:
+        fields["title"] = title
+        ticket["repair_title"] = title
+    base = ticket.get("repair_base")
+    if base is not None:
+        text = f"{base}\n\n{_affected_text(active)}" if len(active) > 1 else base
+        if text != ticket["description"]:
+            fields["description"] = text
+    all_ignored = all(m["ignored"] for m in active)
+    if all_ignored and BLOCKED_LABEL_ID not in ticket["labels"]:
+        fields["add_labels"] = [BLOCKED_LABEL_ID]
+        ticket["repair_blocked"] = True
+    elif not all_ignored and ticket.get("repair_blocked"):
+        fields["remove_labels"] = [BLOCKED_LABEL_ID]
+        ticket["repair_blocked"] = False
+    return fields
+
+
+def _sync_member(
+    data: dict[str, Any], ticket: dict[str, Any], *, domain: str, issue_id: str, active: bool, ignored: bool,
+    title: str, member: str, priority: str,
+) -> str | None:
+    """Update a ticket that stands for several repairs of one kind. Returns what happened, or None."""
+    members = _members_of(ticket)
+    mk = _member_key(domain, issue_id)
+    cur = members.get(mk)
+    name = member or (cur or {}).get("name") or issue_id
+    if not active:
+        if cur is None or not cur["active"]:
+            return None
+        cur["active"] = False
+        still = [m for m in members.values() if m["active"]]
+        if not still:
+            if ticket["status"] not in ACTIVE_STATUSES:
+                return None
+            resolution = "Cleared by Home Assistant: this repair is no longer reported."
+            if len(members) > 1:
+                resolution = "Cleared by Home Assistant: none of these repairs is reported any more."
+            _apply_update(data, ticket, REPAIR_ACTOR, {"status": "resolved", "resolution": resolution})
+            _event(ticket, REPAIR_ACTOR, "comment", f"**Resolution:** {resolution}")
+            return "resolved"
+        _event(ticket, REPAIR_ACTOR, "comment", f"{cur['name']} has cleared. Still affected: {', '.join(m['name'] for m in still)}.")
+        fields = _group_fields(ticket)
+        if fields:
+            _apply_update(data, ticket, REPAIR_ACTOR, fields)
+        return "updated"
+    appeared = cur is None or not cur["active"]
+    members[mk] = _member(domain, issue_id, title, True, name=name, ignored=ignored)
+    was_closed = ticket["status"] in ("resolved", "closed")
+    others = [m for k, m in members.items() if k != mk and m["active"]]
+    fields = _group_fields(ticket)
+    if was_closed:
+        fields["status"] = "in_progress"
+    rank = {p: n for n, p in enumerate(PRIORITIES)}
+    if rank.get(priority, 0) > rank.get(ticket["priority"], 0):
+        fields["priority"] = priority
+    changed = _apply_update(data, ticket, REPAIR_ACTOR, fields) if fields else False
+    if was_closed:
+        _event(ticket, REPAIR_ACTOR, "comment",
+               f"Home Assistant is reporting this repair again ({name}), so the ticket was reopened.")
+        return "reopened"
+    if appeared and others:
+        _event(ticket, REPAIR_ACTOR, "comment", f"Also affected: {name}.")
+        return "updated"
+    return "updated" if changed or appeared else None
 
 
 async def async_sync_repair(
@@ -808,8 +1023,15 @@ async def async_sync_repair(
     title: str = "",
     description: str = "",
     priority: str = "normal",
+    group: str | None = None,
+    member: str = "",
+    generic_title: str = "",
 ) -> str | None:
     """Make the ticket for one Home Assistant repair match the repair's state.
+
+    Repairs of the same kind (the same integration and `group`, usually the issue's translation key)
+    share one ticket that lists what is affected: it resolves when all of them clear and reopens when
+    one returns. Without a `group` each repair has its own ticket.
 
     One ticket per repair, found by its source key, so this is safe to call as often as
     you like. A new active repair opens a ticket; a repair that comes back after its ticket
@@ -817,11 +1039,38 @@ async def async_sync_repair(
     Blocked label while it is ignored. Returns what happened ("created", "reopened",
     "updated", "resolved") or None if nothing changed.
     """
-    key = repair_key(domain, issue_id)
+    key = repair_key(domain, group or issue_id)
     kind: str | None = None
     async with _lock(hass):
         data = await _load(hass)
-        ticket = next((t for t in data["tickets"].values() if t.get("source_key") == key), None)
+        ticket = _find_by_source_key(data, key)
+        if group:
+            # Tickets made before grouping, one per repair: the first becomes the group's ticket and any
+            # other open one for the same kind is merged into it.
+            single = _find_by_source_key(data, repair_key(domain, issue_id)) if group != issue_id else None
+            if single is not None and ticket is None:
+                _members_of(single)  # note which repair it was made for before its key changes
+                single["source_key"] = key
+                ticket = single
+            elif single is not None and single is not ticket and single["status"] in ACTIVE_STATUSES:
+                _merge_into(data, ticket, single, REPAIR_ACTOR)
+                kind = "updated"
+        if ticket is not None and (group or ticket.get("repair_members") is not None):
+            _members_of(ticket)
+            if group and ticket.get("repair_base") is None:
+                ticket["repair_base"] = ticket["description"]
+            if generic_title:
+                ticket["repair_generic"] = generic_title
+            result = _sync_member(
+                data, ticket, domain=domain, issue_id=issue_id, active=active, ignored=ignored,
+                title=title or ticket["title"], member=member, priority=priority,
+            )
+            kind = result or kind
+            if kind:
+                ticket["updated_at"] = _now()
+                await _save(hass, data)
+                _fire(hass, ticket, "closed" if kind == "resolved" else "updated", REPAIR_ACTOR)
+            return kind
         if ticket is None:
             if not active:
                 return None
@@ -841,6 +1090,12 @@ async def async_sync_repair(
                 _apply_update(data, ticket, REPAIR_ACTOR, {"add_labels": [BLOCKED_LABEL_ID]})
                 ticket["repair_blocked"] = True
             ticket["repair_title"] = ticket["title"]
+            if group:
+                ticket["repair_members"] = {
+                    _member_key(domain, issue_id): _member(domain, issue_id, ticket["title"], True, name=member, ignored=ignored)
+                }
+                ticket["repair_base"] = description
+                ticket["repair_generic"] = generic_title or ticket["title"]
             kind = "created"
         elif active:
             changed = False

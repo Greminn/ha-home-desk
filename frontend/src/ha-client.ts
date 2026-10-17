@@ -111,6 +111,11 @@ export class HaClient {
     return this.send("update", { ticket_id: ticketId, ...patch });
   }
 
+  /** Fold other tickets into `ticketId`: their conversation moves over and they are closed as merged. */
+  merge(ticketId: number, mergeIds: number[]): Promise<Ticket> {
+    return this.send("merge", { ticket_id: ticketId, merge_ids: mergeIds });
+  }
+
   comment(ticketId: number, body: string, internal: boolean): Promise<Ticket> {
     return this.send("comment", { ticket_id: ticketId, body, internal });
   }

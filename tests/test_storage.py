@@ -473,7 +473,7 @@ async def main():
     FakeRegistry.issues = {("ring", "login"): FakeIssue("ring", "login", translation_key="login_needed")}
     listener(type("Ev", (), {"data": {"domain": "ring", "issue_id": "login"}}))
     await asyncio.gather(*hass3.tasks)
-    ring = next(x for x in (await s.async_list_tickets(hass3, status="all"))["tickets"] if x["source_key"] == "repair:ring:login")
+    ring = next(x for x in (await s.async_list_tickets(hass3, status="all"))["tickets"] if x["source_key"] == "repair:ring:login_needed")
     assert ring["title"] == "ring: login_needed (login)", ring["title"]
     # ids that start with a config entry id are shortened, and similar repairs stay distinguishable
     FakeRegistry.issues = {("proxmoxve", "01KZ9TR683GRTTEATQYX7757JZ_Update pve2_forbiden"): FakeIssue(
@@ -501,6 +501,106 @@ async def main():
     assert (await s.async_list_tickets(hass4, status="all"))["total"] == 1, "on: the existing repair is picked up"
     off()
     print("repairs glue ok")
+
+    # ---- repairs of one kind share a ticket
+    hass5 = FakeHass()
+    FakeStore.saved = {}
+    K = "resource_exception_forbiden"
+    px = lambda iid, **kw: s.async_sync_repair(  # noqa: E731
+        hass5, domain="proxmoxve", issue_id=iid, group=K, member=iid, generic_title=f"proxmoxve: {K}",
+        title=kw.pop("title", f"proxmoxve: {K} ({iid})"), description="Proxmox refused the request.", **kw)
+    assert await px("pve", active=True) == "created"
+    assert await px("pve2", active=True) == "updated", "the second repair joins the first ticket"
+    rows = (await s.async_list_tickets(hass5, status="all"))["tickets"]
+    assert len(rows) == 1 and rows[0]["source_key"] == f"repair:proxmoxve:{K}" and "repair_members" not in rows[0], rows
+    t = await s.async_get_ticket(hass5, rows[0]["id"])
+    assert "**Affected (2):**" in t["description"] and "- pve\n- pve2" in t["description"], t["description"]
+    assert t["title"] == f"proxmoxve: {K}", "two different titles: the generic one"
+    assert any("Also affected: pve2" in (e["body"] or "") for e in t["events"])
+    assert sorted(await s.async_open_repair_keys(hass5)) == [("proxmoxve", "pve"), ("proxmoxve", "pve2")]
+    assert await px("pve", active=False) == "updated", "one clears, the ticket stays open"
+    t = await s.async_get_ticket(hass5, t["id"])
+    assert t["status"] != "resolved" and "Affected" not in t["description"] and any("Still affected: pve2" in (e["body"] or "") for e in t["events"])
+    assert await s.async_open_repair_keys(hass5) == [("proxmoxve", "pve2")]
+    assert await px("pve2", active=False) == "resolved", "the last one clears, the ticket resolves"
+    assert await px("pve", active=True) == "reopened" and (await s.async_get_ticket(hass5, t["id"]))["status"] == "in_progress"
+    assert await px("pve", active=True, priority="urgent") == "updated" and (await s.async_get_ticket(hass5, t["id"]))["priority"] == "urgent"
+    await s.async_sync_repair(hass5, domain="proxmoxve", issue_id="x", group="other_kind", active=True, title="Other")
+    assert (await s.async_list_tickets(hass5, status="all"))["total"] == 2, "a different kind is a different ticket"
+    # a repair with no kind to group by keeps its own ticket
+    await s.async_sync_repair(hass5, domain="zha", issue_id="a", active=True, title="A")
+    await s.async_sync_repair(hass5, domain="zha", issue_id="b", active=True, title="B")
+    assert (await s.async_list_tickets(hass5, status="all"))["total"] == 4
+
+    # tickets made before grouping: the first becomes the group's, the others merge into it
+    hass6 = FakeHass()
+    FakeStore.saved = {}
+    for iid in ("pve", "pve2"):
+        await s.async_sync_repair(hass6, domain="proxmoxve", issue_id=iid, active=True, title=f"old title {iid}", description=f"body {iid}")
+    await s.async_sync_repair(hass6, domain="proxmoxve", issue_id="pve", group=K, member="pve", generic_title=f"proxmoxve: {K}",
+                              active=True, title="new title pve")
+    await s.async_sync_repair(hass6, domain="proxmoxve", issue_id="pve2", group=K, member="pve2", generic_title=f"proxmoxve: {K}",
+                              active=True, title="new title pve2")
+    rows = (await s.async_list_tickets(hass6, status="all"))["tickets"]
+    live = [x for x in rows if x["status"] != "closed"]
+    assert len(rows) == 2 and len(live) == 1 and live[0]["source_key"] == f"repair:proxmoxve:{K}", rows
+    gone = next(x for x in rows if x["status"] == "closed")
+    assert gone["merged_into"] == live[0]["id"] and gone["source_key"] is None
+    _t = await s.async_get_ticket(hass6, live[0]["id"])
+    assert "Affected (2)" in _t["description"], (_t["description"], _t.get("repair_members"), _t.get("repair_base"))
+    print("grouped repairs ok")
+
+    # ---- merging tickets by hand
+    hass7 = FakeHass()
+    FakeStore.saved = {}
+    a = await s.async_create_ticket(hass7, title="Kitchen light flickers", description="Flickers at night", actor="Qionne", requester="Qionne", labels=["bug"])
+    b = await s.async_create_ticket(hass7, title="Light in the kitchen blinks", description="Since Tuesday", actor="Jo", requester="Jo",
+                                    labels=["bug", "blocked"], priority="high", entities=["light.kitchen"])
+    c = await s.async_create_ticket(hass7, title="Unrelated", actor="Simon")
+    await s.async_add_comment(hass7, b["id"], body="Looks like the driver", actor="Simon")
+    await s.async_add_attachments(hass7, b["id"], [{"id": "f" * 12, "kind": "image", "mime": "image/jpeg", "ext": "jpg", "name": "p.jpg", "size": 3,
+                                                    "created_at": b["created_at"], "by": "Jo"}], actor="Jo")
+    await s.async_link_tickets(hass7, c["id"], b["id"], actor="Simon")
+    m = await s.async_merge_tickets(hass7, a["id"], [b["id"]], actor="Simon")
+    assert m["priority"] == "high" and sorted(m["labels"]) == ["blocked", "bug"] and m["entities"] == ["light.kitchen"]
+    bodies = [e["body"] for e in m["events"] if e["kind"] == "comment"]
+    assert any("From #%d: Light in the kitchen blinks" % b["id"] in x and "Since Tuesday" in x for x in bodies), bodies
+    assert "Looks like the driver" in bodies and [e["id"] for e in m["events"]] == list(range(1, len(m["events"]) + 1))
+    assert any(e["kind"] == "merge" and e["data"]["from"] == b["id"] for e in m["events"])
+    assert m["attachments"][0]["ticket"] == b["id"], "the file stays in the old ticket's folder"
+    src = await s.async_get_ticket(hass7, b["id"])
+    assert src["status"] == "closed" and src["merged_into"] == a["id"] and src["resolution"] == f"Merged into #{a['id']}"
+    assert a["id"] in src["links"] and b["id"] in m["links"]
+    assert (await s.async_get_ticket(hass7, c["id"]))["links"] == [a["id"]], "links to the merged ticket move to the kept one"
+    assert (await s.async_find_attachment(hass7, a["id"], "f" * 12))[1]["ticket"] == b["id"]
+    for bad, why in (((a["id"], [a["id"]]), "itself"), ((a["id"], [b["id"]]), "already merged"), ((b["id"], [c["id"]]), "into a merged ticket"),
+                     ((a["id"], []), "nothing"), ((a["id"], [999]), "unknown")):
+        try:
+            await s.async_merge_tickets(hass7, bad[0], list(bad[1]), actor="Simon")
+            raise SystemExit(f"merge allowed: {why}")
+        except s.TicketError:
+            pass
+    # merging a ticket into a closed one that is still active reopens it
+    d = await s.async_create_ticket(hass7, title="D", actor="Simon")
+    e_ = await s.async_create_ticket(hass7, title="E", actor="Simon")
+    await s.async_close_ticket(hass7, d["id"], actor="Simon", resolution="done")
+    assert (await s.async_merge_tickets(hass7, d["id"], [e_["id"]], actor="Simon"))["status"] == "in_progress"
+
+    # merged repair tickets: the repair doesn't open a new ticket when it changes again
+    hass8 = FakeHass()
+    FakeStore.saved = {}
+    for iid in ("one", "two"):
+        await s.async_sync_repair(hass8, domain="hue", issue_id=iid, active=True, title=f"Hue {iid}")
+    ids = {x["source_key"]: x["id"] for x in (await s.async_list_tickets(hass8, status="all"))["tickets"]}
+    await s.async_merge_tickets(hass8, ids["repair:hue:one"], [ids["repair:hue:two"]], actor="Simon")
+    assert await s.async_sync_repair(hass8, domain="hue", issue_id="two", active=True, title="Hue two") in (None, "updated")
+    assert (await s.async_list_tickets(hass8, status="all"))["total"] == 2, "no new ticket for a merged repair"
+    await s.async_sync_repair(hass8, domain="hue", issue_id="one", active=False)
+    kept = await s.async_get_ticket(hass8, ids["repair:hue:one"])
+    assert kept["status"] != "resolved", "one of the two repairs is still reported"
+    assert await s.async_sync_repair(hass8, domain="hue", issue_id="two", active=False) == "resolved"
+    assert sorted(await s.async_open_repair_keys(hass8)) == []
+    print("merge ok")
 
 
 asyncio.run(main())

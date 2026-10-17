@@ -190,7 +190,7 @@ async def main():
     hass = FakeHass()
     wsapi.async_register_commands(hass)
     # The decorators wrap each handler, so they are matched to names by registration order (see async_register_commands).
-    names = ["list", "get", "stats", "create", "update", "comment", "close", "link", "labels", "label_create", "label_update",
+    names = ["list", "get", "stats", "create", "update", "comment", "close", "link", "merge", "labels", "label_create", "label_update",
              "label_delete", "categories", "category_create", "category_update", "category_delete", "settings", "settings_save"]
     assert len(REGISTERED) == len(names), (len(REGISTERED), "commands registered")
     HANDLERS.update(dict(zip(names, REGISTERED)))
@@ -205,7 +205,7 @@ async def main():
     for name in names:
         if name in open_to_household:
             continue
-        conn = await call(hass, name, HOUSEHOLD(), ticket_id=mine, label_id="bug", category_id="home-assistant")
+        conn = await call(hass, name, HOUSEHOLD(), ticket_id=mine, merge_ids=[theirs], label_id="bug", category_id="home-assistant")
         assert conn.error and conn.error[0] == "unauthorized", f"{name} must be admin only, got {conn.error} {conn.result}"
     print("admin-only commands ok:", sorted(set(names) - open_to_household))
 
@@ -292,7 +292,7 @@ async def main():
     await services.async_setup_services(hass)
     assert set(hass.services.open) == {"get_guide", "get_changelog"}, set(hass.services.open)
     for name in ("create_ticket", "get_ticket", "list_tickets", "update_ticket", "add_comment", "close_ticket", "link_tickets",
-                 "list_labels", "create_label", "update_label", "delete_label", "list_categories", "create_category", "update_category", "delete_category", "get_stats", "import_file"):
+                 "merge_tickets", "list_labels", "create_label", "update_label", "delete_label", "list_categories", "create_category", "update_category", "delete_category", "get_stats", "import_file"):
         assert name in ADMIN_SERVICES, f"{name} must need an administrator"
     print("service permissions ok")
 
@@ -321,6 +321,15 @@ async def main():
     try:
         await svc("delete_category", category="Home Assistant")
         raise SystemExit("deleted the built-in category")
+    except HomeAssistantError:
+        pass
+    # merging: an agent folds a duplicate into another ticket
+    dup = await svc("create_ticket", title="Wi-Fi keeps dropping", actor="Jo")
+    merged = await svc("merge_tickets", ticket_id=a["id"], merge_ids=[dup["id"]], actor="claude")
+    assert merged["id"] == a["id"] and any(e["kind"] == "merge" for e in merged["events"])
+    try:
+        await svc("merge_tickets", ticket_id=a["id"], merge_ids=[dup["id"]], actor="claude")
+        raise SystemExit("merged the same ticket twice")
     except HomeAssistantError:
         pass
     # labels: agents can create, change and delete unused ones, never a built-in or one in use

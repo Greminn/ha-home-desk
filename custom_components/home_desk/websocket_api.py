@@ -27,6 +27,7 @@ from .storage import (
     async_get_settings,
     async_get_ticket,
     async_link_tickets,
+    async_merge_tickets,
     async_list_categories,
     async_list_labels,
     async_list_tickets,
@@ -250,6 +251,25 @@ async def ws_link(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     connection.send_result(msg["id"], ticket)
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "home_desk/merge",
+        vol.Required("ticket_id"): int,
+        vol.Required("merge_ids"): [int],
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_merge(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Fold other tickets into `ticket_id`: their conversation moves over and they are closed as merged."""
+    try:
+        ticket = await async_merge_tickets(hass, msg["ticket_id"], msg["merge_ids"], actor=_actor(connection))
+    except TicketError as err:
+        _fail(connection, msg, "invalid", str(err))
+        return
+    connection.send_result(msg["id"], ticket)
+
+
 @websocket_api.websocket_command({vol.Required("type"): "home_desk/labels"})
 @websocket_api.async_response
 async def ws_labels(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
@@ -412,7 +432,7 @@ async def ws_settings_save(hass: HomeAssistant, connection: websocket_api.Active
 
 def async_register_commands(hass: HomeAssistant) -> None:
     for command in (
-        ws_list, ws_get, ws_stats, ws_create, ws_update, ws_comment, ws_close, ws_link,
+        ws_list, ws_get, ws_stats, ws_create, ws_update, ws_comment, ws_close, ws_link, ws_merge,
         ws_labels, ws_label_create, ws_label_update, ws_label_delete,
         ws_categories, ws_category_create, ws_category_update, ws_category_delete,
         ws_settings, ws_settings_save,

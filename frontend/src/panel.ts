@@ -6,6 +6,7 @@ import { panelStyles } from "./panel-styles";
 import { HaClient } from "./ha-client";
 import type { NewTicket } from "./ha-client";
 import type { Category, HomeAssistant, HomeDeskSettings, Label, Ticket, TicketPatch, TicketSummary } from "./types";
+import { STATUS_LABEL, actorName } from "./format";
 import type { Person } from "./format";
 import { VIEWS, filterCount, filterTickets, type ListFilters } from "./list-model";
 import "./views/ticket-list";
@@ -64,6 +65,9 @@ export class HomeDeskPanel extends LitElement {
   /** A label waiting on "Remove Label?" before it comes off a ticket. */
   /** The category picker, open under the pill that was clicked. */
   /** The "add label" popup, opened from the + in the ticket header. */
+  /** Merging the open ticket into another: first the picker (anchored at the button), then a confirmation. */
+  @state() private _merging: { rect: DOMRect } | null = null;
+  @state() private _mergeConfirm: { from: TicketSummary; into: TicketSummary } | null = null;
   @state() private _pickingLabel: { ticket: TicketSummary; rect: DOMRect } | null = null;
   @state() private _picking: { ticket: TicketSummary; rect: DOMRect } | null = null;
   /** The New category dialog, and the ticket the new category goes on. */
@@ -304,6 +308,37 @@ export class HomeDeskPanel extends LitElement {
       : [{ id: ADD_NEW, primary: "Add New Category…", icon: "mdi:plus" }];
   };
 
+  /** Tickets the open one can be merged into: not itself, not ones already merged away; open ones first. */
+  private get _mergeItems(): PickerItem[] {
+    const open = this._selectedId;
+    const live = (t: TicketSummary) => t.status !== "resolved" && t.status !== "closed";
+    return this._tickets
+      .filter((t) => t.id !== open && !t.merged_into)
+      .sort((a, b) => Number(live(b)) - Number(live(a)) || b.updated_at.localeCompare(a.updated_at))
+      .map((t) => ({ id: String(t.id), primary: `#${t.id} ${t.title}`, secondary: `${STATUS_LABEL[t.status]} · ${actorName(t.requester)}`, icon: "mdi:ticket-outline" }));
+  }
+
+  private _mergePicked(id: string) {
+    this._merging = null;
+    const from = this._tickets.find((t) => t.id === this._selectedId);
+    const into = this._tickets.find((t) => t.id === Number(id));
+    if (from && into) this._mergeConfirm = { from, into };
+  }
+
+  private async _doMerge() {
+    const m = this._mergeConfirm;
+    this._mergeConfirm = null;
+    if (!m || !this._client) return;
+    try {
+      await this._client.merge(m.into.id, [m.from.id]);
+      this._error = "";
+      await this._refresh();
+      await this._open(m.into.id);
+    } catch (err) {
+      this._error = this._message(err);
+    }
+  }
+
   private get _labelPickerItems(): PickerItem[] {
     const have = new Set(this._pickingLabel?.ticket.labels ?? []);
     return this._labelList
@@ -507,6 +542,7 @@ export class HomeDeskPanel extends LitElement {
           @pick-category=${(e: CustomEvent<{ ticket: TicketSummary; rect: DOMRect }>) => (this._picking = e.detail)}
           @remove-label=${(e: CustomEvent<{ ticket: TicketSummary; label: Label }>) => (this._removing = e.detail)}
           @pick-label=${(e: CustomEvent<{ ticket: TicketSummary; rect: DOMRect }>) => (this._pickingLabel = e.detail)}
+          @pick-merge=${(e: CustomEvent<{ rect: DOMRect }>) => (this._merging = e.detail)}
           @back=${() => this._close()}
           @open-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
           @patch-ticket=${(e: CustomEvent<TicketPatch>) => this._selected && void this._act((c) => c.update(this._selected!.id, e.detail))}
@@ -530,6 +566,17 @@ export class HomeDeskPanel extends LitElement {
         ? html`<st-category-dialog .name=${this._newCategory.name} .error=${this._newCategory.error}
             @close=${() => (this._newCategory = null)}
             @create=${(e: CustomEvent<{ name: string; icon: string }>) => void this._createCategory(e.detail)}></st-category-dialog>`
+        : nothing}
+      ${this._merging
+        ? html`<st-picker-popup .rect=${this._merging.rect} .items=${this._mergeItems} emptyLabel="No other tickets"
+            @close=${() => (this._merging = null)}
+            @pick=${(e: CustomEvent<{ id: string }>) => this._mergePicked(e.detail.id)}></st-picker-popup>`
+        : nothing}
+      ${this._mergeConfirm
+        ? html`<st-confirm-dialog heading="Merge Tickets?" confirmLabel="Merge" danger
+            body="Merge #${this._mergeConfirm.from.id} into #${this._mergeConfirm.into.id} (${this._mergeConfirm.into.title})? The comments, labels and files of #${this._mergeConfirm.from.id} move to #${this._mergeConfirm.into.id}, and #${this._mergeConfirm.from.id} is closed. This can't be undone."
+            @cancel=${() => (this._mergeConfirm = null)}
+            @confirm=${() => void this._doMerge()}></st-confirm-dialog>`
         : nothing}
       ${this._removing
         ? html`<st-confirm-dialog heading="Remove Label?" confirmLabel="Remove" danger

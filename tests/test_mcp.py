@@ -42,6 +42,7 @@ m.list_categories(); assert calls[-1][0].endswith("/list_categories?return_respo
 m.create_category("Network", icon="mdi:lan"); assert calls[-1][2] == {"name": "Network", "icon": "mdi:lan", "actor": "claude"}
 m.update_category("Network", name="Networking"); assert calls[-1][2] == {"category": "Network", "name": "Networking", "actor": "claude"}
 m.delete_category("Networking"); assert calls[-1][0].endswith("/delete_category?return_response") and calls[-1][2] == {"category": "Networking", "actor": "claude"}
+m.merge_tickets(3, [4, 5]); assert calls[-1][0].endswith("/merge_tickets?return_response") and calls[-1][2] == {"ticket_id": 3, "merge_ids": [4, 5], "actor": "claude"}
 m.create_label("Zigbee", color="teal"); assert calls[-1][0].endswith("/create_label?return_response") and calls[-1][2] == {"name": "Zigbee", "color": "teal", "actor": "claude"}
 m.update_label("Zigbee", name="Zigbee mesh"); assert calls[-1][2]["label"] == "Zigbee" and calls[-1][2]["name"] == "Zigbee mesh"
 m.delete_label("Zigbee mesh"); assert calls[-1][0].endswith("/delete_label?return_response") and calls[-1][2] == {"label": "Zigbee mesh", "actor": "claude"}
@@ -50,6 +51,6 @@ m.update_ticket(3, category="Network"); assert calls[-1][2] == {"ticket_id": 3, 
 m.list_tickets(category="none"); assert calls[-1][2]["category"] == "none"
 assert "category" in m.update_ticket(3, category="x"), "write responses keep the category"
 names = sorted(t.name for t in m.mcp._tool_manager.list_tools())
-assert {"create_label", "update_label", "delete_label", "list_categories", "create_category", "update_category", "delete_category"} <= set(names), names
+assert {"merge_tickets", "create_label", "update_label", "delete_label", "list_categories", "create_category", "update_category", "delete_category"} <= set(names), names
 print("tools:", names)
 print("MCP OK")

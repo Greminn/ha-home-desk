@@ -172,6 +172,12 @@ def list_labels() -> dict[str, Any]:
 
 
 @mcp.tool()
+def merge_tickets(ticket_id: int, merge_ids: list[int]) -> dict[str, Any]:
+    """Fold duplicate tickets into `ticket_id`: the others' comments, labels and files move over and they are closed as merged. Only for tickets that are really the same problem; it can't be undone."""
+    return _brief(_call("merge_tickets", {"ticket_id": ticket_id, "merge_ids": merge_ids, "actor": ACTOR}))
+
+
+@mcp.tool()
 def create_label(name: str, color: str | None = None, description: str | None = None, icon: str | None = None) -> dict[str, Any]:
     """Create a label such as Zigbee or Needs review. Check list_labels first so you don't add a near-duplicate. `color` is a Home Assistant colour name (teal, red...); one is picked if you leave it out."""
     return _call("create_label", {"name": name, "color": color, "description": description, "icon": icon, "actor": ACTOR})

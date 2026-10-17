@@ -40,6 +40,14 @@ def _fallback_title(issue: ir.IssueEntry) -> str:
     return f"{issue.domain}: {short}"
 
 
+def _group(issue: ir.IssueEntry) -> str | None:
+    """Repairs of the same kind share one ticket: the same integration and the same translation key.
+
+    An issue without a translation key can't be told apart from a different problem, so it keeps its own ticket.
+    """
+    return issue.translation_key or None
+
+
 async def _describe(hass: HomeAssistant, issue: ir.IssueEntry) -> tuple[str, str]:
     """A readable (title, description) for a repair, from the integration's own translations."""
     title = ""
@@ -84,6 +92,9 @@ async def _sync(hass: HomeAssistant, domain: str, issue_id: str, ignored_domains
             title=title,
             description=description,
             priority=REPAIR_PRIORITY.get(str(getattr(issue.severity, "value", issue.severity)), "normal"),
+            group=_group(issue),
+            member=re.sub(r"^[0-9A-Z]{26}_", "", issue.issue_id),
+            generic_title=f"{issue.domain}: {issue.translation_key}" if issue.translation_key else "",
         )
     except Exception:  # noqa: BLE001 - one bad repair must not stop the others
         _LOGGER.warning("Could not sync repair %s/%s to a ticket", domain, issue_id, exc_info=True)

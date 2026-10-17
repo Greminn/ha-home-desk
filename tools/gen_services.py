@@ -112,6 +112,10 @@ SERVICES = {
         "ticket_id": ("Ticket ID", "One ticket.", ID, True, None),
         "other_id": ("Other ticket ID", "The related ticket.", ID, True, None),
         "actor": ACTOR}),
+    "merge_tickets": ("Merge tickets", "Fold duplicate tickets into one. `ticket_id` is the ticket to keep; the tickets in `merge_ids` have their comments, description, labels, files and linked repairs moved onto it and are closed as merged. Do this for tickets that are really the same problem; it can't be undone.", {
+        "ticket_id": ("Ticket to keep", "The ticket the others are merged into.", ID, True, None),
+        "merge_ids": ("Tickets to merge", "Numbers of the tickets to fold in, e.g. [12, 15].", {"object": {}}, True, [12, 15]),
+        "actor": ACTOR}),
     "import_file": ("Import file", "Admin: bulk-import tickets from a JSON file inside the config directory. Idempotent: tickets whose source_key already exists are skipped.", {
         "path": ("Path", "Path to the JSON file, inside the Home Assistant config directory.", TEXT, True, "/config/home_desk_import.json"),
         "actor": ("Actor", "Who is importing.", TEXT, False, None)}),

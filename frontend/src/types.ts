@@ -93,6 +93,8 @@ export interface TicketSummary {
   has_resolution: boolean;
   /** Photos and voice messages on the ticket. */
   attachment_count?: number;
+  /** Set on a ticket that was folded into another: that ticket's number. */
+  merged_into?: number | null;
 }
 
 export interface TicketEvent {
@@ -107,6 +109,7 @@ export interface TicketEvent {
     | "assignee"
     | "field"
     | "link"
+    | "merge"
     | "attachment";
   body: string | null;
   data: Record<string, unknown> | null;

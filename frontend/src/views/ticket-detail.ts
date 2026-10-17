@@ -153,6 +153,9 @@ export class TicketDetail extends LitElement {
         align-items: flex-start;
         padding-right: 44px;
       }
+      .head.admin {
+        padding-right: 88px;
+      }
       h1 {
         flex: 1;
         margin: 0;
@@ -225,6 +228,10 @@ export class TicketDetail extends LitElement {
       }
       .hist ha-icon {
         --mdc-icon-size: 20px;
+      }
+      /* The merge button sits just left of the history button. */
+      .hist.merge {
+        right: 44px;
       }
       .hist[aria-pressed="true"] {
         color: var(--st-accent);
@@ -916,7 +923,7 @@ export class TicketDetail extends LitElement {
   }
 
   private _change(e: TicketEvent): string {
-    const d = (e.data ?? {}) as { field?: string; from?: unknown; to?: unknown };
+    const d = (e.data ?? {}) as { field?: string; from?: unknown; to?: unknown; into?: unknown };
     const show = (v: unknown) =>
       Array.isArray(v) ? v.map((x) => (d.field === "labels" ? labelOrUnknown(this.labelMap, String(x)).name : String(x))).join(", ") || "none" : v === null || v === undefined || v === "" ? "none" : String(v);
     switch (e.kind) {
@@ -930,6 +937,8 @@ export class TicketDetail extends LitElement {
         return d.to ? `assigned this to ${show(d.to)}` : "unassigned this";
       case "link":
         return `linked ticket #${String(d.to)}`;
+      case "merge":
+        return d.from ? `merged ticket #${String(d.from)} into this one` : `merged this into ticket #${String(d.into)}`;
       case "attachment":
         return `added ${String(d.to)}`;
       case "field":
@@ -965,6 +974,12 @@ export class TicketDetail extends LitElement {
         return { field: "Assignee", from: show(d.from), to: show(d.to), icon: "mdi:account-outline", tone: "var(--st-fg-secondary)" };
       case "link":
         return { field: "Linked", to: `ticket #${String(d.to)}`, icon: "mdi:link-variant", tone: "var(--st-fg-secondary)" };
+      case "merge": {
+        const x = (e.data ?? {}) as { from?: number; into?: number; title?: string };
+        return x.from
+          ? { field: "Merged", to: `ticket #${x.from} into this one`, icon: "mdi:call-merge", tone: "var(--st-fg-secondary)" }
+          : { field: "Merged", to: `into ticket #${String(x.into)}`, icon: "mdi:call-merge", tone: "var(--st-fg-secondary)" };
+      }
       case "attachment":
         return { field: "Added", to: String(d.to), icon: "mdi:paperclip", tone: "var(--st-fg-secondary)" };
       case "field": {
@@ -999,7 +1014,7 @@ export class TicketDetail extends LitElement {
         <div class="ev">
           ${this._avatar(e.actor)}
           <div>
-            <div class="who"><b>${actorLabel(e.actor)}</b> · <span class="when">${when}</span>${e.kind === "note" ? html`<span class="label dense">internal note</span>` : nothing}</div>
+            <div class="who"><b>${actorLabel(e.actor)}</b> · <span class="when">${when}</span>${e.kind === "note" ? html`<span class="label dense">internal note</span>` : nothing}${(e.data as { merged_from?: number } | null)?.merged_from ? html`<span class="label dense" title="Copied here when a ticket was merged">from #${(e.data as { merged_from: number }).merged_from}</span>` : nothing}</div>
             <div class="bubble md ${e.kind === "note" ? "note" : ""}">${unsafeHTML(renderMarkdown(e.body ?? ""))}</div>
           </div>
         </div>`;
@@ -1024,7 +1039,7 @@ export class TicketDetail extends LitElement {
     const done = t.status === "resolved" || t.status === "closed";
     return html`
       <div class="top">
-        <div class="head">
+        <div class="head ${this.isAdmin ? "admin" : ""}">
           ${this.narrow
             ? html`<button class="icon back" title="Back" aria-label="Back" @click=${() => this._fire("back")}><ha-icon icon="mdi:arrow-left"></ha-icon></button>`
             : nothing}
@@ -1034,6 +1049,11 @@ export class TicketDetail extends LitElement {
                 @keydown=${this._titleKey}
                 @blur=${(e: Event) => this._saveTitle(e.target as HTMLTextAreaElement)}></textarea>`
             : html`<h1>${t.title}</h1>`}
+          ${this.isAdmin
+            ? html`<button class="icon hist merge" title="Merge into another ticket" aria-label="Merge into another ticket"
+                @click=${(e: Event) => this._fire("pick-merge", { rect: (e.currentTarget as HTMLElement).getBoundingClientRect() })}>
+                <ha-icon icon="mdi:call-merge"></ha-icon></button>`
+            : nothing}
           <button class="icon hist" aria-pressed=${this._showHistory ? "true" : "false"}
             title=${this._showHistory ? "Hide history" : "Show history"} aria-label="Show history"
             @click=${() => (this._showHistory = !this._showHistory)}><ha-icon icon="mdi:history"></ha-icon></button>

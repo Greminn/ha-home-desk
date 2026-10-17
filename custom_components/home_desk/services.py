@@ -36,6 +36,7 @@ from .storage import (
     async_list_categories,
     async_list_labels,
     async_link_tickets,
+    async_merge_tickets,
     async_list_tickets,
     async_stats,
     async_update_category,
@@ -142,6 +143,11 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     async def link(call: ServiceCall) -> dict[str, Any]:
         return await async_link_tickets(
             hass, call.data["ticket_id"], call.data["other_id"], actor=await _actor(hass, call)
+        )
+
+    async def merge(call: ServiceCall) -> dict[str, Any]:
+        return await async_merge_tickets(
+            hass, call.data["ticket_id"], call.data["merge_ids"], actor=await _actor(hass, call)
         )
 
     async def list_labels(call: ServiceCall) -> dict[str, Any]:
@@ -305,6 +311,11 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     s(DOMAIN, "link_tickets", _wrap(link), vol.Schema({
         **_ID,
         vol.Required("other_id"): vol.Coerce(int),
+        **_ACTOR,
+    }), supports_response=both)
+    s(DOMAIN, "merge_tickets", _wrap(merge), vol.Schema({
+        **_ID,
+        vol.Required("merge_ids"): vol.All(cv.ensure_list, [vol.Coerce(int)]),
         **_ACTOR,
     }), supports_response=both)
     s(DOMAIN, "list_labels", _wrap(list_labels), vol.Schema({}), supports_response=SupportsResponse.ONLY)
