@@ -285,13 +285,13 @@ async def main():
         except vol.Invalid:
             pass
     save_schema = HANDLERS["settings_save"]._schema
-    for bad in ({"auto_close": "soon"}, {"notify": {"colour": True}}, {"repairs": "yes please"}, {"agent_daily_cap": 0}, {"agent_auto": "sure"}):
+    for bad in ({"auto_close": "soon"}, {"notify": {"colour": True}}, {"repairs": "yes please"}, {"agent_daily_cap": 0}, {"agent_states": "sure"}):
         try:
             save_schema({"type": "home_desk/settings_save", **bad})
             raise SystemExit(f"settings schema accepted {bad}")
         except vol.Invalid:
             pass
-    for good in ({"stt": "stt.whisper"}, {"transcribe": False}, {"agent_auto": False, "agent_states": True, "agent_config": True,
+    for good in ({"stt": "stt.whisper"}, {"transcribe": False}, {"agent_states": True, "agent_config": True,
                                                                  "agent_related": True, "agent_daily_cap": 20}):
         save_schema({"type": "home_desk/settings_save", **good})  # every setting the panel saves must be accepted
     print("websocket schemas ok")
