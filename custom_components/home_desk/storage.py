@@ -33,6 +33,9 @@ from .const import (
     LABEL_COLORS,
     LEGACY_TYPE_LABELS,
     MAX_NAME,
+    MAX_PROMPT,
+    DEFAULT_REVIEW_PROMPT,
+    REVIEW_FORMAT,
     MAX_TEXT,
     MAX_TITLE,
     PRIORITIES,
@@ -1533,7 +1536,8 @@ async def async_get_settings(hass: HomeAssistant, user_id: str | None = None) ->
     """Shared options, plus the notification options of one manager."""
     async with _lock(hass):
         data = await _load(hass)
-    return {**_settings(data), "notify": _user_notify(data, user_id)}
+    return {**_settings(data), "notify": _user_notify(data, user_id),
+            "agent_prompt_default": DEFAULT_REVIEW_PROMPT, "agent_prompt_fixed": REVIEW_FORMAT}
 
 
 async def async_save_settings(
@@ -1562,6 +1566,10 @@ async def async_save_settings(
         if not 1 <= cap <= 500:
             raise TicketError("The daily limit must be between 1 and 500")
         patch["agent_daily_cap"] = cap
+    if "agent_prompt" in patch:
+        text = str(patch["agent_prompt"]).strip()
+        _limit(text, MAX_PROMPT, "The review instructions")
+        patch["agent_prompt"] = "" if text == DEFAULT_REVIEW_PROMPT.strip() else text  # nothing stored while it is the default
     for key in ("agent", "stt"):
         if key in patch:
             patch[key] = _limit(str(patch[key]).strip(), 200, f"The {key} setting")

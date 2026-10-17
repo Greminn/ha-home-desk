@@ -149,7 +149,7 @@ export interface TicketEvent {
     | "merge"
     | "attachment";
   body: string | null;
-  data: (Record<string, unknown> & { proposal?: Proposal; hints?: boolean }) | null;
+  data: (Record<string, unknown> & { proposal?: Proposal; review?: boolean; hints?: boolean }) | null;
   created_at: string;
 }
 
@@ -209,6 +209,10 @@ export interface HomeDeskSettings {
   agent_related: boolean;
   /** The most turns the AI agent takes in a day. */
   agent_daily_cap: number;
+  /** The review instructions you wrote, or empty for the default; the default text and the part always added after yours. */
+  agent_prompt: string;
+  agent_prompt_default: string;
+  agent_prompt_fixed: string;
   notify: {
     /** Notify services to send to, e.g. "mobile_app_simons_iphone" or "persistent_notification". */
     targets: string[];

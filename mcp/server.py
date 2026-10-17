@@ -11,7 +11,7 @@ services over HA's REST API and returns the service response.
 Environment:
   HA_URL     base URL of Home Assistant, e.g. http://homeassistant.local:8123
   HA_TOKEN   a long-lived access token
-  HOMEDESK_ACTOR   name recorded on the timeline for this agent (default "claude")
+  HOMEDESK_ACTOR   the AI's name, shown on the timeline (default "claude"); recorded as "ai:<name>" so Home Desk knows it is an AI
 """
 from __future__ import annotations
 
@@ -25,7 +25,10 @@ from mcp.server.fastmcp import FastMCP
 
 HA_URL = os.environ.get("HA_URL", "").rstrip("/")
 HA_TOKEN = os.environ.get("HA_TOKEN", "")
-ACTOR = os.environ.get("HOMEDESK_ACTOR", "claude")
+_actor = os.environ.get("HOMEDESK_ACTOR", "claude").strip() or "claude"
+# Home Desk knows an AI by the "ai:" in front of its name, so any AI (Gemini, Antigravity, Claude) is recognised without it
+# being written into the setting: HOMEDESK_ACTOR=Gemini is recorded as "ai:Gemini".
+ACTOR = _actor if _actor.lower().startswith("ai:") else f"ai:{_actor}"
 
 Status = Literal["new", "in_progress", "resolved", "closed"]
 Priority = Literal["low", "normal", "high", "urgent"]

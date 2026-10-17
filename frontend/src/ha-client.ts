@@ -80,6 +80,9 @@ export class HaClient {
         agent_config: true,
         agent_related: true,
         agent_daily_cap: 30,
+        agent_prompt: "",
+        agent_prompt_default: "",
+        agent_prompt_fixed: "",
         notify: { targets: [], new_ticket: true, comment: true, resolved: false },
       };
     }

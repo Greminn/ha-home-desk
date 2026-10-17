@@ -183,9 +183,9 @@ export class TicketThings extends LitElement {
   @property({ attribute: false }) client?: HaClient;
   /** The AI agent can be asked to choose (it costs, so the panel confirms first). */
   @property({ type: Boolean }) canAsk = false;
-  @property() askName = "AI Agent";
+  @property() askName = "AI";
   /** How dialogs name the agent, e.g. "AI Agent (Claude)". */
-  @property() agentLabel = "AI Agent";
+  @property() agentLabel = "the AI";
   /** Label for the add button when nothing is named yet. */
   @property() addLabel = "Add device, entity or area";
 

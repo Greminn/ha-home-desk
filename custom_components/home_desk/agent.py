@@ -1,7 +1,7 @@
-"""The built-in AI: "Ask AI Agent now" asks the AI integration chosen in Settings for hints on a ticket.
+"""The built-in AI: "Review with AI" asks the AI integration chosen in Settings to review a ticket.
 
 This is separate from **Assign to AI Agent**, which only tags a ticket for an AI the person runs themselves (their own Claude
-CLI, Claude Desktop or anything else) and sends nothing anywhere. Asking for hints sends the ticket to the AI Task entity
+CLI, Claude Desktop or anything else) and sends nothing anywhere. A review sends the ticket to the AI Task entity
 (for example Claude's) and posts its answer as a comment. It never changes the assignee, so a ticket queued for the person's own
 AI stays queued. It has no tools and no memory, so Home Desk gives it what it needs (agent_context.py); it can explain and advise
 and propose changes to the ticket, but can't change anything. While it works the ticket shows an "agent_state", and a request
@@ -34,6 +34,16 @@ _LOGGER = logging.getLogger(__name__)
 _RUNS = f"{DOMAIN}_agent_runs"
 _DAY = f"{DOMAIN}_agent_day"
 _SETTLE = 1.0  # a comment posted just before asking should be on the ticket before it is read
+
+
+# Words that claim the AI itself acted ("I'll close it", "I've updated", a "Closing ticket" heading). It can't, so a review
+# that says so gets a plain note after it, whatever the instructions said.
+_CLAIMS = re.compile(
+    r"(?im)\bI(?:'ll| will|'m going to|'ve| have| am going to)\s+(?:now\s+)?"
+    r"(?:close[ds]?|resolv(?:e|ed|ing)|updat(?:e|ed|ing)|chang(?:e|ed|ing)|label(?:l?ed|l?ing)?|mark(?:ed|ing)?|set|add(?:ed|ing)?|remov(?:e|ed|ing))\b"
+    r"|^#+\s*closing ticket"
+)
+NOTE = "\n\n*This review can't change anything. Use **Apply** under it (if there is one), or the buttons on the ticket.*"
 
 
 def _now() -> str:
@@ -102,9 +112,12 @@ async def _turn(hass: HomeAssistant, ticket_id: int, entity_id: str, name: str, 
         labels = {x["name"].lower() for x in await async_list_labels(hass)} | {x["id"].lower() for x in await async_list_labels(hass)}
         categories = {x["name"].lower() for x in await async_list_categories(hass)} | {x["id"].lower() for x in await async_list_categories(hass)}
         actions = clean_actions(raw, labels=labels, categories=categories)
+        body = body or reply
+        if _CLAIMS.search(body):
+            body += NOTE
         await async_add_comment(
-            hass, ticket_id, actor=f"ai:{name}", body=body or reply, hand_back=False,
-            event_data={"hints": True, **({"proposal": {"actions": actions, "state": "pending"}} if actions else {})},
+            hass, ticket_id, actor=f"ai:{name}", body=body, hand_back=False,
+            event_data={"review": True, **({"proposal": {"actions": actions, "state": "pending"}} if actions else {})},
         )
         await async_set_agent_state(hass, ticket_id, None)
     except asyncio.CancelledError:
@@ -120,7 +133,7 @@ async def _turn(hass: HomeAssistant, ticket_id: int, entity_id: str, name: str, 
 
 
 async def async_run_now(hass: HomeAssistant, ticket_id: int, actor: str) -> dict[str, Any]:
-    """"Ask now": ask the AI chosen in Settings for hints on the ticket (this uses the AI plan). The ticket's assignee is left alone."""
+    """"Review with AI": ask the AI chosen in Settings to review the ticket (this uses the AI plan). The assignee is left alone."""
     settings = await async_get_settings(hass)
     entity_id = settings.get("agent") or ""
     if not entity_id.startswith("ai_task."):

@@ -292,7 +292,7 @@ async def main():
         except vol.Invalid:
             pass
     for good in ({"stt": "stt.whisper"}, {"transcribe": False}, {"agent_states": True, "agent_config": True,
-                                                                 "agent_related": True, "agent_daily_cap": 20}):
+                                                                 "agent_related": True, "agent_daily_cap": 20, "agent_prompt": "Be brief."}):
         save_schema({"type": "home_desk/settings_save", **good})  # every setting the panel saves must be accepted
     print("websocket schemas ok")
 

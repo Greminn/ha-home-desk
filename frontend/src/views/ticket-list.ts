@@ -11,7 +11,7 @@ import {
   STATUS_LABEL,
   activityVerb,
   actorLabel,
-  hintsLabel,
+  reviewLabel,
   actorName,
   isAgent,
   metaIcon,
@@ -340,7 +340,7 @@ export class TicketList extends LitElement {
                 @click=${(e: Event) => this._filterPerson(e, t.requester)}
                 @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && this._filterPerson(e, t.requester)}><ha-icon icon=${metaIcon(t.requester)}></ha-icon> ${actorName(t.requester)}</span></span>
               ${t.agent_state
-                ? html`<span class="working"><ha-icon icon="mdi:star-four-points"></ha-icon> ${hintsLabel(`ai:${t.agent_state.agent}`)} working…</span>`
+                ? html`<span class="working"><ha-icon icon="mdi:star-four-points"></ha-icon> ${reviewLabel(`ai:${t.agent_state.agent}`)} working…</span>`
                 : nothing}
               ${t.unread && t.activity && t.activity.kind !== "created"
                 ? html`<span class="activity"><ha-icon icon=${metaIcon(t.activity.actor)}></ha-icon> ${actorName(t.activity.actor)} ${activityVerb(t.activity.kind)} ${relativeTime(t.activity.at, this.language)}</span>`
@@ -348,7 +348,7 @@ export class TicketList extends LitElement {
                   ? html`<span>Updated ${relativeTime(t.updated_at, this.language)} by <ha-icon icon=${metaIcon(t.updated_by)}></ha-icon> ${actorName(t.updated_by)}</span>`
                   : nothing}
               ${t.assignee && isAgent(t.assignee)
-                ? html`<span><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> With AI</span>`
+                ? html`<span><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> With AI Agent</span>`
                 : nothing}
               ${t.labels.includes(BLOCKED) ? html`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>` : nothing}
               ${t.comment_count

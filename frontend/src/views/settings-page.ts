@@ -151,6 +151,35 @@ export class SettingsPage extends LitElement {
         font-size: var(--st-fs-small);
         color: var(--st-fg-secondary);
       }
+      .prompt-edit {
+        padding: 0 16px;
+      }
+      .prompt-edit textarea {
+        width: 100%;
+        box-sizing: border-box;
+        font-family: var(--ha-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace);
+        font-size: var(--st-fs-small);
+        line-height: 1.5;
+      }
+      .prompt-acts {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 4px;
+      }
+      .fixed {
+        margin: 8px 16px 8px;
+        font-size: var(--st-fs-small);
+        color: var(--st-fg-secondary);
+      }
+      .fixed summary {
+        cursor: pointer;
+        padding: 6px 0;
+      }
+      .fixed pre {
+        margin: 4px 0 8px;
+        white-space: pre-wrap;
+        font-family: var(--ha-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace);
+      }
       .test-out {
         padding: 0 16px 12px;
         font-size: var(--st-fs-small);
@@ -297,22 +326,22 @@ export class SettingsPage extends LitElement {
       </div>
 
       <div class="card">
-        <h2>AI hints</h2>
+        <h2>AI review</h2>
         <div class="srow">
           <div class="text">
-            <div class="name">AI for hints</div>
-            <div class="desc">Which AI set up in Home Assistant answers <b>Ask AI Agent now</b> on a ticket, with an explanation and ideas to try. It can't change anything. Assigning a ticket to the AI Agent is separate: that only marks it for an AI you run yourself (such as your Claude CLI) and sends nothing anywhere.</div>
+            <div class="name">AI for review</div>
+            <div class="desc">Which AI set up in Home Assistant answers <b>Review with AI</b> on a ticket: what it thinks is going on and what to try. It can't change anything. <b>Assign to AI Agent</b> is separate: that only assigns the ticket to an AI agent you run yourself (such as your Claude CLI or Gemini Antigravity) and sends nothing anywhere.</div>
           </div>
-          <st-dropdown plain field label="AI for hints" .value=${s.agent} .options=${agents}
+          <st-dropdown plain field label="AI for review" .value=${s.agent} .options=${agents}
             @change=${(e: CustomEvent<string>) => void this._save({ agent: e.detail })}></st-dropdown>
         </div>
         ${s.agent && !s.agent.startsWith("ai_task.")
-          ? html`<div class="note">Home Desk can only hand tickets to an <b>AI Task</b> agent to work on them. A conversation agent can still be named as the assignee.</div>`
+          ? html`<div class="note">Review with AI needs an <b>AI Task</b>. A conversation agent can't be used for it.</div>`
           : nothing}
         <div class="srow">
           <div class="text">
             <div class="name">Daily limit</div>
-            <div class="desc">The most hint requests in a day, so a busy day can't run up your AI plan.</div>
+            <div class="desc">The most reviews in a day, so a busy day can't run up your AI plan.</div>
           </div>
           <st-dropdown plain field label="Daily limit" .value=${String(s.agent_daily_cap)}
             .options=${[...new Set([10, 30, 100, 300, s.agent_daily_cap])].sort((a, b) => a - b).map((n) => ({ id: String(n), label: `${n} requests a day` }))}
@@ -320,7 +349,7 @@ export class SettingsPage extends LitElement {
         </div>
         <div class="srow">
           <div class="text">
-            <div class="name">Test the agent</div>
+            <div class="name">Test the AI</div>
             <div class="desc">Sends a harmless question, with nothing from your home, to check it answers.</div>
           </div>
           <button class="tbtn" ?disabled=${!s.agent || this._test?.busy} @click=${() => (this._confirmTest = true)}>${this._test?.busy ? "Asking…" : "Test"}</button>
@@ -330,7 +359,7 @@ export class SettingsPage extends LitElement {
       </div>
 
       <div class="card">
-        <h2>What the AI is sent for hints</h2>
+        <h2>What the AI is sent for a review</h2>
         <p class="help">The ticket and its comments are always sent. Everything sent goes to your AI provider, with passwords, keys, coordinates and email addresses taken out first.</p>
         <div class="srow">
           <div class="text"><div class="name">Entity states</div><div class="desc">The state, attributes and last day of changes of the entities a ticket names.</div></div>
@@ -344,6 +373,23 @@ export class SettingsPage extends LitElement {
           <div class="text"><div class="name">Related tickets</div><div class="desc">Linked tickets and ones about the same entities, with how they were resolved.</div></div>
           ${this._switch(s.agent_related, "Related tickets", (v) => void this._save({ agent_related: v }))}
         </div>
+      </div>
+
+      <div class="card">
+        <h2>Review instructions</h2>
+        <p class="help">What Review with AI tells the AI about its job and how to write. ${s.agent_prompt ? "You have changed it from the default." : "This is the default."} Home Desk adds the ticket, its comments and what you allowed above after your text, along with the part shown below, which it needs to read proposed changes and can't be edited.</p>
+        <div class="prompt-edit">
+          <textarea rows="18" aria-label="Review instructions" spellcheck="false" maxlength="6000"
+            .value=${s.agent_prompt || s.agent_prompt_default}
+            @change=${(e: Event) => void this._save({ agent_prompt: (e.target as HTMLTextAreaElement).value })}></textarea>
+          <div class="prompt-acts">
+            <button class="tbtn" ?disabled=${!s.agent_prompt} @click=${() => void this._save({ agent_prompt: "" })}>Reset to default</button>
+          </div>
+        </div>
+        <details class="fixed">
+          <summary>Always added after your text</summary>
+          <pre>${s.agent_prompt_fixed}</pre>
+        </details>
       </div>
 
       <div class="card">

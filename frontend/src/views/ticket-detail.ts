@@ -20,7 +20,7 @@ import {
   isAgent,
   actorName,
   assigneeName,
-  hintsLabel,
+  reviewLabel,
   metaIcon,
   fullTime,
   relativeTime,
@@ -809,8 +809,8 @@ export class TicketDetail extends LitElement {
   /** The built-in AI agent can be asked to work on a ticket now (an AI Task agent is chosen in Settings), and its name. */
   @property({ attribute: false }) hass!: HomeAssistant;
   @property({ type: Boolean }) canAsk = false;
-  @property() askName = "AI Agent";
-  @property() agentLabel = "AI Agent";
+  @property() askName = "AI";
+  @property() agentLabel = "the AI";
   @property({ attribute: false }) labelMap: Map<string, Label> = new Map();
   @property({ attribute: false }) people: Map<string, Person> = new Map();
   @property({ attribute: false }) categoryMap: Map<string, Category> = new Map();
@@ -1017,19 +1017,19 @@ export class TicketDetail extends LitElement {
   /** "Ask now": the built-in AI agent reads the ticket and replies at once. The panel confirms first, because it costs. */
   private _askChip(t: Ticket) {
     if (!this.canAsk || t.agent_state) return nothing;
-    const tip = "Ask the AI chosen in Settings for hints: an explanation and ideas to try. It doesn't change the ticket's mark for your own AI, and it uses your AI plan.";
-    return html`<button class="assign-chip ask-chip" aria-label="Ask ${this.askName} now" title=${tip}
+    const tip = "Have the AI chosen in Settings review this ticket: what it thinks is going on and what to try. It can't change anything, it leaves Assign to AI Agent as it is, and it uses your AI plan.";
+    return html`<button class="assign-chip ask-chip" aria-label="Review with AI" title=${tip}
       @click=${() => this._fire("ask-ai", { body: this._comment.trim(), done: () => { this._comment = ""; this._agentToggle = null; } })}>
-      <ha-icon icon="mdi:star-four-points"></ha-icon><span><span class="verb">Ask </span>${this.askName}<span class="verb"> now</span></span></button>`;
+      <ha-icon icon="mdi:star-four-points"></ha-icon><span>Review<span class="verb"> with AI</span></span></button>`;
   }
 
   private _agentChip(t: Ticket) {
     const on = this._agentOn(t);
     const now = this._withAgent(t);
     const title = now
-      ? on ? "Marked for an AI. Click to take the mark off." : "The mark will come off. Click to keep it."
-      : on ? "Will be marked for an AI. Click to switch off."
-        : "Mark this ticket for an AI you run yourself (your Claude CLI, Claude Desktop or anything else). Nothing is sent anywhere.";
+      ? on ? "Assigned to an AI agent. Click to take it off." : "It will be taken off the AI agent. Click to keep it."
+      : on ? "Will be assigned to an AI agent. Click to switch off."
+        : "Assign this ticket to an AI agent you run yourself (your Claude CLI, Gemini Antigravity or anything else). Nothing is sent anywhere.";
     return html`<button class="assign-chip ${now && on ? "current" : ""} ${on && !now ? "picked" : ""} ${now && !on ? "dropping" : ""}"
       aria-pressed=${on ? "true" : "false"} aria-label="Assign to AI Agent" title=${title}
       @click=${() => (this._agentToggle = !on)}><ha-icon icon="mdi:creation"></ha-icon><span><span class="verb">Assign to </span>AI Agent</span></button>`;
@@ -1099,7 +1099,7 @@ export class TicketDetail extends LitElement {
       case "priority":
         return `changed priority from ${show(d.from)} to ${show(d.to)}`;
       case "assignee":
-        return d.to ? `marked this for ${assigneeName(String(d.to)) === "AI" ? "an AI" : assigneeName(String(d.to))}` : "took off the AI mark";
+        return d.to ? `assigned this to ${isAgent(String(d.to)) ? "an AI Agent" : assigneeName(String(d.to))}` : "took the AI Agent off this";
       case "link":
         return `linked ticket #${String(d.to)}`;
       case "merge":
@@ -1203,7 +1203,7 @@ export class TicketDetail extends LitElement {
     return html`<div class="ev working" role="status">
       ${this._avatar(who)}
       <div>
-        <div class="who"><b>${hintsLabel(who)}</b> · <span class="when">now</span></div>
+        <div class="who"><b>${reviewLabel(who)}</b> · <span class="when">now</span></div>
         <div class="bubble">
           <ha-icon icon="mdi:star-four-points"></ha-icon>
           <span class="what">working on this${state.note ? html` <span class="note">· ${state.note}</span>` : nothing}</span>
@@ -1259,7 +1259,7 @@ export class TicketDetail extends LitElement {
         <div class="ev ${fresh ? "new" : ""}">
           ${this._avatar(e.actor)}
           <div>
-            <div class="who"><b title=${e.data?.hints ? "Hints from the AI chosen in Settings, based only on what Home Desk sent it. It has not checked your home." : ""}>${e.data?.hints ? hintsLabel(e.actor) : actorLabel(e.actor)}</b> · <span class="when">${when}</span>${fresh ? html`<span class="new-tag">New</span>` : nothing}${e.kind === "note" ? html`<span class="label dense">internal note</span>` : nothing}${(e.data as { merged_from?: number } | null)?.merged_from ? html`<span class="label dense" title="Copied here when a ticket was merged">from #${(e.data as { merged_from: number }).merged_from}</span>` : nothing}</div>
+            <div class="who"><b title=${e.data?.review || e.data?.hints ? "A review by the AI chosen in Settings, based only on what Home Desk sent it. It has not checked your home." : ""}>${e.data?.review || e.data?.hints ? reviewLabel(e.actor) : actorLabel(e.actor)}</b> · <span class="when">${when}</span>${fresh ? html`<span class="new-tag">New</span>` : nothing}${e.kind === "note" ? html`<span class="label dense">internal note</span>` : nothing}${(e.data as { merged_from?: number } | null)?.merged_from ? html`<span class="label dense" title="Copied here when a ticket was merged">from #${(e.data as { merged_from: number }).merged_from}</span>` : nothing}</div>
             <div class="bubble md ${e.kind === "note" ? "note" : ""}">${unsafeHTML(renderMarkdown(e.body ?? ""))}</div>
             ${this._proposal(e)}
           </div>
@@ -1313,7 +1313,7 @@ export class TicketDetail extends LitElement {
           <div class="meta-line">
             <span>Opened ${relativeTime(t.created_at, this.language)} by <ha-icon icon=${metaIcon(t.requester)}></ha-icon> ${actorName(t.requester)}</span>
             ${t.updated_by ? html`<span>Updated ${relativeTime(t.updated_at, this.language)} by <ha-icon icon=${metaIcon(t.updated_by)}></ha-icon> ${actorName(t.updated_by)}</span>` : nothing}
-            ${t.assignee && isAgent(t.assignee) ? html`<span title="Marked for an AI to work (your own CLI or desktop app)"><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> With AI</span>` : nothing}
+            ${t.assignee && isAgent(t.assignee) ? html`<span title="Assigned to an AI agent you run yourself (your own CLI or desktop app)"><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> With AI Agent</span>` : nothing}
             ${t.labels.includes(BLOCKED) ? html`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>` : nothing}
             ${t.comment_count ? html`<span><ha-icon icon="mdi:comment-outline"></ha-icon> ${t.comment_count}</span>` : nothing}
           </div>

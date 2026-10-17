@@ -272,12 +272,12 @@ export class HomeDeskPanel extends LitElement {
     return !!this._settings?.agent?.startsWith("ai_task.");
   }
 
-  /** What buttons call it: "AI Agent". */
+  /** What the suggestions' ask link calls it: just "AI" (it is not an agent: it answers, it doesn't act). */
   private get _askName(): string {
-    return "AI Agent";
+    return "AI";
   }
 
-  /** The AI Home Assistant is asked for hints, by its integration's name, for dialogs: "the AI (Claude)". */
+  /** The AI Home Assistant is asked to review a ticket, by its integration's name, for dialogs: "the AI (Claude)". */
   private get _agentLabel(): string {
     const entity = this._settings?.agent;
     const friendly = entity ? String(this.hass.states?.[entity]?.attributes["friendly_name"] ?? "") : "";
@@ -295,7 +295,7 @@ export class HomeDeskPanel extends LitElement {
     if (!ticket || !this._client) return;
     const name = this._agentLabel;
     this._askCost(
-      `Ask ${name} for hints on ticket #${ticket.id}? The ticket${detail.body ? ", with your comment," : ""} is sent to the AI chosen in Settings through Home Assistant, which uses your AI plan and may cost money. It explains the problem and suggests what to try; it doesn't change anything, and your own AI queue (Assign to AI Agent) is left as it is. You can stop it from the ticket while it works.`,
+      `Review ticket #${ticket.id} with ${name}? The ticket${detail.body ? ", with your comment," : ""} is sent to the AI chosen in Settings through Home Assistant, which uses your AI plan and may cost money. It says what it thinks is going on and what to try, and may propose changes for you to apply. It can't change anything itself, and Assign to AI Agent is left as it is. You can stop it from the ticket while it works.`,
       async () => {
         const client = this._client!;
         if (detail.body) await client.comment(ticket.id, detail.body, false);

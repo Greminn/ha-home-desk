@@ -176,9 +176,9 @@ export function labelOrUnknown(map: Map<string, Label>, id: string): Label {
   return map.get(id) ?? { id, name: id, color: "grey", description: "", icon: "", builtin: false, count: 0 };
 }
 
-/** How a name reads where it signs something (a comment, a change): agents are "AI Agent (Claude)". */
+/** How a name reads where it signs something (a comment, a change): an AI by the name it signs with ("Claude", "Gemini"). */
 export function actorLabel(actor: string): string {
-  return isAgent(actor) ? `AI Agent (${actorName(actor)})` : actorName(actor);
+  return actorName(actor);
 }
 
 /** A household member as Home Assistant knows them: the person entity's name and profile picture. */
@@ -209,5 +209,5 @@ export const AI_ASSIGNEE = "ai:AI";
 /** How an assignee reads: a person by name, any AI as just "AI". */
 export const assigneeName = (assignee: string): string => (isAgent(assignee) ? "AI" : actorName(assignee));
 
-/** The AI that Home Assistant asks for hints (Ask AI Agent now), as its comments are signed: "AI Hints (Claude)". */
-export const hintsLabel = (actor: string): string => `AI Hints (${actorName(actor)})`;
+/** The AI that Home Assistant asks to review a ticket (Review with AI), as its comments are signed: "AI Review (Claude)". */
+export const reviewLabel = (actor: string): string => `AI Review (${actorName(actor)})`;
