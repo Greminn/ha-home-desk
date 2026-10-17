@@ -720,8 +720,15 @@
       }
       .meta ha-icon {
         --mdc-icon-size: 14px;
+        display: inline-flex;
+        flex: none;
+        align-self: center;
       }
+      /* The name, with its icon: one flex row so the icon sits on the text's centre line. */
       .who {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
         cursor: pointer;
         border-radius: 4px;
       }
@@ -4250,6 +4257,9 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
       }
       .row .sub ha-icon {
         --mdc-icon-size: 14px;
+        display: inline-flex;
+        flex: none;
+        align-self: center;
       }
       .row .sub .work {
         color: var(--st-accent);

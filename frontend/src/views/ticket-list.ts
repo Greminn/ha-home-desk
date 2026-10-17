@@ -195,8 +195,15 @@ export class TicketList extends LitElement {
       }
       .meta ha-icon {
         --mdc-icon-size: 14px;
+        display: inline-flex;
+        flex: none;
+        align-self: center;
       }
+      /* The name, with its icon: one flex row so the icon sits on the text's centre line. */
       .who {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
         cursor: pointer;
         border-radius: 4px;
       }

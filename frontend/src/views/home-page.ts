@@ -160,6 +160,9 @@ export class HomePage extends LitElement {
       }
       .row .sub ha-icon {
         --mdc-icon-size: 14px;
+        display: inline-flex;
+        flex: none;
+        align-self: center;
       }
       .row .sub .work {
         color: var(--st-accent);
