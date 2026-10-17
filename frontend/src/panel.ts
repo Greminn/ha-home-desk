@@ -5,9 +5,12 @@ import { sharedStyles } from "./styles";
 import { panelStyles } from "./panel-styles";
 import { HaClient } from "./ha-client";
 import type { NewTicket } from "./ha-client";
-import { ACTIVE, ENHANCEMENT, HISTORY, PRIORITIES } from "./types";
 import type { Category, HomeAssistant, HomeDeskSettings, Label, Ticket, TicketPatch, TicketSummary } from "./types";
-import { actorName, isAgent, PRIORITY_LABEL, type Person } from "./format";
+import type { Person } from "./format";
+import {
+  VIEWS, SCOPES_OPTIONS, agentOptions, categoryOptions, filterCount, filterTickets, labelOptions, personOptions,
+  priorityOptions, type ListFilters,
+} from "./list-model";
 import "./views/ticket-list";
 import "./views/ticket-detail";
 import "./views/new-ticket-dialog";
@@ -20,37 +23,6 @@ import "./views/picker-popup";
 import "./views/category-dialog";
 import type { PickerItem } from "./views/picker-popup";
 import type { DropdownOption } from "./views/dropdown";
-
-interface View {
-  id: string;
-  label: string;
-  icon: string;
-  count?: boolean;
-  match: (t: TicketSummary) => boolean;
-}
-
-const isHistory = (t: TicketSummary) => t.labels.includes(HISTORY);
-const isActive = (t: TicketSummary) => ACTIVE.includes(t.status) && !isHistory(t);
-const isClosed = (t: TicketSummary) => (t.status === "resolved" || t.status === "closed") && !isHistory(t);
-const isEnhancement = (t: TicketSummary) => t.labels.includes(ENHANCEMENT);
-
-const VIEWS: View[] = [
-  // New work that hasn't been started. Ideas have their own tab so they don't bury problems.
-  { id: "active", icon: "mdi:inbox-outline", label: "Inbox", count: true, match: (t) => t.status === "new" && !isHistory(t) && !isEnhancement(t) },
-  { id: "progress", icon: "mdi:progress-wrench", label: "In Progress", count: true, match: (t) => (t.status === "in_progress" || t.status === "open") && !isHistory(t) },
-  { id: "enhancements", icon: "mdi:lightbulb-outline", label: "Enhancements", count: true, match: (t) => isActive(t) && isEnhancement(t) },
-  { id: "all", icon: "mdi:format-list-bulleted", label: "All", match: () => true },
-];
-
-/** The "Show" filter on the All tab. History is only listed when asked for. */
-const SCOPES: { id: string; label: string; match: (t: TicketSummary) => boolean }[] = [
-  { id: "", label: "Everything", match: (t) => !isHistory(t) },
-  { id: "active", label: "Open", match: isActive },
-  { id: "closed", label: "Closed", match: isClosed },
-  { id: "history", label: "History", match: isHistory },
-];
-
-const SCOPES_OPTIONS: DropdownOption[] = SCOPES.map(({ id, label }) => ({ id, label }));
 
 const ADD_NEW = "___add_new___";
 const NO_CATEGORY = "___none___";
@@ -427,53 +399,19 @@ export class HomeDeskPanel extends LitElement {
 
   // ---- derived
 
+  private get _filters(): ListFilters {
+    return {
+      view: this._view, scope: this._scope, category: this._category, priority: this._priority,
+      label: this._label, person: this._person, agent: this._agentFilter,
+    };
+  }
+
   private get _filtered(): TicketSummary[] {
-    const view = VIEWS.find((v) => v.id === this._view) ?? VIEWS[0]!;
-    return this._tickets.filter(
-      (t) =>
-        view.match(t) &&
-        (view.id !== "all" || !this._scope || SCOPES.find((x) => x.id === this._scope)!.match(t)) &&
-        (!this._matchIds || this._matchIds.has(t.id)) &&
-        (!this._priority || t.priority === this._priority) &&
-        (!this._label || t.labels.includes(this._label)) &&
-        (!this._person || t.requester === this._person) &&
-        (!this._agentFilter || isAgent(t.assignee ?? "") === (this._agentFilter === "with")) &&
-        (!this._category || (this._category === "none" ? !t.category : t.category === this._category)),
-    );
-  }
-
-  private get _agentOptions(): DropdownOption[] {
-    return [
-      { id: "", label: "Any AI Agent" },
-      { id: "with", label: "With AI Agent" },
-      { id: "without", label: "Not with AI Agent" },
-    ];
-  }
-
-  private get _priorityOptions(): DropdownOption[] {
-    return [{ id: "", label: "Any Priority" }, ...PRIORITIES.map((id) => ({ id, label: PRIORITY_LABEL[id] }))];
-  }
-
-  private get _categoryOptions(): DropdownOption[] {
-    return [
-      { id: "", label: "Any Category" },
-      { id: "none", label: "No Category" },
-      ...this._categoryList.map((c) => ({ id: c.id, label: c.name })),
-    ];
-  }
-
-  private get _personOptions(): DropdownOption[] {
-    const names = [...new Set(this._tickets.map((t) => t.requester).filter(Boolean))].sort();
-    if (this._person && !names.includes(this._person)) names.push(this._person);
-    return [{ id: "", label: "Anyone" }, ...names.map((n) => ({ id: n, label: actorName(n) }))];
-  }
-
-  private get _labelOptions(): DropdownOption[] {
-    return [{ id: "", label: "Any Label" }, ...this._labelList.map((x) => ({ id: x.id, label: x.name }))];
+    return filterTickets(this._tickets, this._filters, this._matchIds);
   }
 
   private get _filterCount(): number {
-    return [this._category, this._priority, this._label, this._person, this._agentFilter, this._view === "all" ? this._scope : ""].filter(Boolean).length;
+    return filterCount(this._filters);
   }
 
   /**
@@ -581,15 +519,15 @@ export class HomeDeskPanel extends LitElement {
                   ? html`<st-dropdown label="Show" .options=${SCOPES_OPTIONS} .value=${this._scope}
                       @change=${(e: CustomEvent<string>) => (this._scope = e.detail)}></st-dropdown>`
                   : nothing}
-                <st-dropdown label="Category" placeholder="Category" .options=${this._categoryOptions} .value=${this._category}
+                <st-dropdown label="Category" placeholder="Category" .options=${categoryOptions(this._categoryList)} .value=${this._category}
                   @change=${(e: CustomEvent<string>) => (this._category = e.detail)}></st-dropdown>
-                <st-dropdown label="Raised By" placeholder="Raised By" .options=${this._personOptions} .value=${this._person}
+                <st-dropdown label="Raised By" placeholder="Raised By" .options=${personOptions(this._tickets, this._person)} .value=${this._person}
                   @change=${(e: CustomEvent<string>) => (this._person = e.detail)}></st-dropdown>
-                <st-dropdown label="AI Agent" placeholder="AI Agent" .options=${this._agentOptions} .value=${this._agentFilter}
+                <st-dropdown label="AI Agent" placeholder="AI Agent" .options=${agentOptions()} .value=${this._agentFilter}
                   @change=${(e: CustomEvent<string>) => (this._agentFilter = e.detail)}></st-dropdown>
-                <st-dropdown label="Priority" placeholder="Priority" .options=${this._priorityOptions} .value=${this._priority}
+                <st-dropdown label="Priority" placeholder="Priority" .options=${priorityOptions()} .value=${this._priority}
                   @change=${(e: CustomEvent<string>) => (this._priority = e.detail)}></st-dropdown>
-                <st-dropdown label="Label" placeholder="Label" .options=${this._labelOptions} .value=${this._label}
+                <st-dropdown label="Label" placeholder="Label" .options=${labelOptions(this._labelList)} .value=${this._label}
                   @change=${(e: CustomEvent<string>) => (this._label = e.detail)}></st-dropdown>
               </div>`
             : nothing}
