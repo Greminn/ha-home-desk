@@ -278,6 +278,11 @@ export class TicketList extends LitElement {
     else this._select(id);
   }
 
+  /** Keep the open ticket in view when it changes (Previous and Next can move it off screen). */
+  override updated(changed: Map<string, unknown>) {
+    if (changed.has("selectedId")) this.renderRoot.querySelector(".row.selected")?.scrollIntoView({ block: "nearest" });
+  }
+
   private _select(id: number) {
     this.dispatchEvent(
       new CustomEvent("select-ticket", { detail: id, bubbles: true, composed: true }),

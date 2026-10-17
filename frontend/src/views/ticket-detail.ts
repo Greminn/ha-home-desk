@@ -154,7 +154,7 @@ export class TicketDetail extends LitElement {
         padding-right: 44px;
       }
       .head.admin {
-        padding-right: 88px;
+        padding-right: 176px;
       }
       h1 {
         flex: 1;
@@ -232,6 +232,17 @@ export class TicketDetail extends LitElement {
       /* The merge button sits just left of the history button. */
       .hist.merge {
         right: 44px;
+      }
+      /* Previous and next ticket, in the order of the list, to the left of those. */
+      .hist.next {
+        right: 88px;
+      }
+      .hist.prev {
+        right: 132px;
+      }
+      .hist[disabled] {
+        opacity: 0.35;
+        cursor: default;
       }
       .hist[aria-pressed="true"] {
         color: var(--st-accent);
@@ -704,6 +715,8 @@ export class TicketDetail extends LitElement {
   @property() me = "";
   @property({ type: Boolean }) isAdmin = false;
   @property({ type: Boolean }) narrow = false;
+  /** Where this ticket is in the list being worked through (for Previous and Next), or null when it isn't in it. */
+  @property({ attribute: false }) navPos: { index: number; total: number } | null = null;
   @property() language: string | undefined = undefined;
   /** The AI agent a ticket can be assigned to. */
   @property() agentName = "claude";
@@ -1101,7 +1114,12 @@ export class TicketDetail extends LitElement {
                 @blur=${(e: Event) => this._saveTitle(e.target as HTMLTextAreaElement)}></textarea>`
             : html`<h1>${t.title}</h1>`}
           ${this.isAdmin
-            ? html`<button class="icon hist merge" title="Merge into another ticket" aria-label="Merge into another ticket"
+            ? html`<button class="icon hist prev" title="Previous ticket" aria-label="Previous ticket" ?disabled=${!this.navPos || this.navPos.index <= 0}
+                @click=${() => this._fire("nav-ticket", -1)}><ha-icon icon="mdi:chevron-up"></ha-icon></button>
+              <button class="icon hist next" title=${this.navPos ? `Next ticket (${this.navPos.index + 1} of ${this.navPos.total})` : "Next ticket"} aria-label="Next ticket"
+                ?disabled=${!this.navPos || this.navPos.index >= this.navPos.total - 1}
+                @click=${() => this._fire("nav-ticket", 1)}><ha-icon icon="mdi:chevron-down"></ha-icon></button>
+              <button class="icon hist merge" title="Merge into another ticket" aria-label="Merge into another ticket"
                 @click=${(e: Event) => this._fire("pick-merge", { rect: (e.currentTarget as HTMLElement).getBoundingClientRect() })}>
                 <ha-icon icon="mdi:call-merge"></ha-icon></button>`
             : nothing}

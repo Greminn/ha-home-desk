@@ -503,6 +503,26 @@ export class HomeDeskPanel extends LitElement {
     };
   }
 
+  /** The tickets Previous and Next move through: the list as filtered, or every ticket if the open one isn't in it. */
+  private get _walk(): TicketSummary[] {
+    const shown = this._filtered;
+    if (this._selectedId === null || shown.some((t) => t.id === this._selectedId)) return shown;
+    return filterTickets(this._tickets, { ...this._filters, view: "all", scope: "", category: "", priority: "", label: "", person: "" }, null);
+  }
+
+  private get _navPos(): { index: number; total: number } | null {
+    const list = this._walk;
+    const index = list.findIndex((t) => t.id === this._selectedId);
+    return index < 0 ? null : { index, total: list.length };
+  }
+
+  /** Open the previous (-1) or next (+1) ticket in the list. */
+  private _step(dir: number) {
+    const pos = this._navPos;
+    const target = pos ? this._walk[pos.index + dir] : undefined;
+    if (target) void this._open(target.id);
+  }
+
   private get _filtered(): TicketSummary[] {
     return filterTickets(this._tickets, this._filters, this._matchIds);
   }
@@ -615,6 +635,8 @@ export class HomeDeskPanel extends LitElement {
           .isAdmin=${this._admin}
           .narrow=${this._compact}
           .language=${lang}
+          .navPos=${this._navPos}
+          @nav-ticket=${(e: CustomEvent<number>) => this._step(e.detail)}
           .seenAt=${this._seenAt}
           .me=${this.hass.user?.name ?? ""}
           .agentName=${this._agentName}
