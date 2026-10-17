@@ -63,6 +63,7 @@ export class AppHeader extends LitElement {
       }
       .bar h1 .mark {
         flex: none;
+        margin-left: 3px; /* centres the mark over the round New Ticket button below it */
         width: 26px;
         height: 26px;
         color: var(--st-brand, #03a9f4);
