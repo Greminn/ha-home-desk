@@ -36,16 +36,26 @@ export class ReportForm extends LitElement {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
-        background: var(--st-surface);
+        background: var(--st-bg);
       }
+      /* The form is one Home Assistant card: lighter than the page, with its title inside. */
       .page {
+        box-sizing: border-box;
         max-width: 560px;
-        margin: 0 auto;
-        padding: 32px 16px 48px;
+        margin: 24px auto 48px;
+        padding: 16px 16px 24px;
+        border: 1px solid var(--ha-card-border-color, var(--st-outline));
+        border-radius: var(--ha-card-border-radius, var(--ha-border-radius-xl, 12px));
+        background: var(--ha-card-background, var(--card-background-color, var(--st-surface)));
+      }
+      @media (max-width: 600px) {
+        .page {
+          margin: 16px;
+        }
       }
       h2 {
         margin: 0 0 4px;
-        font-size: var(--st-fs-dialog);
+        font-size: var(--ha-font-size-2xl, 24px);
         font-weight: 400;
       }
       .lead {

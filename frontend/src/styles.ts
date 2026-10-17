@@ -120,30 +120,38 @@ export const sharedStyles = css`
     font-family: inherit;
     font-size: var(--st-fs-body);
     color: var(--st-fg);
-    background: var(--st-surface);
-    border: 1px solid var(--st-divider);
-    border-radius: var(--st-r-control);
+    /* Filled fields, as in Home Assistant's forms: a grey box with a line under it. */
+    background: var(--ha-color-form-background, color-mix(in srgb, var(--st-fg) 12%, transparent));
+    border: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--st-fg) 60%, transparent);
+    border-radius: 4px 4px 0 0;
+  }
+  input[type="text"]:hover,
+  input[type="search"]:hover,
+  select:hover,
+  textarea:hover {
+    background: var(--ha-color-form-background-hover, color-mix(in srgb, var(--st-fg) 16%, transparent));
+    border-bottom-color: var(--st-fg);
   }
   input[type="text"],
   input[type="search"],
   select {
-    height: var(--st-h-field);
-    padding: 0 12px;
+    height: 48px;
+    padding: 0 16px;
   }
   select {
     padding-right: 4px;
   }
   textarea {
-    padding: 10px 12px;
+    padding: 12px 16px;
     resize: vertical;
     line-height: 1.5;
   }
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    outline: 2px solid var(--st-accent);
-    outline-offset: -1px;
-    border-color: transparent;
+    outline: none;
+    border-bottom: 2px solid var(--st-accent);
   }
   ha-icon {
     --mdc-icon-size: 20px;

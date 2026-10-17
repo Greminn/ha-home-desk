@@ -308,6 +308,7 @@ export class HomeDeskPanel extends LitElement {
 
   private async _open(id: number, navigate = true) {
     if (this._selectedId !== id) this._seenAt = "";
+    if (this._page === "home") this._setView("active"); // the list beside Home is the Inbox: keep it as you open a ticket
     this._page = "";
     this._selectedId = id;
     if (navigate) this._navigate(`${this._prefix}/${id}`);
@@ -498,7 +499,7 @@ export class HomeDeskPanel extends LitElement {
 
   private get _filters(): ListFilters {
     return {
-      view: this._view, scope: this._scope, category: this._category, priority: this._priority,
+      view: this._page === "home" ? "active" : this._view, scope: this._scope, category: this._category, priority: this._priority,
       label: this._label, person: this._person,
     };
   }
@@ -558,6 +559,18 @@ export class HomeDeskPanel extends LitElement {
     return new Map(this._labelList.map((t) => [t.id, t]));
   }
 
+  /** The Home page: on a wide screen it fills the right pane beside the Inbox list; on a narrow one it stands alone with its own Inbox. */
+  private _homeTemplate(compact: boolean) {
+    return html`<st-home-page .tickets=${this._tickets} .language=${this.hass.language} .userName=${this.hass.user?.name ?? ""} .compact=${compact}
+      @open-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
+      @go-view=${(e: CustomEvent<{ view: string; priority: string }>) => {
+        this._page = "";
+        this._close();
+        this._setView(e.detail.view);
+        this._priority = e.detail.priority;
+      }}></st-home-page>`;
+  }
+
   override render() {
     if (!this.hass) return nothing;
     const lang = this.hass.language;
@@ -578,15 +591,8 @@ export class HomeDeskPanel extends LitElement {
       ${this._error ? html`<div class="banner">${this._error}</div>` : nothing}
       ${!this._admin && this._client
         ? html`<st-report-form .client=${this._client}></st-report-form>`
-        : this._page === "home" && this._client
-          ? html`<st-home-page .tickets=${this._tickets} .language=${lang} .userName=${this.hass.user?.name ?? ""}
-              @open-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
-              @go-view=${(e: CustomEvent<{ view: string; priority: string }>) => {
-                this._page = "";
-                this._close();
-                this._setView(e.detail.view);
-                this._priority = e.detail.priority;
-              }}></st-home-page>`
+        : this._page === "home" && this._client && this._compact
+          ? this._homeTemplate(true)
         : this._page === "labels" && this._client
         ? html`<st-label-manager .client=${this._client} .labels=${this._labelList}
             @labels-changed=${() => void this._refresh()}></st-label-manager>`
@@ -629,6 +635,7 @@ export class HomeDeskPanel extends LitElement {
             @remove-label=${(e: CustomEvent<{ ticket: TicketSummary; label: Label }>) => (this._removing = e.detail)}
           ></st-ticket-list>
         </div>
+        ${this._page === "home" ? this._homeTemplate(false) : html`
         <st-ticket-detail
           .ticket=${this._selected}
           .client=${this._client}
@@ -652,7 +659,7 @@ export class HomeDeskPanel extends LitElement {
           @patch-ticket=${(e: CustomEvent<TicketPatch>) => this._selected && void this._act((c) => c.update(this._selected!.id, e.detail))}
           @comment=${(e: CustomEvent<{ body: string; internal: boolean }>) => this._selected && void this._act((c) => c.comment(this._selected!.id, e.detail.body, e.detail.internal))}
           @close-ticket=${(e: CustomEvent<{ resolution: string; status: "resolved" | "closed" }>) => this._selected && void this._act((c) => c.close(this._selected!.id, e.detail.resolution, e.detail.status))}
-        ></st-ticket-detail>
+        ></st-ticket-detail>`}
       </main>`}
       ${this._pickingLabel
         ? html`<st-picker-popup .rect=${this._pickingLabel.rect} .items=${this._labelPickerItems} .additional=${this._labelPickerAdditional}

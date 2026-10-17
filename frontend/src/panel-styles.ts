@@ -54,7 +54,8 @@ export const panelStyles = css`
           grid-template-columns: minmax(0, 1fr);
         }
         main.has-selection .list-pane,
-        main:not(.has-selection) st-ticket-detail {
+        main:not(.has-selection) st-ticket-detail,
+        main st-home-page {
           display: none;
         }
       }
@@ -63,7 +64,8 @@ export const panelStyles = css`
         flex: 1;
         min-height: 0;
       }
-      st-ticket-detail {
+      st-ticket-detail,
+      st-home-page {
         min-height: 0;
       }
       .banner {
@@ -74,7 +76,8 @@ export const panelStyles = css`
       }
       .list-pane,
       st-ticket-list,
-      st-ticket-detail {
+      st-ticket-detail,
+      st-home-page {
         min-width: 0;
       }
 `;

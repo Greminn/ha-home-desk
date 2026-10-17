@@ -117,30 +117,38 @@
     font-family: inherit;
     font-size: var(--st-fs-body);
     color: var(--st-fg);
-    background: var(--st-surface);
-    border: 1px solid var(--st-divider);
-    border-radius: var(--st-r-control);
+    /* Filled fields, as in Home Assistant's forms: a grey box with a line under it. */
+    background: var(--ha-color-form-background, color-mix(in srgb, var(--st-fg) 12%, transparent));
+    border: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--st-fg) 60%, transparent);
+    border-radius: 4px 4px 0 0;
+  }
+  input[type="text"]:hover,
+  input[type="search"]:hover,
+  select:hover,
+  textarea:hover {
+    background: var(--ha-color-form-background-hover, color-mix(in srgb, var(--st-fg) 16%, transparent));
+    border-bottom-color: var(--st-fg);
   }
   input[type="text"],
   input[type="search"],
   select {
-    height: var(--st-h-field);
-    padding: 0 12px;
+    height: 48px;
+    padding: 0 16px;
   }
   select {
     padding-right: 4px;
   }
   textarea {
-    padding: 10px 12px;
+    padding: 12px 16px;
     resize: vertical;
     line-height: 1.5;
   }
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    outline: 2px solid var(--st-accent);
-    outline-offset: -1px;
-    border-color: transparent;
+    outline: none;
+    border-bottom: 2px solid var(--st-accent);
   }
   ha-icon {
     --mdc-icon-size: 20px;
@@ -304,7 +312,8 @@
           grid-template-columns: minmax(0, 1fr);
         }
         main.has-selection .list-pane,
-        main:not(.has-selection) st-ticket-detail {
+        main:not(.has-selection) st-ticket-detail,
+        main st-home-page {
           display: none;
         }
       }
@@ -313,7 +322,8 @@
         flex: 1;
         min-height: 0;
       }
-      st-ticket-detail {
+      st-ticket-detail,
+      st-home-page {
         min-height: 0;
       }
       .banner {
@@ -324,7 +334,8 @@
       }
       .list-pane,
       st-ticket-list,
-      st-ticket-detail {
+      st-ticket-detail,
+      st-home-page {
         min-width: 0;
       }
 `;class me{constructor(e){this.hass=e}send(e,t={}){return this.hass.connection.sendMessagePromise({type:`home_desk/${e}`,...t})}async list(e){return(await this.send("list",{status:"all",...e?{q:e}:{}})).tickets}async categories(){try{return(await this.send("categories")).categories}catch{return[]}}createCategory(e){return this.send("category_create",e)}updateCategory(e,t){return this.send("category_update",{category_id:e,...t})}deleteCategory(e){return this.send("category_delete",{category_id:e})}async settings(){try{return await this.send("settings")}catch{return{auto_close:"7d",agent:"",repairs:!0,stt:"",transcribe:!0,agent_auto:!0,agent_states:!0,agent_config:!0,agent_related:!0,agent_daily_cap:30,notify:{targets:[],new_ticket:!0,comment:!0,resolved:!1}}}}saveSettings(e){return this.send("settings_save",e)}async labels(){return(await this.send("labels")).labels}createLabel(e){return this.send("label_create",e)}updateLabel(e,t){return this.send("label_update",{label_id:e,...t})}deleteLabel(e){return this.send("label_delete",{label_id:e})}get(e){return this.send("get",{ticket_id:e})}create(e){return this.send("create",{...e})}update(e,t){return this.send("update",{ticket_id:e,...t})}stopAgent(e){return this.send("agent_stop",{ticket_id:e})}testAgent(){return this.send("agent_test")}markRead(e){return this.send("mark_read",e?{ticket_ids:e}:{})}merge(e,t){return this.send("merge",{ticket_id:e,merge_ids:t})}comment(e,t,i){return this.send("comment",{ticket_id:e,body:t,internal:i})}close(e,t,i){return this.send("close",{ticket_id:e,resolution:t,status:i})}async report(e){if(!this.hass.fetchWithAuth)throw new Error("This page can't send files");const t=await this.hass.fetchWithAuth("/api/home_desk/report",{method:"POST",body:e}),i=await t.json().catch(()=>({}));if(!t.ok)throw new Error(i.message||`The report couldn't be sent (${t.status})`);return i}async attachmentUrl(e,t){const i=`/api/home_desk/attachment/${e}/${t}`;if(!this.hass.callWS)return i;const{path:s}=await this.hass.callWS({type:"auth/sign_path",path:i,expires:3600});return s}subscribe(e){return this.hass.connection.subscribeEvents(e,"home_desk_event")}}const fe={new:"New",open:"In Progress",in_progress:"In Progress",resolved:"Resolved",closed:"Closed"},be={new:"mdi:circle-outline",open:"mdi:circle-slice-4",in_progress:"mdi:circle-slice-4",resolved:"mdi:check-circle-outline",closed:"mdi:close-circle-outline"},ve={new:"var(--success-color, #43a047)",open:"var(--primary-color)",in_progress:"var(--primary-color)",resolved:"var(--purple-color, #926bc7)",closed:"var(--secondary-text-color)"},xe={low:"Low",normal:"Normal",high:"High",urgent:"Urgent"},ye=[["year",31536e3],["month",2592e3],["day",86400],["hour",3600],["minute",60]];function _e(e,t){const i=(new Date(e).getTime()-Date.now())/1e3,s=new Intl.RelativeTimeFormat(t,{numeric:"auto"});for(const[e,t]of ye)if(Math.abs(i)>=t)return s.format(Math.round(i/t),e);return s.format(0,"second")}function ke(e){const t=e.toLowerCase();return t.startsWith("ai:")||t.includes("claude")}function we(e){if(ke(e))return"mdi:star-four-points-outline";const t=e.toLowerCase();return"ha"===t||"home assistant"===t?"mdi:home-assistant":"mdi:account-outline"}function $e(e){const t=e.replace(/^ai:/i,"");return t===t.toLowerCase()?t.charAt(0).toUpperCase()+t.slice(1):t}const Ae={primary:"#03a9f4",accent:"#ff9800",red:"#f44336",pink:"#e91e63",purple:"#926bc7","deep-purple":"#6e41ab",indigo:"#3f51b5",blue:"#2196f3","light-blue":"#03a9f4",cyan:"#00bcd4",teal:"#009688",green:"#4caf50","light-green":"#8bc34a",lime:"#cddc39",yellow:"#ffeb3b",amber:"#ffc107",orange:"#ff9800","deep-orange":"#ff6f22",brown:"#795548","light-grey":"#bdbdbd",grey:"#9e9e9e","dark-grey":"#606060","blue-grey":"#607d8b",black:"#000000",white:"#ffffff"};function Se(e){return"primary"===e?"var(--primary-color, #03a9f4)":"accent"===e?"var(--accent-color, #ff9800)":`var(--${e}-color, ${Ae[e]??"#9e9e9e"})`}function Te(e){const t=e.trim();let i=/^#([0-9a-f]{3})$/i.exec(t);return i?[...i[1]].map(e=>parseInt(e+e,16)):(i=/^#([0-9a-f]{6})/i.exec(t),i?[0,2,4].map(e=>parseInt(i[1].slice(e,e+2),16)):(i=/^rgba?\(\s*(\d+)[ ,]+(\d+)[ ,]+(\d+)/i.exec(t),i?[Number(i[1]),Number(i[2]),Number(i[3])]:null))}function Ce(e){const t=e.replace(/-/g," ");return t.charAt(0).toUpperCase()+t.slice(1)}function ze(e,t){return e.get(t)??{id:t,name:t,color:"grey",description:"",icon:"",builtin:!1,count:0}}function Ee(e){return ke(e)?`AI Agent (${$e(e)})`:$e(e)}const Re={created:"opened this",comment:"commented",note:"added a note",status:"changed the status",priority:"changed the priority",assignee:"changed the assignee",field:"edited it",link:"linked a ticket",merge:"merged a ticket",attachment:"added a file"},Le=["low","normal","high","urgent"],Ne=["primary","accent","red","pink","purple","deep-purple","indigo","blue","light-blue","cyan","teal","green","light-green","lime","yellow","amber","orange","deep-orange","brown","light-grey","grey","dark-grey","blue-grey","black","white"],Ie=["new","open","in_progress"],Pe="blocked",Me=e=>e.labels.includes("history"),Oe=e=>Ie.includes(e.status)&&!Me(e),De=e=>e.labels.includes("enhancement"),Ue=[{id:"active",icon:"mdi:inbox-outline",label:"Inbox",count:!0,match:e=>"new"===e.status&&!Me(e)&&!De(e)},{id:"progress",icon:"mdi:progress-wrench",label:"In Progress",count:!0,match:e=>("in_progress"===e.status||"open"===e.status)&&!Me(e)},{id:"agent",icon:"mdi:star-four-points-outline",label:"Assigned to AI",count:!0,match:e=>Oe(e)&&ke(e.assignee??"")},{id:"enhancements",icon:"mdi:lightbulb-outline",label:"Enhancements",count:!0,match:e=>Oe(e)&&De(e)},{id:"all",icon:"mdi:format-list-bulleted",label:"All",match:()=>!0}],He=[{id:"",label:"Everything",match:e=>!Me(e)},{id:"active",label:"Open",match:Oe},{id:"closed",label:"Closed",match:e=>("resolved"===e.status||"closed"===e.status)&&!Me(e)},{id:"history",label:"History",match:Me}],je=He.map(({id:e,label:t})=>({id:e,label:t}));function Be(e,t,i){const s=Ue.find(e=>e.id===t.view)??Ue[0];return e.filter(e=>s.match(e)&&("all"!==s.id||!t.scope||He.find(e=>e.id===t.scope).match(e))&&(!i||i.has(e.id))&&(!t.priority||e.priority===t.priority)&&(!t.label||e.labels.includes(t.label))&&(!t.person||e.requester===t.person)&&(!t.category||("none"===t.category?!e.category:e.category===t.category)))}function qe(e){return[e.category,e.priority,e.label,e.person,"all"===e.view?e.scope:""].filter(Boolean).length}let We=class extends re{constructor(){super(...arguments),this.categoryMap=new Map,this.labelMap=new Map,this.isAdmin=!1,this.maxBadges=4,this.coloured=!1,this.expanded=!1,this.show="all"}_pickCategory(e,t){e.stopPropagation(),e.preventDefault(),this.dispatchEvent(new CustomEvent("pick-category",{detail:{ticket:t,rect:e.currentTarget.getBoundingClientRect()},bubbles:!0,composed:!0}))}_category(e){const t=e.category?this.categoryMap.get(e.category):void 0,i=t=>this._pickCategory(t,e),s=t=>("Enter"===t.key||" "===t.key)&&this._pickCategory(t,e);if(!t&&!this.isAdmin)return F;const o=t?q`<ha-icon .icon=${t.icon||"mdi:tag-outline"}></ha-icon>${t.name}`:q`<ha-icon icon="mdi:plus"></ha-icon>Add Category`;return this.isAdmin?q`<span class="category clickable ${t?"":"none"}" role="button" tabindex="0" aria-haspopup="listbox"
@@ -3549,16 +3560,26 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         flex: 1;
         min-height: 0;
         overflow-y: auto;
-        background: var(--st-surface);
+        background: var(--st-bg);
       }
+      /* The form is one Home Assistant card: lighter than the page, with its title inside. */
       .page {
+        box-sizing: border-box;
         max-width: 560px;
-        margin: 0 auto;
-        padding: 32px 16px 48px;
+        margin: 24px auto 48px;
+        padding: 16px 16px 24px;
+        border: 1px solid var(--ha-card-border-color, var(--st-outline));
+        border-radius: var(--ha-card-border-radius, var(--ha-border-radius-xl, 12px));
+        background: var(--ha-card-background, var(--card-background-color, var(--st-surface)));
+      }
+      @media (max-width: 600px) {
+        .page {
+          margin: 16px;
+        }
       }
       h2 {
         margin: 0 0 4px;
-        font-size: var(--st-fs-dialog);
+        font-size: var(--ha-font-size-2xl, 24px);
         font-weight: 400;
       }
       .lead {
@@ -4047,7 +4068,7 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         color: color-mix(in srgb, var(--st-fg) 38%, transparent);
         background: color-mix(in srgb, var(--st-fg) 12%, transparent);
       }
-    `],e([de()],oo.prototype,"name",void 0),e([de()],oo.prototype,"error",void 0),e([he()],oo.prototype,"_name",void 0),e([he()],oo.prototype,"_icon",void 0),e([he()],oo.prototype,"_shake",void 0),oo=e([pe("st-category-dialog")],oo);const no=6048e5,ro="history";let ao=class extends re{constructor(){super(...arguments),this.tickets=[],this.language=void 0,this.userName=""}_fire(e,t){this.dispatchEvent(new CustomEvent(e,{detail:t,bubbles:!0,composed:!0}))}_greeting(){const e=(new Date).getHours(),t=e<5?"Good evening":e<12?"Good morning":e<18?"Good afternoon":"Good evening";return this.userName?`${t}, ${this.userName}`:t}_tile(e,t,i,s={}){const o=void 0!==s.view;return q`<button class="tile ${o?"":"static"} ${i&&s.cls?s.cls:""}"
+    `],e([de()],oo.prototype,"name",void 0),e([de()],oo.prototype,"error",void 0),e([he()],oo.prototype,"_name",void 0),e([he()],oo.prototype,"_icon",void 0),e([he()],oo.prototype,"_shake",void 0),oo=e([pe("st-category-dialog")],oo);const no=6048e5,ro="history";let ao=class extends re{constructor(){super(...arguments),this.tickets=[],this.language=void 0,this.userName="",this.compact=!1}_fire(e,t){this.dispatchEvent(new CustomEvent(e,{detail:t,bubbles:!0,composed:!0}))}_greeting(){const e=(new Date).getHours(),t=e<5?"Good evening":e<12?"Good morning":e<18?"Good afternoon":"Good evening";return this.userName?`${t}, ${this.userName}`:t}_tile(e,t,i,s={}){const o=void 0!==s.view;return q`<button class="tile ${o?"":"static"} ${i&&s.cls?s.cls:""}"
       @click=${()=>o&&this._fire("go-view",{view:s.view,priority:s.priority??""})}>
       <span class="top"><ha-icon .icon=${e}></ha-icon>${t}</span>
       <span class="n">${i}${s.sub?q`<span class="sub-n">${s.sub}</span>`:F}</span>
@@ -4061,16 +4082,16 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
           <span>${i} ${_e(e.updated_at,this.language)} by <ha-icon icon=${we(t)}></ha-icon> ${$e(t)}</span>
         </div>
       </div>
-    </button>`}_card(e,t,i){return q`<section>
+    </button>`}_card(e,t,i){return q`<div class="card">
       <h2>${e}</h2>
-      <div class="card">${t.length?t.map(e=>this._row(e)):q`<div class="none">${i}</div>`}</div>
-    </section>`}render(){const e=this.tickets.filter(e=>!e.merged_into),t=t=>e.filter(Ue.find(e=>e.id===t).match).length,i=Date.now(),s=e.filter(Ue.find(e=>"active"===e.id).match).sort((e,t)=>t.created_at.localeCompare(e.created_at)),o=e.filter(e=>(e=>!("new"!==e.status&&"in_progress"!==e.status||e.merged_into||e.labels.includes(ro)))(e)&&("urgent"===e.priority||"high"===e.priority)),n=e.filter(e=>e.unread),r=e.filter(e=>i-new Date(e.created_at).getTime()<no&&!e.labels.includes(ro)).length,a=e.filter(e=>("resolved"===e.status||"closed"===e.status)&&e.closed_at&&i-new Date(e.closed_at).getTime()<no&&!e.labels.includes(ro)).length;return q`<div class="page">
+      ${t.length?t.map(e=>this._row(e)):q`<div class="none">${i}</div>`}
+    </div>`}render(){const e=this.tickets.filter(e=>!e.merged_into),t=t=>e.filter(Ue.find(e=>e.id===t).match).length,i=Date.now(),s=e.filter(Ue.find(e=>"active"===e.id).match).sort((e,t)=>t.created_at.localeCompare(e.created_at)),o=e.filter(e=>(e=>!("new"!==e.status&&"in_progress"!==e.status||e.merged_into||e.labels.includes(ro)))(e)&&("urgent"===e.priority||"high"===e.priority)),n=e.filter(e=>e.unread),r=e.filter(e=>i-new Date(e.created_at).getTime()<no&&!e.labels.includes(ro)).length,a=e.filter(e=>("resolved"===e.status||"closed"===e.status)&&e.closed_at&&i-new Date(e.closed_at).getTime()<no&&!e.labels.includes(ro)).length;return q`<div class="page">
       <h1>${this._greeting()}</h1>
       <p class="lead">${s.length?`${s.length} new ${1===s.length?"ticket is":"tickets are"} waiting in your inbox.`:"Your inbox is empty."}</p>
 
       <div class="cols">
-        ${this._card("Inbox",s,"Nothing new. All clear.")}
-        <section>
+        ${this.compact?this._card("Inbox",s,"Nothing new. All clear."):F}
+        <div class="card">
           <h2>Overview</h2>
           <div class="tiles">
             ${this._tile("mdi:inbox-outline","Inbox",t("active"),{view:"active",cls:"hot"})}
@@ -4080,7 +4101,7 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
             ${this._tile("mdi:email-open-outline","Unread",n.length,{view:"all",cls:"hot"})}
             ${this._tile("mdi:calendar-week","This week",r,{sub:`opened · ${a} resolved`})}
           </div>
-        </section>
+        </div>
       </div>
     </div>`}};ao.styles=[ue,r`
       :host {
@@ -4105,14 +4126,18 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         color: var(--st-fg-secondary);
         font-size: var(--st-fs-body);
       }
+      /* Home Assistant's cards: the title inside, in large light type, on a box lighter than the page. */
       h2 {
-        margin: 0 0 8px;
-        font-size: var(--st-fs-title);
-        font-weight: 500;
+        margin: 0;
+        padding: 16px 16px 8px;
+        font-size: var(--ha-font-size-2xl, 24px);
+        font-weight: 400;
+        line-height: 1.3;
       }
       .tiles {
+        padding: 8px 16px 8px;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
         gap: 12px;
       }
       .tile {
@@ -4122,9 +4147,9 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         gap: 4px;
         height: auto;
         padding: 14px 16px;
-        border: 1px solid var(--st-outline);
-        border-radius: var(--ha-border-radius-xl, 12px);
-        background: var(--st-surface);
+        border: none;
+        border-radius: var(--ha-border-radius-lg, 12px);
+        background: color-mix(in srgb, var(--st-fg) 7%, transparent);
         text-align: left;
         font-weight: 400;
       }
@@ -4169,11 +4194,11 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         align-items: start;
       }
       .card {
-        border: 1px solid var(--st-outline);
-        border-radius: var(--ha-border-radius-xl, 12px);
-        background: var(--st-surface);
+        border: 1px solid var(--ha-card-border-color, var(--st-outline));
+        border-radius: var(--ha-card-border-radius, var(--ha-border-radius-xl, 12px));
+        background: var(--ha-card-background, var(--card-background-color, var(--st-surface)));
         overflow: hidden;
-        margin-bottom: 24px;
+        padding-bottom: 8px;
       }
       .row {
         display: grid;
@@ -4248,7 +4273,9 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         color: var(--st-fg-secondary);
         font-size: var(--st-fs-body);
       }
-    `],e([de({attribute:!1})],ao.prototype,"tickets",void 0),e([de()],ao.prototype,"language",void 0),e([de()],ao.prototype,"userName",void 0),ao=e([pe("st-home-page")],ao);const lo="___add_new___",co="___none___",ho="(max-width: 870px)";let po=class extends re{constructor(){super(...arguments),this.narrow=!1,this.route=void 0,this._tickets=[],this._matchIds=null,this._selected=null,this._selectedId=null,this._view="active",this._q="",this._priority="",this._label="",this._category="",this._person="",this._filtersOpen=!1,this._compact=window.matchMedia(ho).matches,this._scope="",this._labelList=[],this._categoryList=[],this._settings=null,this._merging=null,this._mergeConfirm=null,this._checked=new Set,this._ticking=!1,this._lastChecked=null,this._seenAt="",this._pickingLabel=null,this._picking=null,this._newCategory=null,this._removing=null,this._page="home",this._creating=!1,this._error="",this._onVisible=()=>{document.hidden||this._refresh()},this._mq=window.matchMedia(ho),this._onCompact=()=>{this._compact=this._mq.matches},this._pickerAdditional=e=>{const t=this._categoryList.some(t=>t.name.toLowerCase()===e.toLowerCase());return e&&!t?[{id:lo+e,primary:`Add New Category '${e}'`,icon:"mdi:plus"}]:[{id:lo,primary:"Add New Category…",icon:"mdi:plus"}]},this._labelPickerAdditional=e=>{const t=this._labelList.some(t=>t.name.toLowerCase()===e.toLowerCase());return e&&!t?[{id:lo+e,primary:`Add New Label '${e}'`,icon:"mdi:plus"}]:[]}}get _admin(){return this.hass?.user?.is_admin??!1}recheckTheme(){const e=document.createElement("span");e.style.color="var(--card-background-color)",this.renderRoot.appendChild(e);const t=/rgba?\((\d+)[ ,]+(\d+)[ ,]+(\d+)/.exec(getComputedStyle(e).color);e.remove(),t&&this.toggleAttribute("light",(.299*+t[1]+.587*+t[2]+.114*+t[3])/255>.5)}willUpdate(e){if(e.has("hass")&&this.hass){const e=this.hass.themes;e===this._themeKey&&this.hasUpdated||(this._themeKey=e,this.updateComplete.then(()=>this.recheckTheme()))}e.has("hass")&&this.hass&&!this._client&&(this._client=new me(this.hass),this._restoreState(),this._refresh(),this._syncFromRoute(),this._subscribe()),e.has("route")&&this._client&&this._syncFromRoute()}get _prefix(){return this.route?.prefix??"/home-desk"}_navigate(e){if(location.pathname!==e)try{history.pushState(null,"",e),window.dispatchEvent(new CustomEvent("location-changed",{detail:{replace:!1}}))}catch{}}async _syncFromRoute(){const e=Number((this.route?.path??"").replace(/^\//,"")),t=Number.isInteger(e)&&e>0?e:null;t!==this._selectedId&&(null===t?(this._selectedId=null,this._selected=null):await this._open(t,!1))}_subscribe(){this._client&&(this._client.subscribe(()=>this._scheduleRefresh()).then(e=>{this._unsub=e}).catch(e=>{console.warn("[home-desk] live updates unavailable, polling instead:",e),this._unsub=void 0}),window.clearInterval(this._pollTimer),this._pollTimer=window.setInterval(()=>{document.hidden||this._refresh()},2e4))}connectedCallback(){super.connectedCallback(),this._mq.addEventListener("change",this._onCompact),document.addEventListener("visibilitychange",this._onVisible),this._client&&!this._unsub&&this._subscribe()}disconnectedCallback(){super.disconnectedCallback(),this._mq.removeEventListener("change",this._onCompact),document.removeEventListener("visibilitychange",this._onVisible),window.clearInterval(this._pollTimer),this._unsub?.(),this._unsub=void 0,window.clearTimeout(this._searchTimer),window.clearTimeout(this._refreshTimer)}_restoreState(){try{const e=localStorage.getItem("home-desk-view");e&&Ue.some(t=>t.id===e)&&(this._view=e)}catch{}}_setView(e){this._view=e,"all"===e&&(this._filtersOpen=!0);try{localStorage.setItem("home-desk-view",e)}catch{}}_scheduleRefresh(){window.clearTimeout(this._refreshTimer),this._refreshTimer=window.setTimeout(()=>{this._refresh()},300)}async _refresh(){if(this._client&&this._admin)try{[this._tickets,this._labelList,this._categoryList]=await Promise.all([this._client.list(),this._client.labels(),this._client.categories()]),this._admin&&(this._settings=await this._client.settings()),this._q.trim()&&await this._runSearch(),null!==this._selectedId&&await this._loadSelected(this._selectedId),this._error=""}catch(e){this._error=`Could not load tickets: ${this._message(e)}`}}async _loadSelected(e){if(this._client)try{const t=await this._client.get(e);this._selected?.id===e&&this._seenAt||(this._seenAt=t.seen_at??""),this._selected=t,this._tickets.find(t=>t.id===e)?.unread&&this._markRead([e])}catch(e){this._selected=null,this._selectedId=null,this._navigate(this._prefix),this._error=this._message(e)}}async _markRead(e){if(this._client){this._tickets=this._tickets.map(t=>!e||e.includes(t.id)?{...t,unread:!1}:t);try{await this._client.markRead(e)}catch{}}}async _runSearch(){if(!this._client)return;const e=this._q.trim();this._matchIds=e?new Set((await this._client.list(e)).map(e=>e.id)):null}_message(e){return String(e&&"object"==typeof e&&"message"in e?e.message:e)}async _act(e){if(this._client)try{this._selected=await e(this._client),this._error="",this._refresh()}catch(e){this._error=this._message(e)}}_search(e){this._q=e,window.clearTimeout(this._searchTimer),this._searchTimer=window.setTimeout(()=>{this._runSearch()},250)}async _open(e,t=!0){this._selectedId!==e&&(this._seenAt=""),this._page="",this._selectedId=e,t&&this._navigate(`${this._prefix}/${e}`),await this._loadSelected(e)}get _pickerItems(){const e=this._picking?.ticket.category;return[...e?[{id:co,primary:"No Category",icon:"mdi:shape-outline"}]:[],...this._categoryList.map(e=>({id:e.id,primary:e.name,icon:e.icon||"mdi:tag-outline"}))]}get _mergeItems(){const e=this._merging?.ids;if(e)return this._tickets.filter(t=>e.includes(t.id)).sort((e,t)=>e.id-t.id).map((e,t)=>({id:String(e.id),primary:`#${e.id} ${e.title}`,secondary:`${0===t?"Oldest · ":""}${fe[e.status]} · ${$e(e.requester)}`,icon:"mdi:ticket-outline"}));const t=this._selectedId,i=e=>"resolved"!==e.status&&"closed"!==e.status;return this._tickets.filter(e=>e.id!==t&&!e.merged_into).sort((e,t)=>Number(i(t))-Number(i(e))||t.updated_at.localeCompare(e.updated_at)).map(e=>({id:String(e.id),primary:`#${e.id} ${e.title}`,secondary:`${fe[e.status]} · ${$e(e.requester)}`,icon:"mdi:ticket-outline"}))}_mergePicked(e){const t=this._merging?.ids;this._merging=null;const i=this._tickets.find(t=>t.id===Number(e)),s=t?this._tickets.filter(i=>t.includes(i.id)&&i.id!==Number(e)):this._tickets.filter(e=>e.id===this._selectedId);s.length&&i&&(this._mergeConfirm={from:s,into:i})}_toggleCheck({id:e,range:t}){const i=new Set(this._checked),s=this._filtered.map(e=>e.id);if(t&&null!==this._lastChecked&&s.includes(this._lastChecked)){const[t,o]=[s.indexOf(this._lastChecked),s.indexOf(e)].sort((e,t)=>e-t);for(const e of s.slice(t,o+1))i.add(e)}else i.has(e)?i.delete(e):i.add(e);this._lastChecked=e,this._checked=i,i.size&&(this._ticking=!0)}_clearChecked(){this._checked=new Set,this._ticking=!1,this._lastChecked=null}async _doMerge(){const e=this._mergeConfirm;if(this._mergeConfirm=null,e&&this._client)try{await this._client.merge(e.into.id,e.from.map(e=>e.id)),this._clearChecked(),this._error="",await this._refresh(),await this._open(e.into.id)}catch(e){this._error=this._message(e)}}get _labelPickerItems(){const e=new Set(this._pickingLabel?.ticket.labels??[]);return this._labelList.filter(t=>!e.has(t.id)).map(e=>({id:e.id,primary:e.name,icon:e.icon||"mdi:label-outline",...e.description?{secondary:e.description}:{}}))}async _labelPicked({id:e}){const t=this._pickingLabel;if(this._pickingLabel=null,!t||!this._client)return;const i=e.startsWith(lo)?e.slice(13):e;try{await this._client.update(t.ticket.id,{labels:[...t.ticket.labels,i]}),this._error="",this._refresh()}catch(e){this._error=this._message(e)}}async _picked({id:e}){const t=this._picking;this._picking=null,t&&(e.startsWith(lo)?this._newCategory={ticket:t.ticket,name:e.slice(13),error:""}:await this._setCategory(t.ticket,e===co?null:e))}async _setCategory(e,t){if(this._client)try{await this._client.update(e.id,{category:t}),this._error="",this._refresh()}catch(e){this._error=this._message(e)}}async _createCategory(e){const t=this._newCategory;if(t&&this._client)try{const i=await this._client.createCategory(e);this._newCategory=null,await this._setCategory(t.ticket,i.id)}catch(e){this._newCategory={...t,error:this._message(e)}}}async _removeLabel(){const e=this._removing;if(this._removing=null,e&&this._client)try{await this._client.update(e.ticket.id,{labels:e.ticket.labels.filter(t=>t!==e.label.id)}),this._error="",this._refresh()}catch(e){this._error=this._message(e)}}_close(){this._selectedId=null,this._selected=null,this._navigate(this._prefix)}async _create(e){if(this._client)try{const t=await this._client.create(e);this._creating=!1,this._setView("active"),this._selected=t,this._open(t.id),this._refresh()}catch(e){this._error=this._message(e)}}_applyFilters(e){void 0!==e.scope&&(this._scope=e.scope),void 0!==e.category&&(this._category=e.category),void 0!==e.person&&(this._person=e.person),void 0!==e.priority&&(this._priority=e.priority),void 0!==e.label&&(this._label=e.label)}get _filters(){return{view:this._view,scope:this._scope,category:this._category,priority:this._priority,label:this._label,person:this._person}}get _walk(){const e=this._filtered;return null===this._selectedId||e.some(e=>e.id===this._selectedId)?e:Be(this._tickets,{...this._filters,view:"all",scope:"",category:"",priority:"",label:"",person:""},null)}get _navPos(){const e=this._walk,t=e.findIndex(e=>e.id===this._selectedId);return t<0?null:{index:t,total:e.length}}_step(e){const t=this._navPos,i=t?this._walk[t.index+e]:void 0;i&&this._open(i.id)}get _filtered(){return Be(this._tickets,this._filters,this._matchIds)}get _filterCount(){return qe(this._filters)}get _agentName(){const e=this._settings?.agent;return`ai:${(e?String(this.hass.states?.[e]?.attributes.friendly_name??""):"").replace(/\s*(AI Task|conversation|agent)\s*$/i,"").trim()||"Claude"}`}get _people(){const e=new Map;for(const[t,i]of Object.entries(this.hass?.states??{})){if(!t.startsWith("person."))continue;const s=String(i.attributes.friendly_name??t.slice(7)),o=i.attributes.entity_picture;e.set(s.toLowerCase(),{name:s,..."string"==typeof o&&o?{picture:o}:{}})}return e}get _labelMap(){return new Map(this._labelList.map(e=>[e.id,e]))}render(){if(!this.hass)return F;const e=this.hass.language,t=null!==this._selectedId;return q`
+    `],e([de({attribute:!1})],ao.prototype,"tickets",void 0),e([de()],ao.prototype,"language",void 0),e([de()],ao.prototype,"userName",void 0),e([de({type:Boolean})],ao.prototype,"compact",void 0),ao=e([pe("st-home-page")],ao);const lo="___add_new___",co="___none___",ho="(max-width: 870px)";let po=class extends re{constructor(){super(...arguments),this.narrow=!1,this.route=void 0,this._tickets=[],this._matchIds=null,this._selected=null,this._selectedId=null,this._view="active",this._q="",this._priority="",this._label="",this._category="",this._person="",this._filtersOpen=!1,this._compact=window.matchMedia(ho).matches,this._scope="",this._labelList=[],this._categoryList=[],this._settings=null,this._merging=null,this._mergeConfirm=null,this._checked=new Set,this._ticking=!1,this._lastChecked=null,this._seenAt="",this._pickingLabel=null,this._picking=null,this._newCategory=null,this._removing=null,this._page="home",this._creating=!1,this._error="",this._onVisible=()=>{document.hidden||this._refresh()},this._mq=window.matchMedia(ho),this._onCompact=()=>{this._compact=this._mq.matches},this._pickerAdditional=e=>{const t=this._categoryList.some(t=>t.name.toLowerCase()===e.toLowerCase());return e&&!t?[{id:lo+e,primary:`Add New Category '${e}'`,icon:"mdi:plus"}]:[{id:lo,primary:"Add New Category…",icon:"mdi:plus"}]},this._labelPickerAdditional=e=>{const t=this._labelList.some(t=>t.name.toLowerCase()===e.toLowerCase());return e&&!t?[{id:lo+e,primary:`Add New Label '${e}'`,icon:"mdi:plus"}]:[]}}get _admin(){return this.hass?.user?.is_admin??!1}recheckTheme(){const e=document.createElement("span");e.style.color="var(--card-background-color)",this.renderRoot.appendChild(e);const t=/rgba?\((\d+)[ ,]+(\d+)[ ,]+(\d+)/.exec(getComputedStyle(e).color);e.remove(),t&&this.toggleAttribute("light",(.299*+t[1]+.587*+t[2]+.114*+t[3])/255>.5)}willUpdate(e){if(e.has("hass")&&this.hass){const e=this.hass.themes;e===this._themeKey&&this.hasUpdated||(this._themeKey=e,this.updateComplete.then(()=>this.recheckTheme()))}e.has("hass")&&this.hass&&!this._client&&(this._client=new me(this.hass),this._restoreState(),this._refresh(),this._syncFromRoute(),this._subscribe()),e.has("route")&&this._client&&this._syncFromRoute()}get _prefix(){return this.route?.prefix??"/home-desk"}_navigate(e){if(location.pathname!==e)try{history.pushState(null,"",e),window.dispatchEvent(new CustomEvent("location-changed",{detail:{replace:!1}}))}catch{}}async _syncFromRoute(){const e=Number((this.route?.path??"").replace(/^\//,"")),t=Number.isInteger(e)&&e>0?e:null;t!==this._selectedId&&(null===t?(this._selectedId=null,this._selected=null):await this._open(t,!1))}_subscribe(){this._client&&(this._client.subscribe(()=>this._scheduleRefresh()).then(e=>{this._unsub=e}).catch(e=>{console.warn("[home-desk] live updates unavailable, polling instead:",e),this._unsub=void 0}),window.clearInterval(this._pollTimer),this._pollTimer=window.setInterval(()=>{document.hidden||this._refresh()},2e4))}connectedCallback(){super.connectedCallback(),this._mq.addEventListener("change",this._onCompact),document.addEventListener("visibilitychange",this._onVisible),this._client&&!this._unsub&&this._subscribe()}disconnectedCallback(){super.disconnectedCallback(),this._mq.removeEventListener("change",this._onCompact),document.removeEventListener("visibilitychange",this._onVisible),window.clearInterval(this._pollTimer),this._unsub?.(),this._unsub=void 0,window.clearTimeout(this._searchTimer),window.clearTimeout(this._refreshTimer)}_restoreState(){try{const e=localStorage.getItem("home-desk-view");e&&Ue.some(t=>t.id===e)&&(this._view=e)}catch{}}_setView(e){this._view=e,"all"===e&&(this._filtersOpen=!0);try{localStorage.setItem("home-desk-view",e)}catch{}}_scheduleRefresh(){window.clearTimeout(this._refreshTimer),this._refreshTimer=window.setTimeout(()=>{this._refresh()},300)}async _refresh(){if(this._client&&this._admin)try{[this._tickets,this._labelList,this._categoryList]=await Promise.all([this._client.list(),this._client.labels(),this._client.categories()]),this._admin&&(this._settings=await this._client.settings()),this._q.trim()&&await this._runSearch(),null!==this._selectedId&&await this._loadSelected(this._selectedId),this._error=""}catch(e){this._error=`Could not load tickets: ${this._message(e)}`}}async _loadSelected(e){if(this._client)try{const t=await this._client.get(e);this._selected?.id===e&&this._seenAt||(this._seenAt=t.seen_at??""),this._selected=t,this._tickets.find(t=>t.id===e)?.unread&&this._markRead([e])}catch(e){this._selected=null,this._selectedId=null,this._navigate(this._prefix),this._error=this._message(e)}}async _markRead(e){if(this._client){this._tickets=this._tickets.map(t=>!e||e.includes(t.id)?{...t,unread:!1}:t);try{await this._client.markRead(e)}catch{}}}async _runSearch(){if(!this._client)return;const e=this._q.trim();this._matchIds=e?new Set((await this._client.list(e)).map(e=>e.id)):null}_message(e){return String(e&&"object"==typeof e&&"message"in e?e.message:e)}async _act(e){if(this._client)try{this._selected=await e(this._client),this._error="",this._refresh()}catch(e){this._error=this._message(e)}}_search(e){this._q=e,window.clearTimeout(this._searchTimer),this._searchTimer=window.setTimeout(()=>{this._runSearch()},250)}async _open(e,t=!0){this._selectedId!==e&&(this._seenAt=""),"home"===this._page&&this._setView("active"),this._page="",this._selectedId=e,t&&this._navigate(`${this._prefix}/${e}`),await this._loadSelected(e)}get _pickerItems(){const e=this._picking?.ticket.category;return[...e?[{id:co,primary:"No Category",icon:"mdi:shape-outline"}]:[],...this._categoryList.map(e=>({id:e.id,primary:e.name,icon:e.icon||"mdi:tag-outline"}))]}get _mergeItems(){const e=this._merging?.ids;if(e)return this._tickets.filter(t=>e.includes(t.id)).sort((e,t)=>e.id-t.id).map((e,t)=>({id:String(e.id),primary:`#${e.id} ${e.title}`,secondary:`${0===t?"Oldest · ":""}${fe[e.status]} · ${$e(e.requester)}`,icon:"mdi:ticket-outline"}));const t=this._selectedId,i=e=>"resolved"!==e.status&&"closed"!==e.status;return this._tickets.filter(e=>e.id!==t&&!e.merged_into).sort((e,t)=>Number(i(t))-Number(i(e))||t.updated_at.localeCompare(e.updated_at)).map(e=>({id:String(e.id),primary:`#${e.id} ${e.title}`,secondary:`${fe[e.status]} · ${$e(e.requester)}`,icon:"mdi:ticket-outline"}))}_mergePicked(e){const t=this._merging?.ids;this._merging=null;const i=this._tickets.find(t=>t.id===Number(e)),s=t?this._tickets.filter(i=>t.includes(i.id)&&i.id!==Number(e)):this._tickets.filter(e=>e.id===this._selectedId);s.length&&i&&(this._mergeConfirm={from:s,into:i})}_toggleCheck({id:e,range:t}){const i=new Set(this._checked),s=this._filtered.map(e=>e.id);if(t&&null!==this._lastChecked&&s.includes(this._lastChecked)){const[t,o]=[s.indexOf(this._lastChecked),s.indexOf(e)].sort((e,t)=>e-t);for(const e of s.slice(t,o+1))i.add(e)}else i.has(e)?i.delete(e):i.add(e);this._lastChecked=e,this._checked=i,i.size&&(this._ticking=!0)}_clearChecked(){this._checked=new Set,this._ticking=!1,this._lastChecked=null}async _doMerge(){const e=this._mergeConfirm;if(this._mergeConfirm=null,e&&this._client)try{await this._client.merge(e.into.id,e.from.map(e=>e.id)),this._clearChecked(),this._error="",await this._refresh(),await this._open(e.into.id)}catch(e){this._error=this._message(e)}}get _labelPickerItems(){const e=new Set(this._pickingLabel?.ticket.labels??[]);return this._labelList.filter(t=>!e.has(t.id)).map(e=>({id:e.id,primary:e.name,icon:e.icon||"mdi:label-outline",...e.description?{secondary:e.description}:{}}))}async _labelPicked({id:e}){const t=this._pickingLabel;if(this._pickingLabel=null,!t||!this._client)return;const i=e.startsWith(lo)?e.slice(13):e;try{await this._client.update(t.ticket.id,{labels:[...t.ticket.labels,i]}),this._error="",this._refresh()}catch(e){this._error=this._message(e)}}async _picked({id:e}){const t=this._picking;this._picking=null,t&&(e.startsWith(lo)?this._newCategory={ticket:t.ticket,name:e.slice(13),error:""}:await this._setCategory(t.ticket,e===co?null:e))}async _setCategory(e,t){if(this._client)try{await this._client.update(e.id,{category:t}),this._error="",this._refresh()}catch(e){this._error=this._message(e)}}async _createCategory(e){const t=this._newCategory;if(t&&this._client)try{const i=await this._client.createCategory(e);this._newCategory=null,await this._setCategory(t.ticket,i.id)}catch(e){this._newCategory={...t,error:this._message(e)}}}async _removeLabel(){const e=this._removing;if(this._removing=null,e&&this._client)try{await this._client.update(e.ticket.id,{labels:e.ticket.labels.filter(t=>t!==e.label.id)}),this._error="",this._refresh()}catch(e){this._error=this._message(e)}}_close(){this._selectedId=null,this._selected=null,this._navigate(this._prefix)}async _create(e){if(this._client)try{const t=await this._client.create(e);this._creating=!1,this._setView("active"),this._selected=t,this._open(t.id),this._refresh()}catch(e){this._error=this._message(e)}}_applyFilters(e){void 0!==e.scope&&(this._scope=e.scope),void 0!==e.category&&(this._category=e.category),void 0!==e.person&&(this._person=e.person),void 0!==e.priority&&(this._priority=e.priority),void 0!==e.label&&(this._label=e.label)}get _filters(){return{view:"home"===this._page?"active":this._view,scope:this._scope,category:this._category,priority:this._priority,label:this._label,person:this._person}}get _walk(){const e=this._filtered;return null===this._selectedId||e.some(e=>e.id===this._selectedId)?e:Be(this._tickets,{...this._filters,view:"all",scope:"",category:"",priority:"",label:"",person:""},null)}get _navPos(){const e=this._walk,t=e.findIndex(e=>e.id===this._selectedId);return t<0?null:{index:t,total:e.length}}_step(e){const t=this._navPos,i=t?this._walk[t.index+e]:void 0;i&&this._open(i.id)}get _filtered(){return Be(this._tickets,this._filters,this._matchIds)}get _filterCount(){return qe(this._filters)}get _agentName(){const e=this._settings?.agent;return`ai:${(e?String(this.hass.states?.[e]?.attributes.friendly_name??""):"").replace(/\s*(AI Task|conversation|agent)\s*$/i,"").trim()||"Claude"}`}get _people(){const e=new Map;for(const[t,i]of Object.entries(this.hass?.states??{})){if(!t.startsWith("person."))continue;const s=String(i.attributes.friendly_name??t.slice(7)),o=i.attributes.entity_picture;e.set(s.toLowerCase(),{name:s,..."string"==typeof o&&o?{picture:o}:{}})}return e}get _labelMap(){return new Map(this._labelList.map(e=>[e.id,e]))}_homeTemplate(e){return q`<st-home-page .tickets=${this._tickets} .language=${this.hass.language} .userName=${this.hass.user?.name??""} .compact=${e}
+      @open-ticket=${e=>{this._open(e.detail)}}
+      @go-view=${e=>{this._page="",this._close(),this._setView(e.detail.view),this._priority=e.detail.priority}}></st-home-page>`}render(){if(!this.hass)return F;const e=this.hass.language,t=null!==this._selectedId;return q`
       <st-app-header .page=${"home"===this._page?"":this._page} .view=${"home"===this._page?"":this._view} .tickets=${this._tickets} .narrow=${this.narrow} .admin=${this._admin}
         @page-change=${e=>this._page=e.detail}
         @view-change=${e=>{this._page="",this._setView(e.detail)}}
@@ -4256,9 +4283,7 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         @refresh=${()=>{this._refresh()}}
         @mark-all-read=${()=>{this._markRead()}}></st-app-header>
       ${this._error?q`<div class="banner">${this._error}</div>`:F}
-      ${!this._admin&&this._client?q`<st-report-form .client=${this._client}></st-report-form>`:"home"===this._page&&this._client?q`<st-home-page .tickets=${this._tickets} .language=${e} .userName=${this.hass.user?.name??""}
-              @open-ticket=${e=>{this._open(e.detail)}}
-              @go-view=${e=>{this._page="",this._close(),this._setView(e.detail.view),this._priority=e.detail.priority}}></st-home-page>`:"labels"===this._page&&this._client?q`<st-label-manager .client=${this._client} .labels=${this._labelList}
+      ${!this._admin&&this._client?q`<st-report-form .client=${this._client}></st-report-form>`:"home"===this._page&&this._client&&this._compact?this._homeTemplate(!0):"labels"===this._page&&this._client?q`<st-label-manager .client=${this._client} .labels=${this._labelList}
             @labels-changed=${()=>{this._refresh()}}></st-label-manager>`:"categories"===this._page&&this._client?q`<st-category-manager .client=${this._client} .categories=${this._categoryList}
               @categories-changed=${()=>{this._refresh()}}></st-category-manager>`:"settings"===this._page&&this._client?q`<st-settings .client=${this._client} .hass=${this.hass}
                 @settings-changed=${e=>this._settings=e.detail}></st-settings>`:q`<main class=${t?"has-selection":""}>
@@ -4291,6 +4316,7 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
             @remove-label=${e=>this._removing=e.detail}
           ></st-ticket-list>
         </div>
+        ${"home"===this._page?this._homeTemplate(!1):q`
         <st-ticket-detail
           .ticket=${this._selected}
           .client=${this._client}
@@ -4314,7 +4340,7 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
           @patch-ticket=${e=>this._selected&&void this._act(t=>t.update(this._selected.id,e.detail))}
           @comment=${e=>this._selected&&void this._act(t=>t.comment(this._selected.id,e.detail.body,e.detail.internal))}
           @close-ticket=${e=>this._selected&&void this._act(t=>t.close(this._selected.id,e.detail.resolution,e.detail.status))}
-        ></st-ticket-detail>
+        ></st-ticket-detail>`}
       </main>`}
       ${this._pickingLabel?q`<st-picker-popup .rect=${this._pickingLabel.rect} .items=${this._labelPickerItems} .additional=${this._labelPickerAdditional}
             emptyLabel="No more labels to add"

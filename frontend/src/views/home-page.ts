@@ -39,14 +39,18 @@ export class HomePage extends LitElement {
         color: var(--st-fg-secondary);
         font-size: var(--st-fs-body);
       }
+      /* Home Assistant's cards: the title inside, in large light type, on a box lighter than the page. */
       h2 {
-        margin: 0 0 8px;
-        font-size: var(--st-fs-title);
-        font-weight: 500;
+        margin: 0;
+        padding: 16px 16px 8px;
+        font-size: var(--ha-font-size-2xl, 24px);
+        font-weight: 400;
+        line-height: 1.3;
       }
       .tiles {
+        padding: 8px 16px 8px;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
         gap: 12px;
       }
       .tile {
@@ -56,9 +60,9 @@ export class HomePage extends LitElement {
         gap: 4px;
         height: auto;
         padding: 14px 16px;
-        border: 1px solid var(--st-outline);
-        border-radius: var(--ha-border-radius-xl, 12px);
-        background: var(--st-surface);
+        border: none;
+        border-radius: var(--ha-border-radius-lg, 12px);
+        background: color-mix(in srgb, var(--st-fg) 7%, transparent);
         text-align: left;
         font-weight: 400;
       }
@@ -103,11 +107,11 @@ export class HomePage extends LitElement {
         align-items: start;
       }
       .card {
-        border: 1px solid var(--st-outline);
-        border-radius: var(--ha-border-radius-xl, 12px);
-        background: var(--st-surface);
+        border: 1px solid var(--ha-card-border-color, var(--st-outline));
+        border-radius: var(--ha-card-border-radius, var(--ha-border-radius-xl, 12px));
+        background: var(--ha-card-background, var(--card-background-color, var(--st-surface)));
         overflow: hidden;
-        margin-bottom: 24px;
+        padding-bottom: 8px;
       }
       .row {
         display: grid;
@@ -188,6 +192,8 @@ export class HomePage extends LitElement {
   @property({ attribute: false }) tickets: TicketSummary[] = [];
   @property() language: string | undefined = undefined;
   @property() userName = "";
+  /** On a narrow screen the page stands alone and carries its own Inbox; on a wide one the Inbox list is beside it. */
+  @property({ type: Boolean }) compact = false;
 
   private _fire(name: string, detail: unknown) {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
@@ -227,10 +233,10 @@ export class HomePage extends LitElement {
   }
 
   private _card(title: string, rows: TicketSummary[], empty: string) {
-    return html`<section>
+    return html`<div class="card">
       <h2>${title}</h2>
-      <div class="card">${rows.length ? rows.map((t) => this._row(t)) : html`<div class="none">${empty}</div>`}</div>
-    </section>`;
+      ${rows.length ? rows.map((t) => this._row(t)) : html`<div class="none">${empty}</div>`}
+    </div>`;
   }
 
   override render() {
@@ -251,8 +257,8 @@ export class HomePage extends LitElement {
       <p class="lead">${inbox.length ? `${inbox.length} new ${inbox.length === 1 ? "ticket is" : "tickets are"} waiting in your inbox.` : "Your inbox is empty."}</p>
 
       <div class="cols">
-        ${this._card("Inbox", inbox, "Nothing new. All clear.")}
-        <section>
+        ${this.compact ? this._card("Inbox", inbox, "Nothing new. All clear.") : nothing}
+        <div class="card">
           <h2>Overview</h2>
           <div class="tiles">
             ${this._tile("mdi:inbox-outline", "Inbox", view("active"), { view: "active", cls: "hot" })}
@@ -262,7 +268,7 @@ export class HomePage extends LitElement {
             ${this._tile("mdi:email-open-outline", "Unread", unread.length, { view: "all", cls: "hot" })}
             ${this._tile("mdi:calendar-week", "This week", opened, { sub: `opened · ${resolved} resolved` })}
           </div>
-        </section>
+        </div>
       </div>
     </div>`;
   }
