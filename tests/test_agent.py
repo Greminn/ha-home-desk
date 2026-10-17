@@ -413,6 +413,15 @@ async def main():
         hass.services.handler = (lambda data: _reply("I'd resolve this: it is upstream."))
         t = await ask(d["id"])
         assert "can't change anything" not in [e for e in t["events"] if e["kind"] == "comment"][-1]["body"], "an honest review is left alone"
+        # Home Assistant's automatic repair comments are summarised, not quoted (they mislead a reader about the cause)
+        rt = await s.async_create_ticket(hass, title="Spook: unknown view", requester="Home Assistant", actor="Home Assistant")
+        for body in ("**Resolution:** Cleared by Home Assistant: this repair is no longer reported.",
+                     "Home Assistant is reporting this repair again (x), so the ticket was reopened.", "Also affected: y."):
+            await s.async_add_comment(hass, rt["id"], actor="Home Assistant", body=body)
+        await s.async_add_comment(hass, rt["id"], actor="Simon", body="I will edit the dashboard tonight.")
+        p2 = await ctx.async_build_prompt(hass, rt["id"], await s.async_get_settings(hass), "Claude")
+        assert "I will edit the dashboard tonight." in p2 and "reporting this repair again" not in p2 and "Cleared by Home Assistant" not in p2
+        assert "left out: 3 comments" in p2 and "bookkeeping" in p2, "a count instead"
         print("prompt ok")
 
         # ---- devices, areas and guesses

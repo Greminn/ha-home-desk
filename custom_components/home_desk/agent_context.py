@@ -37,10 +37,19 @@ def _name(registry: list[dict[str, Any]], key: str | None) -> str:
     return found["name"] if found else (key or "")
 
 
+# Home Assistant's automatic comments on a repair ticket (it cleared, it is back, others are affected). They are bookkeeping, and a
+# reader who takes them as evidence concludes the repair keeps coming and going on its own, so they are summarised, not quoted.
+_BOOKKEEPING = ("**Resolution:** Cleared by Home Assistant", "Home Assistant is reporting this repair again", "Also affected:", " has cleared. Still affected")
+
+
 def _thread(ticket: dict[str, Any]) -> str:
     lines = []
+    automatic = 0
     for e in ticket["events"]:
         if e["kind"] not in ("comment", "note") or not e.get("body"):
+            continue
+        if e["actor"] == "Home Assistant" and any(m in e["body"] for m in _BOOKKEEPING):
+            automatic += 1
             continue
         who = e["actor"] + (" (internal note)" if e["kind"] == "note" else "")
         lines.append(f"[{e['created_at'][:16].replace('T', ' ')}] {who}: {_clip(e['body'], MESSAGE_CHARS)}")
@@ -52,6 +61,9 @@ def _thread(ticket: dict[str, Any]) -> str:
             out.append("(earlier comments left out)")
             break
         out.append(line)
+    if automatic:
+        out.append(f"(Home Assistant's automatic repair updates, left out: {automatic} comments saying this repair cleared, came back or "
+                   "affected more things. They are bookkeeping, not evidence of the cause, and say nothing about whether it is fixed.)")
     return "\n".join(reversed(out)) or "(no comments yet)"
 
 
