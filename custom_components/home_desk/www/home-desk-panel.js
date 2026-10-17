@@ -527,7 +527,7 @@
               <span class="ref">Opened ${_e(e.created_at,this.language)} by <span class="who" role="button" tabindex="0" aria-label="Show tickets from ${$e(e.requester)}"
                 @click=${t=>this._filterPerson(t,e.requester)}
                 @keydown=${t=>("Enter"===t.key||" "===t.key)&&this._filterPerson(t,e.requester)}><ha-icon icon=${we(e.requester)}></ha-icon> ${$e(e.requester)}</span></span>
-              ${e.agent_state?q`<span class="working"><ha-icon icon="mdi:star-four-points"></ha-icon> ${$e(e.agent_state.agent)} is working…</span>`:F}
+              ${e.agent_state?q`<span class="working"><ha-icon icon="mdi:star-four-points"></ha-icon> ${Ee(`ai:${e.agent_state.agent}`)} working…</span>`:F}
               ${e.unread&&e.activity&&"created"!==e.activity.kind?q`<span class="activity"><ha-icon icon=${we(e.activity.actor)}></ha-icon> ${$e(e.activity.actor)} ${i=e.activity.kind,Re[i]??"updated it"} ${_e(e.activity.at,this.language)}</span>`:e.updated_by?q`<span>Updated ${_e(e.updated_at,this.language)} by <ha-icon icon=${we(e.updated_by)}></ha-icon> ${$e(e.updated_by)}</span>`:F}
               ${e.assignee&&ke(e.assignee)?q`<span><ha-icon icon=${we(e.assignee)}></ha-icon> With AI Agent</span>`:F}
               ${e.labels.includes(Ne)?q`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>`:F}
@@ -973,7 +973,7 @@ function it(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
           </div>
           ${e.agent_state?q`<div class="agent-strip" role="status">
                 <ha-icon icon="mdi:star-four-points"></ha-icon>
-                <span class="what"><b>${$e(e.agent_state.agent)}</b> is working on this${e.agent_state.note?q` <span class="note">· ${e.agent_state.note}</span>`:F}</span>
+                <span class="what"><b>${Ee(`ai:${e.agent_state.agent}`)}</b> working on this${e.agent_state.note?q` <span class="note">· ${e.agent_state.note}</span>`:F}</span>
                 ${this.isAdmin&&this.client?q`<button class="plain" @click=${()=>{this.client.stopAgent(e.id)}}>Stop</button>`:F}
               </div>`:F}
           <!-- Second line: the category, status and priority, then the labels (which wrap on to their own line if they don't fit). -->

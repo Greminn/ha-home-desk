@@ -1120,7 +1120,7 @@ export class TicketDetail extends LitElement {
           ${t.agent_state
             ? html`<div class="agent-strip" role="status">
                 <ha-icon icon="mdi:star-four-points"></ha-icon>
-                <span class="what"><b>${actorName(t.agent_state.agent)}</b> is working on this${t.agent_state.note ? html` <span class="note">· ${t.agent_state.note}</span>` : nothing}</span>
+                <span class="what"><b>${actorLabel(`ai:${t.agent_state.agent}`)}</b> working on this${t.agent_state.note ? html` <span class="note">· ${t.agent_state.note}</span>` : nothing}</span>
                 ${this.isAdmin && this.client ? html`<button class="plain" @click=${() => void this.client!.stopAgent(t.id)}>Stop</button>` : nothing}
               </div>`
             : nothing}

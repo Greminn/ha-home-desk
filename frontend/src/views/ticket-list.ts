@@ -10,6 +10,7 @@ import {
   STATE_ICON,
   STATUS_LABEL,
   activityVerb,
+  actorLabel,
   actorName,
   isAgent,
   metaIcon,
@@ -322,7 +323,7 @@ export class TicketList extends LitElement {
                 @click=${(e: Event) => this._filterPerson(e, t.requester)}
                 @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && this._filterPerson(e, t.requester)}><ha-icon icon=${metaIcon(t.requester)}></ha-icon> ${actorName(t.requester)}</span></span>
               ${t.agent_state
-                ? html`<span class="working"><ha-icon icon="mdi:star-four-points"></ha-icon> ${actorName(t.agent_state.agent)} is working…</span>`
+                ? html`<span class="working"><ha-icon icon="mdi:star-four-points"></ha-icon> ${actorLabel(`ai:${t.agent_state.agent}`)} working…</span>`
                 : nothing}
               ${t.unread && t.activity && t.activity.kind !== "created"
                 ? html`<span class="activity"><ha-icon icon=${metaIcon(t.activity.actor)}></ha-icon> ${actorName(t.activity.actor)} ${activityVerb(t.activity.kind)} ${relativeTime(t.activity.at, this.language)}</span>`
