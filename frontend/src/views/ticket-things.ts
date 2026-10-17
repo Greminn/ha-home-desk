@@ -154,22 +154,6 @@ export class TicketThings extends LitElement {
       .add ha-icon {
         --mdc-icon-size: 16px;
       }
-      .askai {
-        height: 28px;
-        padding: 0 10px;
-        border-radius: var(--st-r-pill);
-        background: transparent;
-        color: var(--st-accent);
-        font-size: var(--st-fs-caption);
-        font-weight: 500;
-      }
-      .askai ha-icon {
-        --mdc-icon-size: 16px;
-      }
-      .err {
-        font-size: var(--st-fs-caption);
-        color: var(--st-danger);
-      }
     `,
   ];
 
@@ -181,18 +165,11 @@ export class TicketThings extends LitElement {
   /** When set (with `client`), a ticket with nothing named gets guesses to accept, and the AI can be asked. */
   @property({ type: Number }) ticketId: number | null = null;
   @property({ attribute: false }) client?: HaClient;
-  /** The AI agent can be asked to choose (it costs, so the panel confirms first). */
-  @property({ type: Boolean }) canAsk = false;
-  @property() askName = "AI";
-  /** How dialogs name the agent, e.g. "AI Agent (Claude)". */
-  @property() agentLabel = "the AI";
   /** Label for the add button when nothing is named yet. */
   @property() addLabel = "Add device, entity or area";
 
   @state() private _rect: DOMRect | null = null;
   @state() private _guesses: Suggestion[] = [];
-  @state() private _error = "";
-  @state() private _asking = false;
   private _guessedFor = "";
 
   private get _reg(): Registries {
@@ -208,7 +185,6 @@ export class TicketThings extends LitElement {
     if ((changed.has("ticketId") || changed.has("entities") || changed.has("devices") || changed.has("areas")) && key !== this._guessedFor) {
       this._guessedFor = key;
       this._guesses = [];
-      this._error = "";
       if (this.ticketId !== null && this.client && this.editable && this._empty) void this._loadGuesses(this.ticketId);
     }
   }
@@ -319,36 +295,6 @@ export class TicketThings extends LitElement {
     this._add(kind as Kind, rest.join(":"));
   }
 
-  private _askAi() {
-    if (this.ticketId === null || !this.client) return;
-    const id = this.ticketId;
-    const name = this.agentLabel;
-    this.dispatchEvent(
-      new CustomEvent("confirm-cost", {
-        bubbles: true,
-        composed: true,
-        detail: {
-          text: `Ask ${name} which devices, entities and areas ticket #${id} is about? The ticket, and the names (not the states) of the things in your home, are sent to ${name} through Home Assistant, which uses your AI plan and may cost money.`,
-          run: async () => {
-            this._asking = true;
-            this._error = "";
-            try {
-              const found = await this.client!.suggest(id, true);
-              if (id === this.ticketId) {
-                this._guesses = found;
-                if (!found.length) this._error = `${name} didn't find anything that fits.`;
-              }
-            } catch (err) {
-              this._error = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : String(err);
-            } finally {
-              this._asking = false;
-            }
-          },
-        },
-      }),
-    );
-  }
-
   // ---- drawing
 
   private _chip(kind: Kind, id: string) {
@@ -387,16 +333,12 @@ export class TicketThings extends LitElement {
             <ha-icon icon="mdi:plus"></ha-icon>${any ? nothing : this.addLabel}</button>`
         : nothing}
     </div>
-    ${this.editable && this._empty && (this._guesses.length || (this.canAsk && this.ticketId !== null))
+    ${this.editable && this._empty && this._guesses.length
       ? html`<div class="row" style="margin-top: 8px">
-          ${this._guesses.length ? html`<span class="sect">${this._guesses.some((g) => g.ai) ? `${this.askName} suggests` : "Related?"}</span>` : nothing}
+          <span class="sect">Related?</span>
           ${this._guesses.map((g) => this._guess(g))}
-          ${this.canAsk && this.ticketId !== null
-            ? html`<button class="askai" ?disabled=${this._asking} @click=${this._askAi}><ha-icon icon="mdi:star-four-points"></ha-icon>${this._asking ? "Asking…" : `Ask ${this.askName}`}</button>`
-            : nothing}
         </div>`
       : nothing}
-    ${this._error ? html`<div class="err">${this._error}</div>` : nothing}
     ${this._rect
       ? html`<st-picker-popup .rect=${this._rect} .items=${this._items} emptyLabel="Nothing matches" .limit=${100}
           @close=${() => (this._rect = null)} @pick=${(e: CustomEvent<{ id: string }>) => this._picked(e.detail.id)}></st-picker-popup>`

@@ -116,8 +116,6 @@ export interface Suggestion {
   score: number;
   /** An entity's current state. */
   state?: string;
-  /** Chosen by the AI agent rather than guessed from the words. */
-  ai?: boolean;
 }
 
 /** One change the AI agent proposes to a ticket. */

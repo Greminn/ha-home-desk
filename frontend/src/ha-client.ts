@@ -128,9 +128,9 @@ export class HaClient {
     return this.send("agent_run", { ticket_id: ticketId });
   }
 
-  /** Devices, entities and areas a ticket is probably about: guessed from its words, or chosen by the AI agent (a cost). */
-  async suggest(ticketId: number, ai = false): Promise<Suggestion[]> {
-    return (await this.send<{ suggestions: Suggestion[] }>("suggest", { ticket_id: ticketId, ...(ai ? { ai: true } : {}) })).suggestions;
+  /** Devices, entities and areas a ticket is probably about, guessed from the words in it. */
+  async suggest(ticketId: number): Promise<Suggestion[]> {
+    return (await this.send<{ suggestions: Suggestion[] }>("suggest", { ticket_id: ticketId })).suggestions;
   }
 
   /** Apply or dismiss the changes the AI agent proposed in a comment. */

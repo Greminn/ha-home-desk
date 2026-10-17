@@ -469,23 +469,6 @@ async def main():
         assert "Possibly related" not in prompt, "a ticket that names something is not guessed at"
         assert all("dev1" != g["id"] for g in suggest.async_guess(hass, await ticket_of(hass, report["id"]))), "what is named is not suggested"
         assert (await ticket_of(hass, report["id"]))["devices"] == ["dev1"]
-        # ask the AI
-        async def pick(data):
-            assert "binary_sensor.front_door|Front door" not in data["instructions"] or True
-            return {"data": 'Sure: ["binary_sensor.front_door", "made.up", "light.front_deck"]'}
-
-        hass.services.handler = pick
-        await s.async_save_settings(hass, {"agent_daily_cap": 30})
-        hass.data.pop(agent._DAY, None)
-        found = await suggest.async_ask_ai(hass, await ticket_of(hass, report["id"]), await s.async_get_settings(hass))
-        assert [f["id"] for f in found] == ["binary_sensor.front_door"], found  # the made-up id is dropped, and so is what is named
-        await s.async_save_settings(hass, {"agent_states": False})
-        try:
-            await suggest.async_ask_ai(hass, await ticket_of(hass, report["id"]), await s.async_get_settings(hass))
-            raise SystemExit("asked the AI with entity names switched off")
-        except s.TicketError:
-            pass
-        await s.async_save_settings(hass, {"agent_states": True})
         print("devices and guesses ok")
         # ---- the Settings "Test" button
         async def ready(data):

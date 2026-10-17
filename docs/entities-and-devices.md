@@ -1,6 +1,6 @@
 # Proposal: tickets that point at devices and entities
 
-*2026-10-17. Decided: devices, entities and areas; suggest rather than attach; AI choosing on request, after a confirmation. Built (steps 1 to 3): the tags and chips, the guesses and the agent context. Not built: Home Assistant's own target picker (a picker styled like it is used, since that one can't be loaded reliably from a panel), following entity renames, and "Show tickets about this". It comes from ticket #234 ("The front deck lights didn't turn on"): the built-in AI agent answered with generic questions because the ticket named nothing in the home, so it had no states, history or automations to look at.*
+*2026-10-17. Decided: devices, entities and areas; suggest rather than attach; the AI is not asked separately (Review with AI is where it is asked). Built (steps 1 to 3): the tags and chips, the guesses and the agent context. Not built: Home Assistant's own target picker (a picker styled like it is used, since that one can't be loaded reliably from a panel), following entity renames, and "Show tickets about this". It comes from ticket #234 ("The front deck lights didn't turn on"): the built-in AI agent answered with generic questions because the ticket named nothing in the home, so it had no states, history or automations to look at.*
 
 ## The problem
 
@@ -64,7 +64,7 @@ A photo could help too (a picture of the deck at night), by sending it to the mo
 1. **Devices as well as entities, and areas later?** I recommend devices and entities now.
 2. **Suggest or attach?** I recommend suggest for the admin, and use unconfirmed guesses in the agent's context, clearly marked.
 3. **Use Home Assistant's own target picker if it works from a panel,** else the picker popup. I'd try the HA one first.
-4. **AI-assisted picking (step 5):** worth the extra call, or keep it to scoring?
+4. ~~AI-assisted picking~~: dropped. Review with AI is the one place the AI is asked; the guesses stay free.
 
 ## Build order
 
@@ -74,6 +74,6 @@ A photo could help too (a picture of the deck at night), by sending it to the mo
 | 2 | The AI agent's context expands devices into their entities; the agent guide and service descriptions updated | Small |
 | 3 | The name index and scoring; "Related?" suggestions on the ticket; unconfirmed guesses in the agent's context | Medium |
 | 4 | Follow entity renames; "Show tickets about this"; Repairs and `report_issue` attach entities and devices | Small to medium |
-| 5 | AI-assisted choosing, and sending the photo | Medium |
+| 5 | ~~AI-assisted choosing~~ (dropped), and sending the photo | Medium |
 
 Steps 1 to 3 would have made the answer on #234 specific.

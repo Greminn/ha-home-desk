@@ -272,11 +272,6 @@ export class HomeDeskPanel extends LitElement {
     return !!this._settings?.agent?.startsWith("ai_task.");
   }
 
-  /** What the suggestions' ask link calls it: just "AI" (it is not an agent: it answers, it doesn't act). */
-  private get _askName(): string {
-    return "AI";
-  }
-
   /** The AI Home Assistant is asked to review a ticket, by its integration's name, for dialogs: "the AI (Claude)". */
   private get _agentLabel(): string {
     const entity = this._settings?.agent;
@@ -694,10 +689,7 @@ export class HomeDeskPanel extends LitElement {
           @open-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
           .hass=${this.hass}
           .canAsk=${this._canAsk}
-          .askName=${this._askName}
-          .agentLabel=${this._agentLabel}
           @proposal=${(e: CustomEvent<{ eventId: number; action: "apply" | "dismiss" }>) => this._selected && void this._act((c) => c.proposal(this._selected!.id, e.detail.eventId, e.detail.action))}
-          @confirm-cost=${(e: CustomEvent<{ text: string; run: () => Promise<void> }>) => this._askCost(e.detail.text, e.detail.run)}
           @ask-ai=${(e: CustomEvent<{ body: string; done: () => void }>) => this._askNow(e.detail)}
           @patch-ticket=${(e: CustomEvent<TicketPatch>) => this._selected && void this._act((c) => c.update(this._selected!.id, e.detail))}
           @comment=${(e: CustomEvent<{ body: string; internal: boolean }>) => this._selected && void this._act((c) => c.comment(this._selected!.id, e.detail.body, e.detail.internal))}

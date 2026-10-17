@@ -223,7 +223,7 @@ export function createMock() {
       delete t.agent_state; t.updated_at = iso(0); fire(t, "agent", "Home Desk");
       return { stopped: t.id };
     },
-    // Guesses from the words in a ticket, like the real thing; asking the AI picks the lock.
+    // Guesses from the words in a ticket, like the real thing.
     suggest: (m) => {
       const t = get(m.ticket_id);
       const taken = new Set([...(t.entities ?? []).map((e) => `entity:${e}`), ...(t.devices ?? []).map((e) => `device:${e}`), ...(t.areas ?? []).map((e) => `area:${e}`)]);
@@ -236,7 +236,6 @@ export function createMock() {
         { kind: "device", id: "dev_hall_sensor", name: "Hallway sensor", area: "Hallway" },
         { kind: "area", id: "kitchen", name: "Kitchen", area: "" },
       ];
-      if (m.ai) return { suggestions: things.filter((x) => x.id === "lock.front_door" && !taken.has(`${x.kind}:${x.id}`)).map((x) => ({ ...x, score: 0, ai: true })) };
       const hit = (x) => `${x.name}`.toLowerCase().match(/[a-z]{3,}/g).filter((w) => words.has(w) && !stop.has(w) && w !== "light").length;
       return { suggestions: things.filter((x) => !taken.has(`${x.kind}:${x.id}`) && hit(x) >= 2).map((x) => ({ ...x, score: 4 })) };
     },

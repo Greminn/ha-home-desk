@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import AUTO_CLOSE_SECONDS, DOMAIN, LABEL_COLORS, PRIORITIES, STATUS_ALIASES, STATUSES
 from .agent import async_run_now, async_stop_turn, async_test_agent
-from .suggest import async_ask_ai, async_guess
+from .suggest import async_guess
 from .storage import (
     async_apply_proposal,
     async_dismiss_proposal,
@@ -470,18 +470,15 @@ async def ws_settings_save(hass: HomeAssistant, connection: websocket_api.Active
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "home_desk/suggest", vol.Required("ticket_id"): int, vol.Optional("ai"): bool}
+    {vol.Required("type"): "home_desk/suggest", vol.Required("ticket_id"): int}
 )
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_suggest(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """Devices, entities and areas a ticket is probably about: guessed from its words, or (with `ai`) chosen by the AI agent."""
+    """Devices, entities and areas a ticket is probably about, guessed from the words in it."""
     try:
         ticket = await async_get_ticket(hass, msg["ticket_id"])
-        if msg.get("ai"):
-            found = await async_ask_ai(hass, ticket, await async_get_settings(hass))
-        else:
-            found = async_guess(hass, ticket)
+        found = async_guess(hass, ticket)
     except TicketError as err:
         _fail(connection, msg, "invalid", str(err))
         return

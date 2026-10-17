@@ -815,8 +815,6 @@ export class TicketDetail extends LitElement {
   /** The built-in AI agent can be asked to work on a ticket now (an AI Task agent is chosen in Settings), and its name. */
   @property({ attribute: false }) hass!: HomeAssistant;
   @property({ type: Boolean }) canAsk = false;
-  @property() askName = "AI";
-  @property() agentLabel = "the AI";
   @property({ attribute: false }) labelMap: Map<string, Label> = new Map();
   @property({ attribute: false }) people: Map<string, Person> = new Map();
   @property({ attribute: false }) categoryMap: Map<string, Category> = new Map();
@@ -1354,7 +1352,7 @@ export class TicketDetail extends LitElement {
                   : nothing}
                 ${long ? html`<button class="more" @click=${() => (this._expanded = !this._expanded)}>${this._expanded ? "Show Less" : "Show All"}</button>` : nothing}
                 <st-ticket-things class="about" .hass=${this.hass} .client=${this.client} .ticketId=${t.id} .editable=${this.isAdmin}
-                  .entities=${t.entities} .devices=${t.devices ?? []} .areas=${t.areas ?? []} .canAsk=${this.canAsk} .askName=${this.askName} .agentLabel=${this.agentLabel}
+                  .entities=${t.entities} .devices=${t.devices ?? []} .areas=${t.areas ?? []} 
                   @change=${(e: CustomEvent<{ entities: string[]; devices: string[]; areas: string[] }>) => this._patch(e.detail)}></st-ticket-things>
               </div>
               <ha-icon class="pin-hint" icon="mdi:chevron-up"></ha-icon>
