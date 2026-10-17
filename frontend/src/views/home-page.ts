@@ -4,7 +4,7 @@ import { safeCustomElement } from "../define";
 import { sharedStyles } from "../styles";
 import type { TicketSummary } from "../types";
 import { VIEWS } from "../list-model";
-import { STATE_ICON, STATE_COLOR, actorLabel, actorName, metaIcon, relativeTime } from "../format";
+import { STATE_ICON, STATE_COLOR, hintsLabel, actorName, metaIcon, relativeTime } from "../format";
 
 const WEEK_MS = 7 * 24 * 3600 * 1000;
 const HISTORY = "history";
@@ -226,7 +226,7 @@ export class HomePage extends LitElement {
       <div>
         <div class="title">${t.title}</div>
         <div class="sub">
-          ${t.agent_state ? html`<span class="work"><ha-icon icon="mdi:star-four-points"></ha-icon> ${actorLabel(`ai:${t.agent_state.agent}`)} working…</span>` : nothing}
+          ${t.agent_state ? html`<span class="work"><ha-icon icon="mdi:star-four-points"></ha-icon> ${hintsLabel(`ai:${t.agent_state.agent}`)} working…</span>` : nothing}
           ${t.priority === "urgent" || t.priority === "high"
             ? html`<span class="hot"><ha-icon .icon=${t.priority === "urgent" ? "mdi:alert" : "mdi:alert-outline"}></ha-icon> ${t.priority === "urgent" ? "Urgent" : "High"}</span>`
             : nothing}

@@ -19,6 +19,8 @@ import {
   actorLabel,
   isAgent,
   actorName,
+  assigneeName,
+  hintsLabel,
   metaIcon,
   fullTime,
   relativeTime,
@@ -809,8 +811,6 @@ export class TicketDetail extends LitElement {
   @property({ type: Boolean }) canAsk = false;
   @property() askName = "AI Agent";
   @property() agentLabel = "AI Agent";
-  /** Assigning to the AI Agent starts it straight away (a Settings choice), so the panel will ask first. */
-  @property({ type: Boolean }) autoRuns = false;
   @property({ attribute: false }) labelMap: Map<string, Label> = new Map();
   @property({ attribute: false }) people: Map<string, Person> = new Map();
   @property({ attribute: false }) categoryMap: Map<string, Category> = new Map();
@@ -1017,7 +1017,7 @@ export class TicketDetail extends LitElement {
   /** "Ask now": the built-in AI agent reads the ticket and replies at once. The panel confirms first, because it costs. */
   private _askChip(t: Ticket) {
     if (!this.canAsk || t.agent_state) return nothing;
-    const tip = `Ask ${this.askName} to read this ticket and reply now. This uses your AI plan.`;
+    const tip = "Ask the AI chosen in Settings for hints: an explanation and ideas to try. It doesn't change the ticket's mark for your own AI, and it uses your AI plan.";
     return html`<button class="assign-chip ask-chip" aria-label="Ask ${this.askName} now" title=${tip}
       @click=${() => this._fire("ask-ai", { body: this._comment.trim(), done: () => { this._comment = ""; this._agentToggle = null; } })}>
       <ha-icon icon="mdi:star-four-points"></ha-icon><span><span class="verb">Ask </span>${this.askName}<span class="verb"> now</span></span></button>`;
@@ -1027,11 +1027,9 @@ export class TicketDetail extends LitElement {
     const on = this._agentOn(t);
     const now = this._withAgent(t);
     const title = now
-      ? on ? "With the AI Agent. Click to take it back." : "Will be taken back from the AI Agent. Click to keep it with them."
-      : on ? "Will be assigned to the AI Agent. Click to switch off."
-        : this.autoRuns ? "Assign to the AI Agent. It starts work straight away (this uses your AI plan)."
-        : this.canAsk ? "Assign to the AI Agent for later. It is only handed over: nothing runs until it is asked."
-        : "Assign to the AI Agent";
+      ? on ? "Marked for an AI. Click to take the mark off." : "The mark will come off. Click to keep it."
+      : on ? "Will be marked for an AI. Click to switch off."
+        : "Mark this ticket for an AI you run yourself (your Claude CLI, Claude Desktop or anything else). Nothing is sent anywhere.";
     return html`<button class="assign-chip ${now && on ? "current" : ""} ${on && !now ? "picked" : ""} ${now && !on ? "dropping" : ""}"
       aria-pressed=${on ? "true" : "false"} aria-label="Assign to AI Agent" title=${title}
       @click=${() => (this._agentToggle = !on)}><ha-icon icon="mdi:creation"></ha-icon><span><span class="verb">Assign to </span>AI Agent</span></button>`;
@@ -1101,7 +1099,7 @@ export class TicketDetail extends LitElement {
       case "priority":
         return `changed priority from ${show(d.from)} to ${show(d.to)}`;
       case "assignee":
-        return d.to ? `assigned this to ${show(d.to)}` : "unassigned this";
+        return d.to ? `marked this for ${assigneeName(String(d.to)) === "AI" ? "an AI" : assigneeName(String(d.to))}` : "took off the AI mark";
       case "link":
         return `linked ticket #${String(d.to)}`;
       case "merge":
@@ -1205,7 +1203,7 @@ export class TicketDetail extends LitElement {
     return html`<div class="ev working" role="status">
       ${this._avatar(who)}
       <div>
-        <div class="who"><b>${actorLabel(who)}</b> · <span class="when">now</span></div>
+        <div class="who"><b>${hintsLabel(who)}</b> · <span class="when">now</span></div>
         <div class="bubble">
           <ha-icon icon="mdi:star-four-points"></ha-icon>
           <span class="what">working on this${state.note ? html` <span class="note">· ${state.note}</span>` : nothing}</span>
@@ -1261,7 +1259,7 @@ export class TicketDetail extends LitElement {
         <div class="ev ${fresh ? "new" : ""}">
           ${this._avatar(e.actor)}
           <div>
-            <div class="who"><b>${actorLabel(e.actor)}</b> · <span class="when">${when}</span>${fresh ? html`<span class="new-tag">New</span>` : nothing}${e.kind === "note" ? html`<span class="label dense">internal note</span>` : nothing}${(e.data as { merged_from?: number } | null)?.merged_from ? html`<span class="label dense" title="Copied here when a ticket was merged">from #${(e.data as { merged_from: number }).merged_from}</span>` : nothing}</div>
+            <div class="who"><b title=${e.data?.hints ? "Hints from the AI chosen in Settings, based only on what Home Desk sent it. It has not checked your home." : ""}>${e.data?.hints ? hintsLabel(e.actor) : actorLabel(e.actor)}</b> · <span class="when">${when}</span>${fresh ? html`<span class="new-tag">New</span>` : nothing}${e.kind === "note" ? html`<span class="label dense">internal note</span>` : nothing}${(e.data as { merged_from?: number } | null)?.merged_from ? html`<span class="label dense" title="Copied here when a ticket was merged">from #${(e.data as { merged_from: number }).merged_from}</span>` : nothing}</div>
             <div class="bubble md ${e.kind === "note" ? "note" : ""}">${unsafeHTML(renderMarkdown(e.body ?? ""))}</div>
             ${this._proposal(e)}
           </div>
@@ -1315,7 +1313,7 @@ export class TicketDetail extends LitElement {
           <div class="meta-line">
             <span>Opened ${relativeTime(t.created_at, this.language)} by <ha-icon icon=${metaIcon(t.requester)}></ha-icon> ${actorName(t.requester)}</span>
             ${t.updated_by ? html`<span>Updated ${relativeTime(t.updated_at, this.language)} by <ha-icon icon=${metaIcon(t.updated_by)}></ha-icon> ${actorName(t.updated_by)}</span>` : nothing}
-            ${t.assignee && isAgent(t.assignee) ? html`<span><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> With ${actorLabel(t.assignee)}</span>` : nothing}
+            ${t.assignee && isAgent(t.assignee) ? html`<span title="Marked for an AI to work (your own CLI or desktop app)"><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> With AI</span>` : nothing}
             ${t.labels.includes(BLOCKED) ? html`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>` : nothing}
             ${t.comment_count ? html`<span><ha-icon icon="mdi:comment-outline"></ha-icon> ${t.comment_count}</span>` : nothing}
           </div>

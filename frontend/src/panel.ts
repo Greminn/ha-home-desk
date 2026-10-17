@@ -6,7 +6,7 @@ import { panelStyles } from "./panel-styles";
 import { HaClient } from "./ha-client";
 import type { NewTicket } from "./ha-client";
 import type { Category, HomeAssistant, HomeDeskSettings, Label, Ticket, TicketPatch, TicketSummary } from "./types";
-import { STATUS_LABEL, actorName, isAgent } from "./format";
+import { AI_ASSIGNEE, STATUS_LABEL, actorName } from "./format";
 import type { Person } from "./format";
 import { VIEWS, filterCount, filterTickets, type ListFilters } from "./list-model";
 import "./views/ticket-list";
@@ -277,9 +277,12 @@ export class HomeDeskPanel extends LitElement {
     return "AI Agent";
   }
 
-  /** What dialogs call it, so it is clear which one: "AI Agent (Claude)". */
+  /** The AI Home Assistant is asked for hints, by its integration's name, for dialogs: "the AI (Claude)". */
   private get _agentLabel(): string {
-    return `AI Agent (${this._agentName.replace(/^ai:/, "") || "Claude"})`;
+    const entity = this._settings?.agent;
+    const friendly = entity ? String(this.hass.states?.[entity]?.attributes["friendly_name"] ?? "") : "";
+    const name = friendly.replace(/\s*(AI Task|conversation|agent)\s*$/i, "").trim() || "Claude";
+    return `the AI (${name})`;
   }
 
   /** Ask before anything that costs: the person sees what will happen, and "Cancel" does nothing. */
@@ -292,7 +295,7 @@ export class HomeDeskPanel extends LitElement {
     if (!ticket || !this._client) return;
     const name = this._agentLabel;
     this._askCost(
-      `Ask ${name} to read ticket #${ticket.id} and reply now? The ticket${detail.body ? ", with your comment," : ""} is sent to ${name} through Home Assistant, which uses your AI plan and may cost money. You can stop it from the ticket while it works.`,
+      `Ask ${name} for hints on ticket #${ticket.id}? The ticket${detail.body ? ", with your comment," : ""} is sent to the AI chosen in Settings through Home Assistant, which uses your AI plan and may cost money. It explains the problem and suggests what to try; it doesn't change anything, and your own AI queue (Assign to AI Agent) is left as it is. You can stop it from the ticket while it works.`,
       async () => {
         const client = this._client!;
         if (detail.body) await client.comment(ticket.id, detail.body, false);
@@ -300,22 +303,6 @@ export class HomeDeskPanel extends LitElement {
         await this._act((c) => c.runAgent(ticket.id));
       },
     );
-  }
-
-  /** A patch that hands the ticket to the AI agent while "start work when assigned" is on starts it, so ask first. */
-  private _patchTicket(patch: TicketPatch) {
-    const ticket = this._selected;
-    if (!ticket) return;
-    const toAgent = typeof patch.assignee === "string" && isAgent(patch.assignee);
-    if (toAgent && this._canAsk && this._settings?.agent_auto && !isAgent(ticket.assignee ?? "")) {
-      const name = this._agentLabel;
-      this._askCost(
-        `Assigning ticket #${ticket.id} to ${name} starts it straight away: the ticket is sent to ${name} through Home Assistant, which uses your AI plan and may cost money. Assign it now?`,
-        () => this._act((c) => c.update(ticket.id, patch)),
-      );
-      return;
-    }
-    void this._act((c) => c.update(ticket.id, patch));
   }
 
   /** Mark tickets (or all, with no ids) as read: the list updates at once, the server in the background. */
@@ -585,15 +572,9 @@ export class HomeDeskPanel extends LitElement {
     return filterCount(this._filters);
   }
 
-  /**
-   * The AI agent a ticket is assigned to, written as "ai:<name>" so it is always recognised as an agent. The name
-   * comes from the agent chosen in Settings (an AI Task or conversation entity: "Claude AI Task" becomes Claude).
-   */
+  /** What "Assign to AI Agent" stores: any AI the person runs themselves, so no particular name. */
   private get _agentName(): string {
-    const entity = this._settings?.agent;
-    const friendly = entity ? String(this.hass.states?.[entity]?.attributes["friendly_name"] ?? "") : "";
-    const name = friendly.replace(/\s*(AI Task|conversation|agent)\s*$/i, "").trim();
-    return `ai:${name || "Claude"}`;
+    return AI_ASSIGNEE;
   }
 
   /** Household members by lower-case name, with their profile pictures, from HA's person entities. */
@@ -716,10 +697,9 @@ export class HomeDeskPanel extends LitElement {
           .askName=${this._askName}
           .agentLabel=${this._agentLabel}
           @proposal=${(e: CustomEvent<{ eventId: number; action: "apply" | "dismiss" }>) => this._selected && void this._act((c) => c.proposal(this._selected!.id, e.detail.eventId, e.detail.action))}
-          .autoRuns=${this._canAsk && !!this._settings?.agent_auto}
           @confirm-cost=${(e: CustomEvent<{ text: string; run: () => Promise<void> }>) => this._askCost(e.detail.text, e.detail.run)}
           @ask-ai=${(e: CustomEvent<{ body: string; done: () => void }>) => this._askNow(e.detail)}
-          @patch-ticket=${(e: CustomEvent<TicketPatch>) => this._patchTicket(e.detail)}
+          @patch-ticket=${(e: CustomEvent<TicketPatch>) => this._selected && void this._act((c) => c.update(this._selected!.id, e.detail))}
           @comment=${(e: CustomEvent<{ body: string; internal: boolean }>) => this._selected && void this._act((c) => c.comment(this._selected!.id, e.detail.body, e.detail.internal))}
           @close-ticket=${(e: CustomEvent<{ resolution: string; status: "resolved" | "closed" }>) => this._selected && void this._act((c) => c.close(this._selected!.id, e.detail.resolution, e.detail.status))}
         ></st-ticket-detail>`}

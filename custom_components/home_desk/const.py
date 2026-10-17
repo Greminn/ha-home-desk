@@ -80,12 +80,11 @@ AUTO_CLOSE_SECONDS = {
 # "stt" is a speech-to-text entity ("" = whatever Assist's preferred pipeline uses); "transcribe" turns voice-message
 # transcription on or off.
 #
-# The built-in AI agent: "agent_auto" (off by default, as every turn costs) lets it start work the moment a ticket is assigned to it, "agent_states",
-# "agent_config" and "agent_related" choose what is sent to the AI provider (entity states, automation and script
-# configuration, related tickets), and "agent_daily_cap" limits how many turns it takes in a day.
+# The built-in AI (Ask AI Agent now): "agent_states", "agent_config" and "agent_related" choose what is sent to the AI provider
+# (entity states, automation and script configuration, related tickets), and "agent_daily_cap" limits how many requests it takes in a day.
 DEFAULT_SETTINGS = {
     "auto_close": "7d", "agent": "", "repairs": True, "stt": "", "transcribe": True,
-    "agent_auto": False, "agent_states": True, "agent_config": True, "agent_related": True, "agent_daily_cap": 30,
+    "agent_states": True, "agent_config": True, "agent_related": True, "agent_daily_cap": 30,
 }
 AGENT_TIMEOUT = 150  # seconds a turn may take before it is given up on
 AGENT_CONTEXT_CHARS = 24000  # the most context sent in one turn

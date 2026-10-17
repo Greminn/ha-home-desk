@@ -206,7 +206,6 @@ async def main():
         FakeStore.saved = {}
         hass = make_hass(tmp)
         await s.async_save_settings(hass, {"agent": "ai_task.claude_ai_task"})
-        assert (await s.async_get_settings(hass))["agent_auto"] is False, "running on assignment is off unless asked for (it costs)"
         base = await s.async_create_ticket(hass, title="Hall light stays on", requester="Qione", actor="Qione",
                                            description="It never turns off. My wifi password: letmein99",
                                            entities=["light.hall", "automation.hallway_lights"])
@@ -226,43 +225,50 @@ async def main():
         assert "light.hall (" not in lean and "light.turn_on" not in lean and "Replaced the bulb" not in lean, "Settings limit what is sent"
         print("context ok")
 
-        # ---- a full turn (assigning only hands over, unless Settings says to start work)
-        stop = agent.async_setup_agent(hass)
+        # ---- assigning only tags the ticket: nothing is sent to the AI
+        async def ask(ticket_id):
+            await agent.async_run_now(hass, ticket_id, "Simon")
+            await hass.settle()
+            return await ticket_of(hass, ticket_id)
+
         hass.services.handler = None
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:Claude")
+        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:AI")
         await hass.settle()
         assert not hass.services.calls, "assigning for later asks nothing of the AI"
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee=None)
-        await s.async_save_settings(hass, {"agent_auto": True})
+
+        # ---- asking for hints: a full turn, and the assignment (the person's own AI queue) is left alone
         seen_states = []
 
         async def answer(data):
             t = await ticket_of(hass, base["id"])
             seen_states.append(t.get("agent_state"))
             assert data["entity_id"] == "ai_task.claude_ai_task" and "Hall light stays on" in data["instructions"]
+            assert "you give hints" in data["instructions"].lower() or "give hints" in data["instructions"].lower()
             return {"conversation_id": "c1", "data": "The automation only turns it **on**. Add an off action."}
 
         hass.services.handler = answer
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:Claude")
-        await hass.settle()
-        t = await ticket_of(hass, base["id"])
+        t = await ask(base["id"])
         assert seen_states and seen_states[0]["state"] == "working" and seen_states[0]["agent"] == "Claude", seen_states
-        assert t["assignee"] is None and "agent_state" not in t, "handed back, no longer working"
+        assert t["assignee"] == "ai:AI", "asking for hints does not clear the person's queue marker"
+        assert "agent_state" not in t, "no longer working"
         last = [e for e in t["events"] if e["kind"] == "comment"][-1]
-        assert last["actor"] == "ai:Claude" and "Add an off action" in last["body"]
+        assert last["actor"] == "ai:Claude" and "Add an off action" in last["body"] and last["data"]["hints"] is True, "labelled as hints"
+        assert not any(e["kind"] == "assignee" and e["actor"] == "ai:Claude" for e in t["events"])
+        # the person's own AI (a CLI) commenting does hand the ticket back, as before
+        t = await s.async_add_comment(hass, base["id"], actor="claude", body="Checked it: fixed.")
+        assert t["assignee"] is None
         print("turn ok")
 
-        # ---- a failure hands the ticket back with a reason
+        # ---- a failure leaves a comment with a reason, and no assignee change
         async def boom(data):
             raise RuntimeError("Claude is unavailable\nsecond line")
 
+        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:AI")
         hass.services.handler = boom
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:Claude")
-        await hass.settle()
-        t = await ticket_of(hass, base["id"])
+        t = await ask(base["id"])
         last = [e for e in t["events"] if e["kind"] == "comment"][-1]
         assert last["actor"] == "Home Desk" and "unavailable" in last["body"] and "second line" not in last["body"]
-        assert t["assignee"] is None and "agent_state" not in t
+        assert t["assignee"] == "ai:AI" and "agent_state" not in t
         print("failure ok")
 
         # ---- an empty answer counts as a failure; a slow one times out
@@ -270,47 +276,17 @@ async def main():
             return {"data": "  "}
 
         hass.services.handler = empty
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:Claude")
-        await hass.settle()
-        assert "empty answer" in [e for e in (await ticket_of(hass, base["id"]))["events"] if e["kind"] == "comment"][-1]["body"]
+        assert "empty answer" in [e for e in (await ask(base["id"]))["events"] if e["kind"] == "comment"][-1]["body"]
 
         async def slow(data):
             await asyncio.sleep(30)
 
         hass.services.handler = slow
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:Claude")
-        await hass.settle()
-        t = await ticket_of(hass, base["id"])
-        assert "didn't answer in time" in [e for e in t["events"] if e["kind"] == "comment"][-1]["body"] and t["assignee"] is None
+        t = await ask(base["id"])
+        assert "didn't answer in time" in [e for e in t["events"] if e["kind"] == "comment"][-1]["body"] and t["assignee"] == "ai:AI"
         print("empty and timeout ok")
 
-        # ---- no loops, and other agents are left alone
-        calls = len(hass.services.calls)
-        await s.async_update_ticket(hass, base["id"], actor="ai:Claude", assignee="ai:Claude")  # an agent assigning to an agent
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:Other")  # a different agent
-        await hass.settle()
-        assert len(hass.services.calls) == calls, "no turn started"
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee=None)
-
-        # ---- "Ask now" works with start-on-assign off, and assigns the ticket itself
-        await s.async_save_settings(hass, {"agent_auto": False})
-        hass.services.handler = answer
-        calls = len(hass.services.calls)
-        await agent.async_run_now(hass, base["id"], "Simon")
-        await hass.settle()
-        assert len(hass.services.calls) == calls + 1
-        t = await ticket_of(hass, base["id"])
-        assert t["assignee"] is None and [e for e in t["events"] if e["kind"] == "comment"][-1]["actor"] == "ai:Claude"
-        assert any(e["kind"] == "assignee" and e["actor"] == "Simon" and e["data"]["to"] == "ai:Claude" for e in t["events"]), "assigned by the person"
-        await s.async_save_settings(hass, {"agent": "conversation.claude"})
-        try:
-            await agent.async_run_now(hass, base["id"], "Simon")
-            raise SystemExit("ran a conversation agent")
-        except s.TicketError:
-            pass
-        await s.async_save_settings(hass, {"agent": "ai_task.claude_ai_task", "agent_auto": True})
-
-        # ---- Stop
+        # ---- one request at a time, Stop, the daily limit, and only an AI Task can be asked
         started = asyncio.Event()
 
         async def hang(data):
@@ -318,40 +294,37 @@ async def main():
             await asyncio.sleep(30)
 
         hass.services.handler = hang
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:Claude")
+        await agent.async_run_now(hass, base["id"], "Simon")
         await asyncio.wait_for(started.wait(), 2)
         assert (await ticket_of(hass, base["id"]))["agent_state"]["state"] == "working"
+        try:
+            await agent.async_run_now(hass, base["id"], "Simon")
+            raise SystemExit("a second request started while one was running")
+        except s.TicketError as err:
+            assert "already" in str(err)
         await agent.async_stop_turn(hass, base["id"], "Simon")
         await hass.settle()
         t = await ticket_of(hass, base["id"])
-        assert t["assignee"] is None and "agent_state" not in t
+        assert t["assignee"] == "ai:AI" and "agent_state" not in t, "Stop leaves the assignment alone"
         assert "Stopped by Simon" in [e for e in t["events"] if e["kind"] == "comment"][-1]["body"]
         assert not agent._runs(hass), "the run is forgotten"
-        print("stop ok")
-
-        # ---- reassigning away clears the working state; the setting turns it off; the daily cap
-        hass.services.handler = hang
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:Claude")
-        await asyncio.sleep(0.05)
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="Simon")
-        assert "agent_state" not in await ticket_of(hass, base["id"])
-        hass.data[agent._RUNS][base["id"]].cancel()
-        await hass.settle()
-        await s.async_save_settings(hass, {"agent_auto": False})
-        calls = len(hass.services.calls)
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:Claude")
-        await hass.settle()
-        assert len(hass.services.calls) == calls, "switched off in Settings"
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee=None)
-        await s.async_save_settings(hass, {"agent_auto": True, "agent_daily_cap": 1})
+        await s.async_save_settings(hass, {"agent_daily_cap": 1})
         hass.data.pop(agent._DAY, None)
         hass.services.handler = answer
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:Claude")
-        await hass.settle()
-        await s.async_update_ticket(hass, base["id"], actor="Simon", assignee="ai:Claude")
-        await hass.settle()
-        t = await ticket_of(hass, base["id"])
-        assert "limit of 1 turns" in [e for e in t["events"] if e["kind"] == "comment"][-1]["body"] and t["assignee"] is None
+        await ask(base["id"])
+        try:
+            await agent.async_run_now(hass, base["id"], "Simon")
+            raise SystemExit("went past the daily limit")
+        except s.TicketError as err:
+            assert "limit of 1" in str(err)
+        await s.async_save_settings(hass, {"agent": "conversation.claude"})
+        try:
+            await agent.async_run_now(hass, base["id"], "Simon")
+            raise SystemExit("asked a conversation agent")
+        except s.TicketError:
+            pass
+        await s.async_save_settings(hass, {"agent": "ai_task.claude_ai_task", "agent_daily_cap": 100})
+        hass.data.pop(agent._DAY, None)
         print("controls ok")
 
         # ---- settings validation
@@ -361,34 +334,25 @@ async def main():
                 raise SystemExit(f"accepted {bad}")
             except s.TicketError:
                 pass
-        stop()
-        assert not hass.bus.listeners
 
         # ---- proposed changes: parsed out of the reply, validated, applied only on request, newest only
-        stop = agent.async_setup_agent(hass)
-        await s.async_save_settings(hass, {"agent_auto": True, "agent_daily_cap": 100})
-        hass.data.pop(agent._DAY, None)
         pt = await s.async_create_ticket(hass, title="Add-on warnings", requester="simon", actor="simon", priority="normal")
         replies = iter([
             'Upstream issue, so close it.\n\n```home-desk-actions\n[{"action":"close","status":"closed","resolution":"Upstream, not actionable."},{"action":"add_label","label":"Nope"},{"action":"set_priority","priority":"low"}]\n```',
-            "Second thought: set it low.\n\n```home-desk-actions\n[{\"action\":\"set_priority\",\"priority\":\"low\"}]\n```",
+            "Second thought: set it low.\n\n```home-desk-actions\n[{\"action\":\"priority\"},{\"action\":\"set_priority\",\"priority\":\"low\"}]\n```",
         ])
 
         async def propose(data):
             return {"data": next(replies)}
 
         hass.services.handler = propose
-        await s.async_update_ticket(hass, pt["id"], actor="Simon", assignee="ai:Claude")
-        await hass.settle()
-        t = await ticket_of(hass, pt["id"])
+        t = await ask(pt["id"])
         first = [e for e in t["events"] if e["kind"] == "comment"][-1]
         assert "home-desk-actions" not in first["body"] and first["body"] == "Upstream issue, so close it."
         prop = first["data"]["proposal"]
         assert prop["state"] == "pending" and [a["action"] for a in prop["actions"]] == ["close", "set_priority"], prop  # unknown label dropped
         assert t["status"] == "in_progress" and t["resolution"] is None, "nothing changed until someone applies it"
-        await s.async_update_ticket(hass, pt["id"], actor="Simon", assignee="ai:Claude")
-        await hass.settle()
-        t = await ticket_of(hass, pt["id"])
+        t = await ask(pt["id"])
         second = [e for e in t["events"] if e["kind"] == "comment"][-1]
         try:
             await s.async_apply_proposal(hass, pt["id"], first["id"], actor="Simon")
@@ -398,30 +362,24 @@ async def main():
         t = await s.async_apply_proposal(hass, pt["id"], second["id"], actor="Simon")
         assert t["priority"] == "low" and t["status"] == "in_progress"
         assert [e for e in t["events"] if e["id"] == second["id"]][0]["data"]["proposal"]["state"] == "applied"
-        assert any(e["kind"] == "priority" and e["actor"] == "Simon" for e in t["events"]), "applied as the person, not the agent"
+        assert any(e["kind"] == "priority" and e["actor"] == "Simon" for e in t["events"]), "applied as the person, not the AI"
         try:
             await s.async_apply_proposal(hass, pt["id"], second["id"], actor="Simon")
             raise SystemExit("applied twice")
         except s.TicketError:
             pass
-        # a close proposal closes with its resolution; dismissing changes nothing
         replies = iter(['Close it.\n```home-desk-actions\n[{"action":"close","status":"closed","resolution":"Upstream."}]\n```'])
-        await s.async_update_ticket(hass, pt["id"], actor="Simon", assignee="ai:Claude")
-        await hass.settle()
-        closing = [e for e in (await ticket_of(hass, pt["id"]))["events"] if e["kind"] == "comment"][-1]
+        closing = [e for e in (await ask(pt["id"]))["events"] if e["kind"] == "comment"][-1]
         done = await s.async_apply_proposal(hass, pt["id"], closing["id"], actor="Simon")
         assert done["status"] == "closed" and done["resolution"] == "Upstream."
         d = await s.async_create_ticket(hass, title="Dismiss me", requester="simon", actor="simon")
         replies = iter(['Close.\n```home-desk-actions\n[{"action":"close","status":"closed","resolution":"x"}]\n```'])
-        await s.async_update_ticket(hass, d["id"], actor="Simon", assignee="ai:Claude")
-        await hass.settle()
-        c = [e for e in (await ticket_of(hass, d["id"]))["events"] if e["kind"] == "comment"][-1]
+        c = [e for e in (await ask(d["id"]))["events"] if e["kind"] == "comment"][-1]
         t = await s.async_dismiss_proposal(hass, d["id"], c["id"], actor="Simon")
         assert t["status"] != "closed" and [e for e in t["events"] if e["id"] == c["id"]][0]["data"]["proposal"]["state"] == "dismissed"
-        assert "press Resolve" in (await ctx.async_build_prompt(hass, d["id"], await s.async_get_settings(hass), "Claude")), "the agent is told the screen's words"
-        assert "you never could" in (await ctx.async_build_prompt(hass, d["id"], await s.async_get_settings(hass), "Claude")), "the agent is told it cannot act"
-        assert "Never list options" in (await ctx.async_build_prompt(hass, d["id"], await s.async_get_settings(hass), "Claude")), "the agent is told to decide"
-        stop()
+        prompt = await ctx.async_build_prompt(hass, d["id"], await s.async_get_settings(hass), "Claude")
+        for must in ("press Resolve", "you never could", "Never list options", "give hints"):
+            assert must in prompt, must
         print("proposals ok")
 
         # ---- devices, areas and guesses

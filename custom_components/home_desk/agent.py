@@ -1,11 +1,12 @@
-"""The built-in AI agent: when a ticket is assigned to the agent chosen in Settings, Home Desk asks it for a turn.
+"""The built-in AI: "Ask AI Agent now" asks the AI integration chosen in Settings for hints on a ticket.
 
-The agent is a Home Assistant AI Task entity (for example Claude's). It has no tools and no memory, so Home Desk gives it
-what it needs (agent_context.py) and posts its answer on the ticket as a comment, which hands the ticket back. It only
-reads and replies: it can't change anything. While it works the ticket shows an "agent_state", and a turn that fails or
-times out hands the ticket back with a comment saying so, so a ticket is never left stuck.
+This is separate from **Assign to AI Agent**, which only tags a ticket for an AI the person runs themselves (their own Claude
+CLI, Claude Desktop or anything else) and sends nothing anywhere. Asking for hints sends the ticket to the AI Task entity
+(for example Claude's) and posts its answer as a comment. It never changes the assignee, so a ticket queued for the person's own
+AI stays queued. It has no tools and no memory, so Home Desk gives it what it needs (agent_context.py); it can explain and advise
+and propose changes to the ticket, but can't change anything. While it works the ticket shows an "agent_state", and a request
+that fails or times out leaves a comment saying so, never a ticket stuck "working".
 """
-
 from __future__ import annotations
 
 import asyncio
@@ -14,28 +15,25 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 
 from .agent_context import async_build_prompt
 from .proposals import clean as clean_actions, split_reply
-from .const import AGENT_TIMEOUT, DOMAIN, EVENT_TICKET
+from .const import AGENT_TIMEOUT, DOMAIN
 from .storage import (
     TicketError,
-    _agent_key,
     async_add_comment,
     async_get_settings,
     async_list_categories,
     async_list_labels,
     async_get_ticket,
     async_set_agent_state,
-    async_update_ticket,
-    is_agent,
 )
 
 _LOGGER = logging.getLogger(__name__)
 _RUNS = f"{DOMAIN}_agent_runs"
 _DAY = f"{DOMAIN}_agent_day"
-_SETTLE = 1.0  # a comment posted just before assigning should be on the ticket before it is read
+_SETTLE = 1.0  # a comment posted just before asking should be on the ticket before it is read
 
 
 def _now() -> str:
@@ -83,14 +81,13 @@ async def _ask(hass: HomeAssistant, entity_id: str, task_name: str, instructions
     return text
 
 
-async def _give_back(hass: HomeAssistant, ticket_id: int, message: str) -> None:
-    """Tell the person why there was no answer and hand the ticket back, so it isn't left with the agent."""
+async def _say(hass: HomeAssistant, ticket_id: int, message: str) -> None:
+    """Leave a comment from Home Desk (why there is no answer) and clear the working state. The assignee is never touched."""
     try:
-        await async_add_comment(hass, ticket_id, actor="Home Desk", body=message)
-        await async_update_ticket(hass, ticket_id, actor="Home Desk", assignee=None)
+        await async_add_comment(hass, ticket_id, actor="Home Desk", body=message, hand_back=False)
         await async_set_agent_state(hass, ticket_id, None)
     except TicketError:
-        _LOGGER.debug("Ticket %s is gone, so there is nothing to hand back", ticket_id)
+        _LOGGER.debug("Ticket %s is gone, so there is nobody to tell", ticket_id)
 
 
 async def _turn(hass: HomeAssistant, ticket_id: int, entity_id: str, name: str, settings: dict[str, Any]) -> None:
@@ -101,88 +98,51 @@ async def _turn(hass: HomeAssistant, ticket_id: int, entity_id: str, name: str, 
             prompt = await async_build_prompt(hass, ticket_id, settings, name)
             await async_set_agent_state(hass, ticket_id, {"state": "working", "agent": name, "since": _now(), "note": "Thinking it through"})
             reply = await _ask(hass, entity_id, f"Home Desk ticket #{ticket_id}", prompt)
-        ticket = await async_get_ticket(hass, ticket_id)
-        if not is_agent(ticket["assignee"]):
-            await async_set_agent_state(hass, ticket_id, None)  # handed to someone else while it thought: drop the answer
-            return
         body, raw = split_reply(reply)
         labels = {x["name"].lower() for x in await async_list_labels(hass)} | {x["id"].lower() for x in await async_list_labels(hass)}
         categories = {x["name"].lower() for x in await async_list_categories(hass)} | {x["id"].lower() for x in await async_list_categories(hass)}
         actions = clean_actions(raw, labels=labels, categories=categories)
         await async_add_comment(
-            hass, ticket_id, actor=f"ai:{name}", body=body or reply,
-            event_data={"proposal": {"actions": actions, "state": "pending"}} if actions else None,
+            hass, ticket_id, actor=f"ai:{name}", body=body or reply, hand_back=False,
+            event_data={"hints": True, **({"proposal": {"actions": actions, "state": "pending"}} if actions else {})},
         )
+        await async_set_agent_state(hass, ticket_id, None)
     except asyncio.CancelledError:
         raise  # Stop: async_stop_turn tidies up
     except TimeoutError:
-        await _give_back(hass, ticket_id, f"{name} didn't answer in time, so the ticket is back with you. Assign it again to retry.")
-    except Exception as err:  # noqa: BLE001 - whatever went wrong, the person is told and the ticket is handed back
-        _LOGGER.warning("The AI agent could not work on ticket %s", ticket_id, exc_info=True)
+        await _say(hass, ticket_id, f"{name} didn't answer in time. Ask again to retry.")
+    except Exception as err:  # noqa: BLE001 - whatever went wrong, the person is told
+        _LOGGER.warning("The AI could not give hints on ticket %s", ticket_id, exc_info=True)
         reason = str(err).strip().splitlines()[0][:200] if str(err).strip() else err.__class__.__name__
-        await _give_back(hass, ticket_id, f"{name} couldn't answer this time ({reason}). The ticket is back with you.")
+        await _say(hass, ticket_id, f"{name} couldn't answer this time ({reason}).")
     finally:
         _runs(hass).pop(ticket_id, None)
 
 
-async def async_start_turn(hass: HomeAssistant, ticket_id: int, assignee: str, *, force: bool = False) -> bool:
-    """Start the agent on a ticket. Without `force` that only happens when the agent chosen in Settings is set to start work when
-    assigned (otherwise assigning just hands the ticket over, for an agent outside Home Assistant to pick up). `force` is for a
-    person who asked for it. True if a turn started."""
-    settings = await async_get_settings(hass)
-    entity_id = settings.get("agent") or ""
-    if not entity_id.startswith("ai_task."):
-        if force:
-            raise TicketError("Choose an AI Task agent in Settings first")
-        return False  # only an AI Task entity can be asked for a turn; a conversation agent can't
-    if not force and not settings.get("agent_auto", False):
-        return False
-    name = agent_name(hass, entity_id)
-    if _agent_key(assignee) != name.lower():
-        return False  # assigned to some other agent, such as one run outside Home Assistant
-    if ticket_id in _runs(hass):
-        return False
-    if not _under_cap(hass, int(settings.get("agent_daily_cap", 30))):
-        await _give_back(hass, ticket_id, f"{name} has reached today's limit of {settings['agent_daily_cap']} turns, so the ticket is back with you. The limit is in Settings.")
-        return False
-    _runs(hass)[ticket_id] = hass.async_create_task(_turn(hass, ticket_id, entity_id, name, settings))
-    return True
-
-
 async def async_run_now(hass: HomeAssistant, ticket_id: int, actor: str) -> dict[str, Any]:
-    """"Ask now": hand the ticket to the built-in agent and have it take a turn straight away (this uses the AI plan)."""
+    """"Ask now": ask the AI chosen in Settings for hints on the ticket (this uses the AI plan). The ticket's assignee is left alone."""
     settings = await async_get_settings(hass)
     entity_id = settings.get("agent") or ""
     if not entity_id.startswith("ai_task."):
         raise TicketError("Choose an AI Task agent in Settings first")
-    assignee = f"ai:{agent_name(hass, entity_id)}"
-    ticket = await async_update_ticket(hass, ticket_id, actor=actor, assignee=assignee)
-    await async_start_turn(hass, ticket_id, assignee, force=True)
+    ticket = await async_get_ticket(hass, ticket_id)
+    if ticket_id in _runs(hass):
+        raise TicketError("The AI is already working on this ticket")
+    if not _under_cap(hass, int(settings.get("agent_daily_cap", 30))):
+        raise TicketError(f"The AI has reached today's limit of {settings['agent_daily_cap']} requests. The limit is in Settings.")
+    name = agent_name(hass, entity_id)
+    _runs(hass)[ticket_id] = hass.async_create_task(_turn(hass, ticket_id, entity_id, name, settings))
     return ticket
 
 
 async def async_stop_turn(hass: HomeAssistant, ticket_id: int, actor: str) -> None:
-    """Stop the agent: cancel a turn in progress, say so, and hand the ticket back."""
+    """Stop the AI: cancel a request in progress and say so. The assignee is left alone."""
     task = _runs(hass).pop(ticket_id, None)
     if task:
         task.cancel()
-    await _give_back(hass, ticket_id, f"Stopped by {actor}. The ticket is back with you.")
+    await _say(hass, ticket_id, f"Stopped by {actor}.")
 
 
 async def async_test_agent(hass: HomeAssistant, entity_id: str) -> str:
-    """A harmless request, to see that the chosen agent answers. Returns its answer."""
+    """A harmless request, to see that the chosen AI answers. Returns its answer."""
     return await _ask(hass, entity_id, "Home Desk test", "Reply with one short, friendly sentence saying you are ready to help with smart home tickets.")
-
-
-@callback
-def async_setup_agent(hass: HomeAssistant):
-    """Start the agent when a ticket is assigned to it. Returns the function that stops listening."""
-
-    @callback
-    def _assigned(event: Event) -> None:
-        data = event.data
-        if data.get("kind") != "assigned" or not data.get("with_agent") or is_agent(data.get("actor")):
-            return  # an agent handing a ticket to an agent never starts a turn: no loops
-        hass.async_create_task(async_start_turn(hass, data["ticket_id"], data.get("assignee") or ""))
-
-    return hass.bus.async_listen(EVENT_TICKET, _assigned)

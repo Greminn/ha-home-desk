@@ -76,7 +76,6 @@ export class HaClient {
         repairs: true,
         stt: "",
         transcribe: true,
-        agent_auto: true,
         agent_states: true,
         agent_config: true,
         agent_related: true,

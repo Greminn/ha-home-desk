@@ -149,7 +149,7 @@ export interface TicketEvent {
     | "merge"
     | "attachment";
   body: string | null;
-  data: (Record<string, unknown> & { proposal?: Proposal }) | null;
+  data: (Record<string, unknown> & { proposal?: Proposal; hints?: boolean }) | null;
   created_at: string;
 }
 
@@ -203,8 +203,6 @@ export interface HomeDeskSettings {
   stt: string;
   /** Turn voice messages into text on the ticket. */
   transcribe: boolean;
-  /** The AI agent starts work as soon as a ticket is assigned to it. */
-  agent_auto: boolean;
   /** What is sent to the AI provider with a ticket: entity states, automation and script configuration, related tickets. */
   agent_states: boolean;
   agent_config: boolean;

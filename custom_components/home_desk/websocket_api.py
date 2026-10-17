@@ -436,7 +436,6 @@ async def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConne
         vol.Optional("repairs"): bool,
         vol.Optional("stt"): str,
         vol.Optional("transcribe"): bool,
-        vol.Optional("agent_auto"): bool,
         vol.Optional("agent_states"): bool,
         vol.Optional("agent_config"): bool,
         vol.Optional("agent_related"): bool,

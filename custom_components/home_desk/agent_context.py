@@ -27,7 +27,7 @@ HISTORY_HOURS = 24
 HISTORY_ROWS = 10
 SKIP_ATTRIBUTES = {"entity_picture", "icon", "supported_features", "attribution", "editable", "restored"}
 
-RULES = """You are the AI agent in Home Desk, the helpdesk for a smart home run on Home Assistant. A ticket has been assigned to you.
+RULES = """You give hints in Home Desk, the helpdesk for a smart home run on Home Assistant. The person pressed "Ask AI Agent now" on a ticket to get your help understanding it and ideas for fixing it. You are not the one who fixes it: you only see what is below, and a different AI, which the person runs themselves with access to the home, may do the hands-on work later.
 
 How to work:
 - Reply to the latest message on the ticket. Be clear and brief, and use Markdown.

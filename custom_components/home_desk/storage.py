@@ -830,6 +830,7 @@ async def async_add_comment(
     body: str,
     internal: bool = False,
     event_data: dict[str, Any] | None = None,
+    hand_back: bool = True,
 ) -> dict[str, Any]:
     body = (body or "").strip()
     if not body:
@@ -842,7 +843,8 @@ async def async_add_comment(
         _event(ticket, actor, "note" if internal else "comment", body, event_data, ts)
         ticket["updated_at"] = ts
         _progress(ticket, actor, ts)
-        _hand_back(ticket, actor, ts)
+        if hand_back:
+            _hand_back(ticket, actor, ts)
         await _save(hass, data)
     _fire(hass, ticket, "note" if internal else "comment", actor)
     return ticket
@@ -1537,7 +1539,7 @@ async def async_save_settings(
         patch["repairs"] = bool(patch["repairs"])
     if "transcribe" in patch:
         patch["transcribe"] = bool(patch["transcribe"])
-    for key in ("agent_auto", "agent_states", "agent_config", "agent_related"):
+    for key in ("agent_states", "agent_config", "agent_related"):
         if key in patch:
             patch[key] = bool(patch[key])
     if "agent_daily_cap" in patch:

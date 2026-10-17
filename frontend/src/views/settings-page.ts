@@ -297,13 +297,13 @@ export class SettingsPage extends LitElement {
       </div>
 
       <div class="card">
-        <h2>AI Agent</h2>
+        <h2>AI hints</h2>
         <div class="srow">
           <div class="text">
-            <div class="name">AI Agent</div>
-            <div class="desc">The agent a ticket is assigned to. Pick one of the AI agents set up in Home Assistant.</div>
+            <div class="name">AI for hints</div>
+            <div class="desc">Which AI set up in Home Assistant answers <b>Ask AI Agent now</b> on a ticket, with an explanation and ideas to try. It can't change anything. Assigning a ticket to the AI Agent is separate: that only marks it for an AI you run yourself (such as your Claude CLI) and sends nothing anywhere.</div>
           </div>
-          <st-dropdown plain field label="AI Agent" .value=${s.agent} .options=${agents}
+          <st-dropdown plain field label="AI for hints" .value=${s.agent} .options=${agents}
             @change=${(e: CustomEvent<string>) => void this._save({ agent: e.detail })}></st-dropdown>
         </div>
         ${s.agent && !s.agent.startsWith("ai_task.")
@@ -311,18 +311,11 @@ export class SettingsPage extends LitElement {
           : nothing}
         <div class="srow">
           <div class="text">
-            <div class="name">Run the AI Agent when a ticket is assigned</div>
-            <div class="desc">Off (recommended): assigning a ticket only hands it over, for an agent outside Home Assistant to pick up later, and <b>Ask now</b> on a ticket runs the AI Agent when you choose. On: assigning also runs it straight away, which uses your AI plan every time (you are asked to confirm first). It can only read and reply: it never changes anything in your home.</div>
-          </div>
-          ${this._switch(s.agent_auto, "Start work when assigned", (v) => void this._save({ agent_auto: v }))}
-        </div>
-        <div class="srow">
-          <div class="text">
             <div class="name">Daily limit</div>
-            <div class="desc">The most turns it takes in a day. Past that, tickets come straight back to you.</div>
+            <div class="desc">The most hint requests in a day, so a busy day can't run up your AI plan.</div>
           </div>
           <st-dropdown plain field label="Daily limit" .value=${String(s.agent_daily_cap)}
-            .options=${[...new Set([10, 30, 100, 300, s.agent_daily_cap])].sort((a, b) => a - b).map((n) => ({ id: String(n), label: `${n} a day` }))}
+            .options=${[...new Set([10, 30, 100, 300, s.agent_daily_cap])].sort((a, b) => a - b).map((n) => ({ id: String(n), label: `${n} requests a day` }))}
             @change=${(e: CustomEvent<string>) => void this._save({ agent_daily_cap: Number(e.detail) })}></st-dropdown>
         </div>
         <div class="srow">
@@ -337,7 +330,7 @@ export class SettingsPage extends LitElement {
       </div>
 
       <div class="card">
-        <h2>What the AI Agent is sent</h2>
+        <h2>What the AI is sent for hints</h2>
         <p class="help">The ticket and its comments are always sent. Everything sent goes to your AI provider, with passwords, keys, coordinates and email addresses taken out first.</p>
         <div class="srow">
           <div class="text"><div class="name">Entity states</div><div class="desc">The state, attributes and last day of changes of the entities a ticket names.</div></div>
