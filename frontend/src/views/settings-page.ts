@@ -188,6 +188,14 @@ export class SettingsPage extends LitElement {
       .sort((a, b) => a.label.localeCompare(b.label));
   }
 
+  /** Speech-to-text engines Home Assistant has (stt entities). */
+  private get _engines(): { id: string; label: string }[] {
+    return Object.entries(this.hass.states ?? {})
+      .filter(([id]) => id.startsWith("stt."))
+      .map(([id, st]) => ({ id, label: String(st.attributes["friendly_name"] ?? id) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
   private _switch(on: boolean, label: string, onChange: (v: boolean) => void) {
     return html`<button class="switch" role="switch" aria-checked=${on ? "true" : "false"} aria-label=${label}
       @click=${() => onChange(!on)}></button>`;
@@ -223,6 +231,25 @@ export class SettingsPage extends LitElement {
             <div class="desc">Raise a ticket for each Home Assistant repair, and resolve it when the repair clears.</div>
           </div>
           ${this._switch(s.repairs, "Tickets from Repairs", (v) => void this._save({ repairs: v }))}
+        </div>
+      </div>
+
+      <h2>Voice messages</h2>
+      <div class="card">
+        <div class="srow">
+          <div class="text">
+            <div class="name">Write out voice messages</div>
+            <div class="desc">A voice message sent with a report is turned into text on the ticket, using Home Assistant's speech-to-text. The recording is kept either way.</div>
+          </div>
+          ${this._switch(s.transcribe, "Write out voice messages", (v) => void this._save({ transcribe: v }))}
+        </div>
+        <div class="srow">
+          <div class="text">
+            <div class="name">Speech-to-text</div>
+            <div class="desc">Which engine listens. The default is the one your Assist setup uses.</div>
+          </div>
+          <st-dropdown plain label="Speech-to-text" .value=${s.stt} .options=${[{ id: "", label: "Assist default" }, ...this._engines]}
+            @change=${(e: CustomEvent<string>) => void this._save({ stt: e.detail })}></st-dropdown>
         </div>
       </div>
 

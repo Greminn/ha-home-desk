@@ -91,6 +91,8 @@ export interface TicketSummary {
   closed_at: string | null;
   comment_count: number;
   has_resolution: boolean;
+  /** Photos and voice messages on the ticket. */
+  attachment_count?: number;
 }
 
 export interface TicketEvent {
@@ -104,13 +106,29 @@ export interface TicketEvent {
     | "priority"
     | "assignee"
     | "field"
-    | "link";
+    | "link"
+    | "attachment";
   body: string | null;
   data: Record<string, unknown> | null;
   created_at: string;
 }
 
+/** A photo or a voice message sent with a report. The file itself is fetched with a signed link. */
+export interface Attachment {
+  id: string;
+  kind: "image" | "audio";
+  mime: string;
+  name: string;
+  size: number;
+  by: string;
+  created_at: string;
+  /** Voice messages: the length in seconds, and the words Home Assistant heard (when it has transcribed it). */
+  seconds?: number;
+  transcript?: string;
+}
+
 export interface Ticket extends TicketSummary {
+  attachments?: Attachment[];
   description: string;
   resolution: string | null;
   events: TicketEvent[];
@@ -136,6 +154,10 @@ export interface HomeDeskSettings {
   agent: string;
   /** Raise a ticket for each Home Assistant Repair. */
   repairs: boolean;
+  /** The speech-to-text engine (an stt entity id) for voice messages; empty to use the Assist default. */
+  stt: string;
+  /** Turn voice messages into text on the ticket. */
+  transcribe: boolean;
   notify: {
     /** Notify services to send to, e.g. "mobile_app_simons_iphone" or "persistent_notification". */
     targets: string[];
@@ -153,6 +175,10 @@ export interface HomeAssistant {
   /** Entity states; the person entities give each household member's name and profile picture. */
   states?: Record<string, { state: string; attributes: Record<string, unknown> }>;
   language?: string;
+  /** fetch() with the signed-in user's token, for the report upload. */
+  fetchWithAuth?(path: string, init?: RequestInit): Promise<Response>;
+  /** Any websocket command, e.g. `auth/sign_path` for a link the browser can load without a token. */
+  callWS?<T>(msg: Record<string, unknown>): Promise<T>;
   connection: {
     sendMessagePromise<T>(msg: Record<string, unknown>): Promise<T>;
     subscribeEvents<T>(

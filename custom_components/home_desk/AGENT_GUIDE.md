@@ -20,6 +20,8 @@ The manager, household members (via the panel), AI agents (you), and Home Assist
 | `entities` | HA entity ids the ticket concerns |
 | `resolution` | the cause and the fix, written when closing |
 
+A household member's report can carry **photos and a voice message**. `get_ticket` lists them under `attachments` (kind `image` or `audio`, with a `transcript` for a voice message once Home Assistant has written it out). The words are also quoted in the `description`, so you rarely need more. You can't open the files themselves; ask the manager if a photo matters.
+
 ## Services
 
 All take an optional `actor`. **Always pass `actor` with your own name** (e.g. `"claude"`). Without it the token owner's name is recorded and your work will look like the human's.

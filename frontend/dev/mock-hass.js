@@ -107,14 +107,22 @@ function seed() {
   for (let i = 0; i < 5; i++) add({ title: `2026-08-${10 + i} log review`, status: "closed", labels: ["history", "home-assistant"], ago: (50 - i) * DAY, updated: (50 - i) * DAY, requester: "import" });
   tickets[1].links = [2];
   // A household member's ticket that nobody has sorted yet, newest of all.
-  add({ title: "The front door code doesn't work", status: "new", priority: "high", requester: "Qionne", labels: ["bug"], ago: 12 * MIN });
+  const door = add({ title: "The front door code doesn't work", status: "new", priority: "high", requester: "Qionne", labels: ["bug"], ago: 12 * MIN,
+    description: "It beeped three times and stayed locked.\n\n> **Voice message** (transcribed by Home Assistant)\n>\n> I tried the new code a few times this morning and it just beeps." });
+  door.attachments = [
+    { id: "aaaaaaaaaaa1", kind: "image", mime: "image/svg+xml", name: "keypad.jpg", size: 120000, by: "Qionne", created_at: iso(12 * MIN) },
+    { id: "aaaaaaaaaaa2", kind: "image", mime: "image/svg+xml", name: "door.jpg", size: 98000, by: "Qionne", created_at: iso(12 * MIN) },
+    { id: "aaaaaaaaaaa3", kind: "audio", mime: "audio/wav", name: "voice message", size: 96044, by: "Qionne", created_at: iso(12 * MIN), seconds: 3,
+      transcript: "I tried the new code a few times this morning and it just beeps." },
+  ];
+  door.events.push({ id: door.events.length + 1, actor: "Qionne", kind: "attachment", body: null, data: { field: "attachments", to: "2 photos and a voice message" }, created_at: iso(12 * MIN) });
   const categories = {};
   for (const [id, name, icon, builtin] of CATEGORIES) categories[id] = { id, name, icon, builtin };
   for (const t of Object.values(tickets)) {
     t.category = CATEGORY_OF.find(([w]) => t.title.includes(w))?.[1] ?? null;
     if (t.source === "Home Assistant Repairs" && !t.category) t.category = "home-assistant";
   }
-  const settings = { auto_close: "7d", agent: "ai_task.claude_ai_task", repairs: true, notify: { targets: ["mobile_app_simons_iphone"], new_ticket: true, comment: true, resolved: false } };
+  const settings = { auto_close: "7d", agent: "ai_task.claude_ai_task", repairs: true, stt: "", transcribe: true, notify: { targets: ["mobile_app_simons_iphone"], new_ticket: true, comment: true, resolved: false } };
   return { labels, tickets, categories, settings, nextId: n + 2 };
 }
 
@@ -129,8 +137,8 @@ export function createMock() {
   const visible = (t) => isAdmin() || t.requester === state.user.name;
   const view = (t) => ({ ...t, events: isAdmin() ? t.events : t.events.filter((e) => e.kind !== "note") });
   const summary = (t) => {
-    const { description, events, resolution, ...rest } = t;
-    return { ...rest, comment_count: events.filter((e) => e.kind === "comment" || e.kind === "note").length, has_resolution: !!resolution };
+    const { description, events, resolution, attachments, ...rest } = t;
+    return { ...rest, attachment_count: attachments?.length ?? 0, comment_count: events.filter((e) => e.kind === "comment" || e.kind === "note").length, has_resolution: !!resolution };
   };
   const ensureLabel = (raw) => {
     const found = Object.values(db.labels).find((l) => l.id === raw || l.name.toLowerCase() === raw.toLowerCase());
@@ -264,7 +272,64 @@ export function createMock() {
     stats: () => ({ total: Object.keys(db.tickets).length }),
   };
 
+  // Files the mock "serves": the seeded ones are drawn on the fly; uploaded ones are the browser's own blobs.
+  const files = new Map();
+  const picture = (hue, label) => "data:image/svg+xml," + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="hsl(${hue},35%,45%)"/><text x="200" y="160" font-size="28" fill="#fff" text-anchor="middle" font-family="sans-serif">${label}</text></svg>`);
+  const beep = () => {
+    const rate = 16000, n = rate * 3, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    const w = (at, str) => [...str].forEach((c, i) => v.setUint8(at + i, c.charCodeAt(0)));
+    w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.sin(i / 20) * 3000 * (i % 8000 < 4000 ? 1 : 0), true);
+    return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+  };
+  files.set("aaaaaaaaaaa1", picture(200, "Keypad photo"));
+  files.set("aaaaaaaaaaa2", picture(30, "Door photo"));
+  files.set("aaaaaaaaaaa3", beep());
+
   const hass = {
+    // The report upload and the signed links, as the real backend serves them.
+    fetchWithAuth: async (path, init) => {
+      const json = (status, body) => ({ ok: status < 400, status, json: async () => body });
+      if (path !== "/api/home_desk/report") return json(404, { message: "Not found" });
+      const form = init.body;
+      const title = String(form.get("title") ?? "").trim();
+      if (!title) return json(400, { message: "Say what it is in a line" });
+      if (!["bug", "enhancement"].includes(form.get("kind"))) return json(400, { message: "Choose Problem or Suggestion" });
+      const t = handlers.create({ title, description: String(form.get("details") ?? ""), labels: [form.get("kind")] });
+      const made = [];
+      for (const f of form.getAll("image")) {
+        const id = Math.random().toString(16).slice(2, 14).padEnd(12, "0");
+        files.set(id, URL.createObjectURL(f));
+        made.push({ id, kind: "image", mime: f.type, name: f.name, size: f.size, by: state.user.name, created_at: iso(0) });
+      }
+      const audio = form.get("audio");
+      if (audio) {
+        const id = Math.random().toString(16).slice(2, 14).padEnd(12, "0");
+        files.set(id, URL.createObjectURL(audio));
+        made.push({ id, kind: "audio", mime: "audio/wav", name: "voice message", size: audio.size, by: state.user.name, created_at: iso(0), seconds: Math.round((audio.size - 44) / 32000) });
+        // The words arrive a moment later, as they would from speech-to-text.
+        setTimeout(() => {
+          const heard = "The lounge light flickers every evening around seven.";
+          made.find((a) => a.id === id).transcript = heard;
+          t.description += `${t.description ? "\n\n" : ""}> **Voice message** (transcribed by Home Assistant)\n>\n> ${heard}`;
+          fire(t, "updated", "Home Desk");
+        }, 1500);
+      }
+      t.attachments = made;
+      if (made.length) {
+        const photos = made.filter((a) => a.kind === "image").length;
+        const text = [photos && `${photos} photo${photos === 1 ? "" : "s"}`, made.some((a) => a.kind === "audio") && "a voice message"].filter(Boolean).join(" and ");
+        t.events.push({ id: t.events.length + 1, actor: state.user.name, kind: "attachment", body: null, data: { field: "attachments", to: text }, created_at: iso(0) });
+      }
+      return json(200, { id: t.id, title: t.title, photos: made.filter((a) => a.kind === "image").length, voice: !!audio });
+    },
+    callWS: async (msg) => {
+      if (msg.type !== "auth/sign_path") throw { message: "Unknown command" };
+      const id = String(msg.path).split("/").pop();
+      return { path: files.get(id) ?? picture(0, "Missing") };
+    },
     get user() { return state.user; },
     // HA's person entities: Simon has a profile picture, Qionne doesn't (so she gets the person icon).
     // The notify services and AI entities that Settings offers.
@@ -274,6 +339,7 @@ export function createMock() {
       "conversation.claude_conversation": { state: "unknown", attributes: { friendly_name: "Claude conversation" } },
       "conversation.home_assistant": { state: "unknown", attributes: { friendly_name: "Home Assistant" } },
       // Your real HA profile picture, copied into dev/local/ (git-ignored). Without the file the person icon shows.
+      "stt.faster_whisper": { state: "unknown", attributes: { friendly_name: "Faster Whisper" } },
       "person.simon": { state: "home", attributes: { friendly_name: "Simon", entity_picture: "/local/simon.jpg" } },
       "person.qionne": { state: "home", attributes: { friendly_name: "Qionne" } },
     },

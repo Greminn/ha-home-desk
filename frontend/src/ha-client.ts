@@ -69,6 +69,8 @@ export class HaClient {
         auto_close: "7d",
         agent: "",
         repairs: true,
+        stt: "",
+        transcribe: true,
         notify: { targets: [], new_ticket: true, comment: true, resolved: false },
       };
     }
@@ -119,6 +121,23 @@ export class HaClient {
     status: "resolved" | "closed",
   ): Promise<Ticket> {
     return this.send("close", { ticket_id: ticketId, resolution, status });
+  }
+
+  /** Sends a household report (message, photos, a voice message) as one upload. Returns what the thank-you needs. */
+  async report(form: FormData): Promise<{ id: number; photos: number; voice: boolean }> {
+    if (!this.hass.fetchWithAuth) throw new Error("This page can't send files");
+    const res = await this.hass.fetchWithAuth("/api/home_desk/report", { method: "POST", body: form });
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    if (!res.ok) throw new Error(body.message || `The report couldn't be sent (${res.status})`);
+    return body as { id: number; photos: number; voice: boolean };
+  }
+
+  /** A link to an attachment the browser can load directly (images, audio), good for a while. */
+  async attachmentUrl(ticketId: number, attachmentId: string): Promise<string> {
+    const path = `/api/home_desk/attachment/${ticketId}/${attachmentId}`;
+    if (!this.hass.callWS) return path;
+    const { path: signed } = await this.hass.callWS<{ path: string }>({ type: "auth/sign_path", path, expires: 3600 });
+    return signed;
   }
 
   /** Fires whenever any ticket changes (panel, AI agent, automation). */

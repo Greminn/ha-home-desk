@@ -7,7 +7,7 @@
 
 A helpdesk for the home, living inside Home Assistant. The manager, household members, AI agents and Home Assistant itself raise tickets; the manager and AI agents work them through to resolution, with the full history kept. Home Assistant is the heart of a smart home, so it's where tickets live, but they can be about anything around it too (the network, the servers, the media box). Categories keep those apart. See [IDEA.md](IDEA.md) for the bigger vision.
 
-**Status: v0.1 plus the unreleased changes in the [changelog](custom_components/home_desk/CHANGELOG.md), in daily use on one install.** Built: a ticket list and a flat, full-width ticket page in the Home Assistant style, a four-status lifecycle that moves by itself, categories (what part of the home a ticket is about) and GitHub-style labels, assigning tickets to an AI agent, a Settings page, AI access, Home Assistant Repairs as tickets, import of an existing markdown tracker. Not built yet: a simple report form for household users, push notifications (the options are stored, nothing is sent yet), the AI agent doing work on assignment, reporting. See [IDEA.md](IDEA.md).
+**Status: v0.1 plus the unreleased changes in the [changelog](custom_components/home_desk/CHANGELOG.md), in daily use on one install.** Built: a ticket list and a flat, full-width ticket page in the Home Assistant style, a four-status lifecycle that moves by itself, categories (what part of the home a ticket is about) and GitHub-style labels, assigning tickets to an AI agent, a Settings page, AI access, Home Assistant Repairs as tickets, import of an existing markdown tracker. Also built: a simple report form for household users, with photos and a voice message that Home Assistant's speech-to-text writes out. Not built yet: push notifications (the options are stored, nothing is sent yet), the AI agent doing work on assignment, reporting. See [IDEA.md](IDEA.md).
 
 *Formerly "Support Tickets" (domain `support_tickets`); see [Upgrading from Support Tickets](#upgrading-from-support-tickets).*
 
@@ -58,7 +58,15 @@ Labels work as they do on GitHub: they say what a ticket is, and which system or
 - Every other label is yours: **Manage labels** (in the panel's ⋮ menu, admins only) opens a page like Home Assistant's own Labels page, where you create, edit (name, icon, colour, description) and delete them. Renaming keeps tickets labelled; deleting removes the label from every ticket after a confirmation that says how many.
 - Typing a label name that doesn't exist (in the panel, or an AI agent using it) creates it, with a colour picked automatically. Names match case-insensitively.
 - A suggested scheme, used on the imported tracker: a **system** (Home Assistant, Network, Infrastructure, Media), **topics** (Zigbee, Lighting, Automations, Dashboards, Cameras, Presence, Energy, Voice, Security...) and **workflow** labels (Needs review, Monitoring, Recurring, Side project). Nothing enforces it.
-- Household users can pick Bug, Enhancement or Question when raising their own ticket; only admins set other labels and the priority.
+- Household users can pick Problem (the Bug label) or Suggestion (Enhancement) when raising their own ticket; only admins set other labels and the priority.
+
+### Household reports, photos and voice messages
+
+Household users see only a report form. Besides the type, a line and some detail, they can add up to **6 photos** (shrunk to 1600 px in the browser) and a **voice message** of up to 3 minutes, recorded in the panel (the microphone needs https or localhost) or picked from the device. Everything goes in one upload to `POST /api/home_desk/report`.
+
+- **Voice to text:** the recording is converted in the browser to 16 kHz mono WAV and, after the report is sent, passed to Home Assistant's speech-to-text (the engine in Settings, or the one your Assist pipeline uses). The words are added to the ticket's description as a quoted block and stored on the recording. A failure never loses the ticket or the recording. Switch it off in Settings.
+- **Where files live:** `<config>/home_desk_attachments/<ticket>/`. They are judged by their first bytes (JPEG, PNG, WebP, WAV, Ogg, WebM, MP4/M4A, MP3 only), served with `nosniff` and a sandboxing content policy, and only to administrators and the person who sent them. The panel loads them through signed links.
+- **Limits:** photos 10 MB each, a voice message 12 MB, ten reports an hour per person. Refused reports leave nothing behind.
 
 ## Categories
 

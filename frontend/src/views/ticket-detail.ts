@@ -4,6 +4,8 @@ import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { safeCustomElement } from "../define";
 import "./dropdown";
 import "./ticket-tags";
+import "./ticket-attachments";
+import type { HaClient } from "../ha-client";
 import { sharedStyles } from "../styles";
 import { BLOCKED, PRIORITIES } from "../types";
 import type { Category, Priority, Status, Label, Ticket, TicketEvent, TicketPatch } from "../types";
@@ -111,8 +113,15 @@ export class TicketDetail extends LitElement {
         margin: 0;
       }
       .desc-sticky.one .more,
-      .desc-sticky.one .entities {
+      .desc-sticky.one .entities,
+      .desc-sticky.one .attached {
         display: none;
+      }
+      .attached {
+        margin-top: 12px;
+      }
+      .md + .attached {
+        margin-top: 16px;
       }
       .desc-sticky .pin-hint {
         --mdc-icon-size: 20px;
@@ -635,6 +644,7 @@ export class TicketDetail extends LitElement {
   ];
 
   @property({ attribute: false }) ticket: Ticket | null = null;
+  @property({ attribute: false }) client?: HaClient;
   @property({ type: Boolean }) isAdmin = false;
   @property({ type: Boolean }) narrow = false;
   @property() language: string | undefined = undefined;
@@ -915,6 +925,8 @@ export class TicketDetail extends LitElement {
         return d.to ? `assigned this to ${show(d.to)}` : "unassigned this";
       case "link":
         return `linked ticket #${String(d.to)}`;
+      case "attachment":
+        return `added ${String(d.to)}`;
       case "field":
         return d.field === "description"
           ? "edited the description"
@@ -948,6 +960,8 @@ export class TicketDetail extends LitElement {
         return { field: "Assignee", from: show(d.from), to: show(d.to), icon: "mdi:account-outline", tone: "var(--st-fg-secondary)" };
       case "link":
         return { field: "Linked", to: `ticket #${String(d.to)}`, icon: "mdi:link-variant", tone: "var(--st-fg-secondary)" };
+      case "attachment":
+        return { field: "Added", to: String(d.to), icon: "mdi:paperclip", tone: "var(--st-fg-secondary)" };
       case "field": {
         const name = String(d.field ?? "field");
         const label = name.charAt(0).toUpperCase() + name.slice(1);
@@ -1042,14 +1056,17 @@ export class TicketDetail extends LitElement {
       </div>
       <div class="scroll" @scroll=${this._onScroll}>
         <div class="wrap">
-        ${t.description
+        ${t.description || t.attachments?.length
           ? html`<div class="desc-sticky ${this._descCollapsed ? "one" : ""}"
               role=${this._descCollapsed ? "button" : nothing} tabindex=${this._descCollapsed ? 0 : nothing}
               aria-label=${this._descCollapsed ? "Show the full description" : nothing}
               @click=${this._expandDescription}
               @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && this._descCollapsed && (e.preventDefault(), this._expandDescription())}>
               <div class="card desc">
-                <div class="md ${long && !this._expanded ? "clamp" : ""}">${unsafeHTML(renderMarkdown(t.description))}</div>
+                ${t.description ? html`<div class="md ${long && !this._expanded ? "clamp" : ""}">${unsafeHTML(renderMarkdown(t.description))}</div>` : nothing}
+                ${t.attachments?.length && this.client
+                  ? html`<st-ticket-attachments class="attached" .client=${this.client} .ticketId=${t.id} .items=${t.attachments}></st-ticket-attachments>`
+                  : nothing}
                 ${long ? html`<button class="more" @click=${() => (this._expanded = !this._expanded)}>${this._expanded ? "Show Less" : "Show All"}</button>` : nothing}
                 ${t.entities.length ? html`<div class="entities">${t.entities.map((x) => html`<code>${x}</code>`)}</div>` : nothing}
               </div>

@@ -499,6 +499,7 @@ export class HomeDeskPanel extends LitElement {
         </div>
         <st-ticket-detail
           .ticket=${this._selected}
+          .client=${this._client}
           .isAdmin=${this._admin}
           .narrow=${this._compact}
           .language=${lang}

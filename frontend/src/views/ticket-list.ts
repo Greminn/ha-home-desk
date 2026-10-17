@@ -201,6 +201,9 @@ export class TicketList extends LitElement {
               ${t.comment_count
                 ? html`<span><ha-icon icon="mdi:comment-outline"></ha-icon> ${t.comment_count}</span>`
                 : nothing}
+              ${t.attachment_count
+                ? html`<span title="Photos and voice messages"><ha-icon icon="mdi:paperclip"></ha-icon> ${t.attachment_count}</span>`
+                : nothing}
             </div>
             <div class="meta2"><st-ticket-tags .ticket=${t} .categoryMap=${this.categoryMap} .labelMap=${this.labelMap} .isAdmin=${this.isAdmin}></st-ticket-tags></div>
           </div>
