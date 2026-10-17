@@ -34,7 +34,7 @@ export class SettingsPage extends LitElement {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
-        background: var(--st-surface);
+        background: var(--st-bg);
       }
       .page {
         max-width: 720px;
@@ -57,6 +57,8 @@ export class SettingsPage extends LitElement {
       .card {
         border: 1px solid var(--st-outline);
         border-radius: var(--ha-border-radius-xl, 12px);
+        /* Home Assistant's settings boxes are lighter than the page behind them. */
+        background: var(--ha-card-background, var(--st-surface));
         overflow: hidden;
       }
       .srow {
@@ -105,7 +107,8 @@ export class SettingsPage extends LitElement {
         width: 20px;
         height: 20px;
         border-radius: 50%;
-        background: var(--card-background-color, var(--st-surface));
+        /* Off: a light grey thumb, as in Home Assistant, so it shows against the track and the box. */
+        background: var(--switch-unchecked-button-color, color-mix(in srgb, var(--st-fg) 70%, var(--st-surface)));
         box-shadow: var(--st-shadow-m);
         transition: transform 150ms ease-in-out, background-color 150ms ease-in-out;
       }
