@@ -172,6 +172,24 @@ def list_labels() -> dict[str, Any]:
 
 
 @mcp.tool()
+def create_label(name: str, color: str | None = None, description: str | None = None, icon: str | None = None) -> dict[str, Any]:
+    """Create a label such as Zigbee or Needs review. Check list_labels first so you don't add a near-duplicate. `color` is a Home Assistant colour name (teal, red...); one is picked if you leave it out."""
+    return _call("create_label", {"name": name, "color": color, "description": description, "icon": icon, "actor": ACTOR})
+
+
+@mcp.tool()
+def update_label(label: str, name: str | None = None, color: str | None = None, description: str | None = None, icon: str | None = None) -> dict[str, Any]:
+    """Rename a label or change its colour, icon or description; tickets keep it. The built-in labels can't be changed."""
+    return _call("update_label", {"label": label, "name": name, "color": color, "description": description, "icon": icon, "actor": ACTOR})
+
+
+@mcp.tool()
+def delete_label(label: str) -> dict[str, Any]:
+    """Delete a label nothing uses. A label in use is refused: remove it from those tickets first. The built-in labels can't be deleted."""
+    return _call("delete_label", {"label": label, "actor": ACTOR})
+
+
+@mcp.tool()
 def list_categories() -> dict[str, Any]:
     """Every category (what part of the home a ticket is about) with id, name, icon and ticket count."""
     return _call("list_categories", {})

@@ -36,6 +36,9 @@ All take an optional `actor`. **Always pass `actor` with your own name** (e.g. `
 | `close_ticket` | `ticket_id`, `resolution` (required), `status` (`resolved` default, or `closed`). |
 | `link_tickets` | Mark two tickets as related. |
 | `list_labels` | Every label with id, name, colour, description and ticket count. |
+| `create_label` | `name` (and optional `color`, `description`, `icon`). Check `list_labels` first so you don't add a near-duplicate. |
+| `update_label` | Rename a label or change its colour, icon or description; tickets keep it. The built-in labels can't be changed. |
+| `delete_label` | Only a label no ticket uses; one in use is refused (ask the manager to delete it in the panel). The built-in labels can't be deleted. |
 | `list_categories` | Every category with id, name, icon and ticket count. |
 | `create_category` | `name` (and an optional `icon`). Check `list_categories` first. A ticket's `category` must exist, so create it before using it. |
 | `update_category` | Rename a category or change its icon. Home Assistant can't be changed. |

@@ -292,7 +292,7 @@ async def main():
     await services.async_setup_services(hass)
     assert set(hass.services.open) == {"get_guide", "get_changelog"}, set(hass.services.open)
     for name in ("create_ticket", "get_ticket", "list_tickets", "update_ticket", "add_comment", "close_ticket", "link_tickets",
-                 "list_labels", "list_categories", "create_category", "update_category", "delete_category", "get_stats", "import_file"):
+                 "list_labels", "create_label", "update_label", "delete_label", "list_categories", "create_category", "update_category", "delete_category", "get_stats", "import_file"):
         assert name in ADMIN_SERVICES, f"{name} must need an administrator"
     print("service permissions ok")
 
@@ -323,6 +323,39 @@ async def main():
         raise SystemExit("deleted the built-in category")
     except HomeAssistantError:
         pass
+    # labels: agents can create, change and delete unused ones, never a built-in or one in use
+    lab = await svc("create_label", name="Zigbee", color="teal", description="Zigbee devices", actor="claude")
+    assert lab["id"] == "zigbee" and lab["color"] == "teal" and not lab["builtin"]
+    try:
+        await svc("create_label", name="zigbee", actor="claude")
+        raise SystemExit("a duplicate label was created")
+    except HomeAssistantError:
+        pass
+    assert (await svc("update_label", label="Zigbee", name="Zigbee mesh", color="purple"))["name"] == "Zigbee mesh"
+    await svc("update_ticket", ticket_id=a["id"], add_labels=["zigbee"], actor="claude")
+    try:
+        await svc("delete_label", label="zigbee")
+        raise SystemExit("an agent deleted a label in use")
+    except HomeAssistantError as err:
+        assert "use Zigbee mesh" in str(err)
+    await svc("update_ticket", ticket_id=a["id"], remove_labels=["zigbee"], actor="claude")
+    assert (await svc("delete_label", label="Zigbee mesh")) == {"deleted": "Zigbee mesh"}
+    for bad in (dict(label="Bug", name="Defect"), ):
+        try:
+            await svc("update_label", **bad)
+            raise SystemExit("changed a built-in label")
+        except HomeAssistantError:
+            pass
+    try:
+        await svc("delete_label", label="Bug")
+        raise SystemExit("deleted a built-in label")
+    except HomeAssistantError:
+        pass
+    try:
+        await svc("create_label", name="Odd", color="chartreuse")
+        raise SystemExit("an unknown colour was accepted")
+    except Exception as err:
+        assert not isinstance(err, SystemExit)
     stats = await svc("get_stats")
     assert stats["no_category"] == 1 and "with_agent" in stats and [c["id"] for c in stats["categories"]] == ["home-assistant"]
     # the AI agent flow through the services: assign, then the agent replies

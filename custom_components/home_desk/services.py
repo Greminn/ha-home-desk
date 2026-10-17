@@ -21,14 +21,16 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.service import async_register_admin_service
 
 from .changelog import changelog_since
-from .const import DOMAIN, LEGACY_TYPE_LABELS, PRIORITIES, STATUS_ALIASES, STATUSES
+from .const import DOMAIN, LABEL_COLORS, LEGACY_TYPE_LABELS, PRIORITIES, STATUS_ALIASES, STATUSES
 from .storage import (
     TicketError,
     async_add_comment,
     async_close_ticket,
     async_create_category,
+    async_create_label,
     async_create_ticket,
     async_delete_category,
+    async_delete_label,
     async_get_ticket,
     async_import_tickets,
     async_list_categories,
@@ -37,6 +39,7 @@ from .storage import (
     async_list_tickets,
     async_stats,
     async_update_category,
+    async_update_label,
     async_update_ticket,
     upgrade_legacy_fields,
 )
@@ -143,6 +146,32 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def list_labels(call: ServiceCall) -> dict[str, Any]:
         return {"labels": await async_list_labels(hass)}
+
+    async def _find_label(ref: str) -> dict[str, Any]:
+        ref = ref.strip().lower()
+        found = next((l for l in await async_list_labels(hass) if l["id"] == ref or l["name"].lower() == ref), None)
+        if found is None:
+            raise TicketError(f"Unknown label {ref!r}")
+        return found
+
+    async def create_label(call: ServiceCall) -> dict[str, Any]:
+        d = call.data
+        return await async_create_label(
+            hass, name=d["name"], color=d.get("color"), description=d.get("description", ""), icon=d.get("icon", "")
+        )
+
+    async def update_label(call: ServiceCall) -> dict[str, Any]:
+        d = call.data
+        found = await _find_label(d["label"])
+        return await async_update_label(
+            hass, found["id"], name=d.get("name"), color=d.get("color"), description=d.get("description"), icon=d.get("icon")
+        )
+
+    async def delete_label(call: ServiceCall) -> dict[str, Any]:
+        found = await _find_label(call.data["label"])
+        # Agents may only remove a label nothing uses; the manager can delete a used one in the panel.
+        await async_delete_label(hass, found["id"], only_if_empty=True)
+        return {"deleted": found["name"]}
 
     async def list_categories(call: ServiceCall) -> dict[str, Any]:
         return {"categories": await async_list_categories(hass)}
@@ -279,6 +308,25 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         **_ACTOR,
     }), supports_response=both)
     s(DOMAIN, "list_labels", _wrap(list_labels), vol.Schema({}), supports_response=SupportsResponse.ONLY)
+    s(DOMAIN, "create_label", _wrap(create_label), vol.Schema({
+        vol.Required("name"): cv.string,
+        vol.Optional("color"): vol.In(LABEL_COLORS),
+        vol.Optional("description"): cv.string,
+        vol.Optional("icon"): cv.string,
+        **_ACTOR,
+    }), supports_response=both)
+    s(DOMAIN, "update_label", _wrap(update_label), vol.Schema({
+        vol.Required("label"): cv.string,
+        vol.Optional("name"): cv.string,
+        vol.Optional("color"): vol.In(LABEL_COLORS),
+        vol.Optional("description"): cv.string,
+        vol.Optional("icon"): cv.string,
+        **_ACTOR,
+    }), supports_response=both)
+    s(DOMAIN, "delete_label", _wrap(delete_label), vol.Schema({
+        vol.Required("label"): cv.string,
+        **_ACTOR,
+    }), supports_response=both)
     s(DOMAIN, "list_categories", _wrap(list_categories), vol.Schema({}), supports_response=SupportsResponse.ONLY)
     s(DOMAIN, "create_category", _wrap(create_category), vol.Schema({
         vol.Required("name"): cv.string,

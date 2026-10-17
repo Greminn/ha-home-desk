@@ -33,6 +33,22 @@ SERVICES = {
         "since": ("Since version", "Only include releases newer than this version. The Unreleased section is always included.", TEXT, False, "0.1.0"),
     }),
     "list_labels": ("List labels", "Return every label with its id, name, colour, description and how many tickets use it. Prefer an existing label over inventing a new one; a label name you use that doesn't exist is created automatically. Built-in labels: Bug, Enhancement, Task, Question, History and Blocked. (What part of the home a ticket is about is a category, see list_categories.)", {}),
+    "create_label": ("Create label", "Create a label, for example Zigbee or Needs review. Check list_labels first so you don't add a near-duplicate. Pass `actor` with your own name.", {
+        "name": ("Name", "The label's name.", TEXT, True, "Zigbee"),
+        "color": ("Colour", "One of Home Assistant's colour names, e.g. teal. Picked automatically if left out.", TEXT, False, "teal"),
+        "description": ("Description", "What the label means.", TEXT, False, None),
+        "icon": ("Icon", "An optional icon such as mdi:zigbee.", TEXT, False, None),
+        "actor": ACTOR}),
+    "update_label": ("Update label", "Rename a label or change its colour, icon or description. Tickets keep the label when it is renamed. The built-in labels (Bug, Enhancement, Task, Question, History, Blocked) can't be changed.", {
+        "label": ("Label", "The label's name or id.", TEXT, True, "Zigbee"),
+        "name": ("New name", "A new name.", TEXT, False, None),
+        "color": ("Colour", "A new colour name, e.g. teal.", TEXT, False, None),
+        "description": ("Description", "A new description.", TEXT, False, None),
+        "icon": ("Icon", "A new icon such as mdi:zigbee.", TEXT, False, None),
+        "actor": ACTOR}),
+    "delete_label": ("Delete label", "Delete a label that no ticket uses. A label in use is refused: remove it from those tickets first, or ask the manager to delete it in the panel. The built-in labels can't be deleted.", {
+        "label": ("Label", "The label's name or id.", TEXT, True, "Zigbee"),
+        "actor": ACTOR}),
     "list_categories": ("List categories", "Return every category with its id, name, icon and how many tickets use it. A category says what part of the smart home a ticket is about (Home Assistant, Network, Lighting...). A ticket has at most one. Home Assistant is built in.", {}),
     "create_category": ("Create category", "Create a category, for example Network or Cameras. Check list_categories first. Pass `actor` with your own name.", {
         "name": ("Name", "The category's name.", TEXT, True, "Network"),

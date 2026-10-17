@@ -967,8 +967,11 @@ async def async_update_label(
     return label
 
 
-async def async_delete_label(hass: HomeAssistant, label_id: str) -> int:
-    """Delete a label and remove it from every ticket. Returns how many tickets lost it."""
+async def async_delete_label(hass: HomeAssistant, label_id: str, *, only_if_empty: bool = False) -> int:
+    """Delete a label and remove it from every ticket. Returns how many tickets lost it.
+
+    With `only_if_empty` (what AI agents get) a label that is in use is refused instead.
+    """
     async with _lock(hass):
         data = await _load(hass)
         label = data["label_registry"].get(label_id)
@@ -976,6 +979,9 @@ async def async_delete_label(hass: HomeAssistant, label_id: str) -> int:
             raise TicketError(f"Label {label_id!r} not found")
         if label["builtin"]:
             raise TicketError(f"{label['name']} is a built-in label and can't be deleted")
+        using = [t for t in data["tickets"].values() if label_id in t["labels"]]
+        if using and only_if_empty:
+            raise TicketError(f"{len(using)} ticket(s) use {label['name']}; remove it from them first, or ask the manager to delete it")
         removed = 0
         for t in data["tickets"].values():
             if label_id in t["labels"]:
