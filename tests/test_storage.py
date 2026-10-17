@@ -90,11 +90,34 @@ stub("homeassistant.core", HomeAssistant=FakeHass, Event=object, callback=lambda
 stub("homeassistant.helpers.issue_registry", IssueEntry=FakeIssue, async_get=lambda hass: FakeRegistry(),
      EVENT_REPAIRS_ISSUE_REGISTRY_UPDATED="repairs_issue_registry_updated")
 stub("homeassistant.helpers.translation", async_get_translations=fake_translations)
+TIMERS = []  # (delay, action, cancelled) from async_call_later; fired by hand in the tests
+
+
+def fake_call_later(hass, delay, action):
+    entry = [delay, action, False]
+    TIMERS.append(entry)
+
+    def cancel():
+        entry[2] = True
+
+    return cancel
+
+
+async def fire_timers():
+    """Run every timer that is still wanted (what time passing would do)."""
+    due = [t for t in TIMERS if not t[2]]
+    TIMERS.clear()
+    for _delay, action, _ in due:
+        await action(None)
+
+
+stub("homeassistant.helpers.event", async_call_later=fake_call_later)
 helpers = stub("homeassistant.helpers")
 stub("homeassistant.helpers.storage", Store=FakeStore)
 
 helpers.issue_registry = sys.modules["homeassistant.helpers.issue_registry"]
 helpers.translation = sys.modules["homeassistant.helpers.translation"]
+helpers.event = sys.modules["homeassistant.helpers.event"]
 
 pkg = types.ModuleType("home_desk")
 pkg.__path__ = [str(PKG)]
@@ -459,15 +482,36 @@ async def main():
     assert hue["title"] == "Bridge Lounge needs an update" and hue["priority"] == "high", hue["title"]
     assert "Update Lounge in the Hue app." in hue["description"] and "[Learn more](https://example.com/hue)" in hue["description"]
     assert "Settings" in hue["description"]  # fixable hint
-    assert tix["repair:mqtt:stale"]["status"] == "resolved"
-    # live: HA clears the hue repair, the registry fires an event, the ticket resolves
+    # a repair missing at start is not resolved at once: many integrations raise theirs again only after their own delayed checks
+    assert tix["repair:mqtt:stale"]["status"] == "new", "not cleared while HA has only just started"
+    waiting = [t for t in TIMERS if not t[2]]
+    assert [t[0] for t in waiting] == [repairs.START_GRACE], waiting
+    await fire_timers()  # the grace period passes and the repair is still missing
+    stale = await s.async_get_ticket(hass3, tix["repair:mqtt:stale"]["id"])
+    assert stale["status"] == "resolved" and "15 minutes after Home Assistant started" in stale["resolution"], stale["resolution"]
+    # a repair that comes back during the grace period is never resolved
+    FakeRegistry.issues = {("hue", "old_fw"): FakeRegistry.issues[("hue", "old_fw")]} if False else FakeRegistry.issues
+    # live: HA removes the hue repair: it waits a couple of minutes, then the ticket resolves
+    saved_issues = dict(FakeRegistry.issues)
     FakeRegistry.issues = {}
     (listener,) = hass3.bus.listeners["repairs_issue_registry_updated"]
     class Ev:  # noqa: D401
         data = {"action": "remove", "domain": "hue", "issue_id": "old_fw"}
     listener(Ev)
     await asyncio.gather(*hass3.tasks)
-    assert (await s.async_get_ticket(hass3, hue["id"]))["status"] == "resolved"
+    assert (await s.async_get_ticket(hass3, hue["id"]))["status"] != "resolved", "an integration reload removes and re-raises its issues"
+    assert [t[0] for t in TIMERS if not t[2]] == [repairs.REMOVE_GRACE]
+    FakeRegistry.issues = saved_issues  # it is raised again within the grace period
+    listener(type("Ev", (), {"data": {"action": "create", "domain": "hue", "issue_id": "old_fw"}}))
+    await asyncio.gather(*hass3.tasks)
+    await fire_timers()
+    assert (await s.async_get_ticket(hass3, hue["id"]))["status"] == "new", "back in time: nothing happened"
+    FakeRegistry.issues = {}
+    listener(Ev)
+    await asyncio.gather(*hass3.tasks)
+    await fire_timers()  # and this time it stays away
+    gone = await s.async_get_ticket(hass3, hue["id"])
+    assert gone["status"] == "resolved" and gone["resolution"] == "Cleared by Home Assistant: this repair is no longer reported.", gone["resolution"]
     # translations missing -> still a usable title
     TRANSLATIONS.clear()
     FakeRegistry.issues = {("ring", "login"): FakeIssue("ring", "login", translation_key="login_needed")}
@@ -548,6 +592,30 @@ async def main():
     assert gone["merged_into"] == live[0]["id"] and gone["source_key"] is None
     _t = await s.async_get_ticket(hass6, live[0]["id"])
     assert "Affected (2)" in _t["description"], (_t["description"], _t.get("repair_members"), _t.get("repair_base"))
+    # a repair that has cleared is gone from HA's registry, so nothing there says which group it was in: the ticket's members do
+    hass6 = FakeHass()
+    FakeStore.saved = {}
+    K6 = "automation_unknown_attribute_references"
+    assert await s.async_sync_repair(hass6, domain="spook", issue_id="u1", active=True, group=K6, member="u1", title="t", description="d") == "created"
+    tid6 = (await s.async_list_tickets(hass6, status="all"))["tickets"][0]["id"]
+    assert await s.async_sync_repair(hass6, domain="spook", issue_id="u1", active=False, how=" (checked later)") == "resolved", "a clear without a group finds the grouped ticket"
+    t6 = await s.async_get_ticket(hass6, tid6)
+    assert t6["status"] == "resolved" and t6["resolution"].endswith("(checked later)."), t6["resolution"]
+    assert await s.async_sync_repair(hass6, domain="spook", issue_id="u1", active=True, group=K6, member="u1", title="t") == "reopened"
+    t6 = await s.async_get_ticket(hass6, tid6)
+    assert t6["status"] == "in_progress" and t6["resolution"] is None and t6["closed_at"] is None, "a reopened ticket drops the old resolution"
+    # the same for a ticket from before grouping, adopted into its group when the repair next appears
+    hass7 = FakeHass()
+    FakeStore.saved = {}
+    await s.async_sync_repair(hass7, domain="spook", issue_id="old", active=True, title="spook: old")
+    await s.async_sync_repair(hass7, domain="spook", issue_id="old", active=True, group=K6, member="old", title="spook: old")
+    assert await s.async_sync_repair(hass7, domain="spook", issue_id="old", active=False) == "resolved"
+    assert (await s.async_list_tickets(hass7, status="resolved"))["total"] == 1
+    # a person reopening a resolved ticket also drops its resolution (it stays on the timeline)
+    tk = await s.async_create_ticket(hass7, title="Fixed once", requester="Simon", actor="Simon")
+    await s.async_close_ticket(hass7, tk["id"], actor="Simon", resolution="Rebooted it.")
+    reopened = await s.async_update_ticket(hass7, tk["id"], actor="Simon", status="in_progress")
+    assert reopened["resolution"] is None and any("Rebooted it." in (e["body"] or "") for e in reopened["events"])
     print("grouped repairs ok")
 
     # ---- merging tickets by hand

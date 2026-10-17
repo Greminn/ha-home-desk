@@ -518,6 +518,8 @@ def _apply_update(data: dict[str, Any], ticket: dict[str, Any], actor: str, fiel
         _event(ticket, actor, kind, None, payload, ts)
         if key == "status":
             ticket["closed_at"] = ts if new in ("resolved", "closed") else None
+            if new in ACTIVE_STATUSES and old in ("resolved", "closed") and "resolution" not in fields:
+                ticket["resolution"] = None  # reopened: the old resolution is on the timeline, but no longer describes the ticket
     if changed:
         ticket["updated_at"] = ts
         if ticket["status"] == "resolved" and status_before != "resolved":
@@ -1073,6 +1075,13 @@ def _find_by_source_key(data: dict[str, Any], key: str) -> dict[str, Any] | None
     )
 
 
+def _find_by_member(data: dict[str, Any], domain: str, issue_id: str) -> dict[str, Any] | None:
+    """The ticket that stands for this repair as one of several of its kind. A repair that has cleared is no longer in Home
+    Assistant's registry, so nothing there says which kind it was: the ticket's own list of members does."""
+    mk = _member_key(domain, issue_id)
+    return next((t for t in data["tickets"].values() if mk in (t.get("repair_members") or {})), None)
+
+
 def _members_of(ticket: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """The repairs a ticket stands for, by "domain:issue_id". A ticket made for a single repair is converted on demand."""
     members = ticket.get("repair_members")
@@ -1143,7 +1152,7 @@ def _group_fields(ticket: dict[str, Any]) -> dict[str, Any]:
 
 def _sync_member(
     data: dict[str, Any], ticket: dict[str, Any], *, domain: str, issue_id: str, active: bool, ignored: bool,
-    title: str, member: str, priority: str,
+    title: str, member: str, priority: str, how: str = "",
 ) -> str | None:
     """Update a ticket that stands for several repairs of one kind. Returns what happened, or None."""
     members = _members_of(ticket)
@@ -1158,9 +1167,9 @@ def _sync_member(
         if not still:
             if ticket["status"] not in ACTIVE_STATUSES:
                 return None
-            resolution = "Cleared by Home Assistant: this repair is no longer reported."
+            resolution = f"Cleared by Home Assistant: this repair is no longer reported{how}."
             if len(members) > 1:
-                resolution = "Cleared by Home Assistant: none of these repairs is reported any more."
+                resolution = f"Cleared by Home Assistant: none of these repairs is reported any more{how}."
             _apply_update(data, ticket, REPAIR_ACTOR, {"status": "resolved", "resolution": resolution})
             _event(ticket, REPAIR_ACTOR, "comment", f"**Resolution:** {resolution}")
             return "resolved"
@@ -1203,6 +1212,7 @@ async def async_sync_repair(
     group: str | None = None,
     member: str = "",
     generic_title: str = "",
+    how: str = "",
 ) -> str | None:
     """Make the ticket for one Home Assistant repair match the repair's state.
 
@@ -1221,6 +1231,8 @@ async def async_sync_repair(
     async with _lock(hass):
         data = await _load(hass)
         ticket = _find_by_source_key(data, key)
+        if ticket is None and not group:
+            ticket = _find_by_member(data, domain, issue_id)  # a clear: found through the group it joined
         if group:
             # Tickets made before grouping, one per repair: the first becomes the group's ticket and any
             # other open one for the same kind is merged into it.
@@ -1240,7 +1252,7 @@ async def async_sync_repair(
                 ticket["repair_generic"] = generic_title
             result = _sync_member(
                 data, ticket, domain=domain, issue_id=issue_id, active=active, ignored=ignored,
-                title=title or ticket["title"], member=member, priority=priority,
+                title=title or ticket["title"], member=member, priority=priority, how=how,
             )
             kind = result or kind
             if kind:
@@ -1303,7 +1315,7 @@ async def async_sync_repair(
             elif changed:
                 kind = "updated"
         elif ticket["status"] in ACTIVE_STATUSES:
-            resolution = "Cleared by Home Assistant: this repair is no longer reported."
+            resolution = f"Cleared by Home Assistant: this repair is no longer reported{how}."
             _apply_update(data, ticket, REPAIR_ACTOR, {"status": "resolved", "resolution": resolution})
             _event(ticket, REPAIR_ACTOR, "comment", f"**Resolution:** {resolution}")
             kind = "resolved"
