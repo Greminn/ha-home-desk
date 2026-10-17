@@ -305,7 +305,9 @@ export class TicketList extends LitElement {
                 @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && this._filterPerson(e, t.requester)}><ha-icon icon=${metaIcon(t.requester)}></ha-icon> ${actorName(t.requester)}</span></span>
               ${t.unread && t.activity && t.activity.kind !== "created"
                 ? html`<span class="activity"><ha-icon icon=${metaIcon(t.activity.actor)}></ha-icon> ${actorName(t.activity.actor)} ${activityVerb(t.activity.kind)} ${relativeTime(t.activity.at, this.language)}</span>`
-                : nothing}
+                : t.updated_by
+                  ? html`<span>Updated ${relativeTime(t.updated_at, this.language)} by <ha-icon icon=${metaIcon(t.updated_by)}></ha-icon> ${actorName(t.updated_by)}</span>`
+                  : nothing}
               ${t.assignee && isAgent(t.assignee)
                 ? html`<span><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> With AI Agent</span>`
                 : nothing}

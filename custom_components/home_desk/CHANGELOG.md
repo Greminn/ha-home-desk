@@ -13,6 +13,7 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 - **The Home Assistant label is gone: it is a category now.** It is removed from tickets and from `list_labels`. Repair tickets get the category Home Assistant, plus the labels Bug and Repair. Tickets that were only labelled Home Assistant are now uncategorised.
 
 ### Added
+- **"Updated … by …" on every ticket.** The list rows and the ticket's header now say when it last changed and who changed it (a person, an AI agent, or Home Assistant). Tickets and the websocket `home_desk/list` and `home_desk/get` carry `updated_by`.
 - **Unread marks.** A ticket someone else changed since you last looked (a new request, a comment, a status change, an AI agent's update) shows a dot and a bold title, says what changed ("Claude commented 25 minutes ago"), and lights up its tab's count. Opening a ticket marks it read, the open ticket marks what is new on its timeline, and "Mark All as Read" (More options) and "Mark as read" (on a selection) clear it. It is remembered per person on the server, and everything starts as read.
 - Websocket command `home_desk/mark_read` (admin) and, on `home_desk/list`, `unread` and `activity` for the signed-in person. Services and the MCP tools are unchanged.
 - **Select several tickets and merge them.** Administrators tick tickets in the list (the state icon turns into a checkbox on hover, shift-click selects a range, a long press or the Select button works on touch), then choose Merge, pick the one to keep (the oldest is suggested) and confirm.

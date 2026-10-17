@@ -95,6 +95,8 @@ export interface TicketSummary {
   attachment_count?: number;
   /** Set on a ticket that was folded into another: that ticket's number. */
   merged_into?: number | null;
+  /** Who last changed it (null until anything has happened since it was raised); `updated_at` says when. */
+  updated_by?: string | null;
   /** True when someone else changed the ticket since you last looked at it. */
   unread?: boolean;
   /** What the newest change by someone else was (only with `unread`). */

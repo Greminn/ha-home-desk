@@ -624,6 +624,8 @@ async def main():
         rows = {t["id"]: t for t in (await s.async_list_tickets(hass9, status="all", viewer=me))["tickets"]}
         assert rows[old["id"]]["unread"] and rows[old["id"]]["activity"]["actor"] == "ai:Claude"
         assert rows[new["id"]]["unread"] and rows[new["id"]]["activity"]["kind"] == "created", "a new request is unread"
+        assert rows[old["id"]]["updated_by"] == "ai:Claude", "the row says who last changed it, not Home Desk's follow-on"
+        assert rows[new["id"]]["updated_by"] == "Simon"
         await s.async_add_comment(hass9, new["id"], body="Note", actor="Simon", internal=True)
         other = {"id": "u2", "name": "Qione", "admin": False}
         theirs = {t["id"]: t for t in (await s.async_list_tickets(hass9, status="all", viewer=other))["tickets"]}

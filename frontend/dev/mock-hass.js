@@ -136,9 +136,16 @@ export function createMock() {
   const isAdmin = () => state.user.is_admin;
   const visible = (t) => isAdmin() || t.requester === state.user.name;
   const view = (t) => ({ ...t, events: isAdmin() ? t.events : t.events.filter((e) => e.kind !== "note") });
+  const updatedBy = (t) => {
+    if (t.events.length < 2) return null;
+    const last = t.events[t.events.length - 1];
+    if (last.actor !== "Home Desk") return last.actor;
+    const person = [...t.events].reverse().find((e) => e.actor !== "Home Desk" && e.created_at === last.created_at);
+    return (person ?? last).actor;
+  };
   const summary = (t) => {
     const { description, events, resolution, attachments, ...rest } = t;
-    return { ...rest, attachment_count: attachments?.length ?? 0, comment_count: events.filter((e) => e.kind === "comment" || e.kind === "note").length, has_resolution: !!resolution };
+    return { ...rest, updated_by: updatedBy(t), attachment_count: attachments?.length ?? 0, comment_count: events.filter((e) => e.kind === "comment" || e.kind === "note").length, has_resolution: !!resolution };
   };
   const ensureLabel = (raw) => {
     const found = Object.values(db.labels).find((l) => l.id === raw || l.name.toLowerCase() === raw.toLowerCase());
@@ -194,7 +201,7 @@ export function createMock() {
       else { db.seen.base = now; db.seen.tickets = {}; }
       return { marked: m.ticket_ids ? m.ticket_ids.length : Object.keys(db.tickets).length };
     },
-    get: (m) => { const t = get(m.ticket_id); return { ...view(t), seen_at: db.seen.tickets[t.id] > db.seen.base ? db.seen.tickets[t.id] : db.seen.base, related: t.links.map((i) => db.tickets[i]).filter(Boolean).map((r) => ({ id: r.id, title: r.title, status: r.status })) }; },
+    get: (m) => { const t = get(m.ticket_id); return { ...view(t), updated_by: updatedBy(t), seen_at: db.seen.tickets[t.id] > db.seen.base ? db.seen.tickets[t.id] : db.seen.base, related: t.links.map((i) => db.tickets[i]).filter(Boolean).map((r) => ({ id: r.id, title: r.title, status: r.status })) }; },
     labels: () => ({ labels: labelList() }),
     category_create: (m) => {
       const id = slug(m.name);

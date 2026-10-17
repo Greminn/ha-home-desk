@@ -350,6 +350,23 @@ def _fire(hass: HomeAssistant, ticket: dict[str, Any], kind: str, actor: str) ->
     )
 
 
+def _updated_by(ticket: dict[str, Any]) -> str | None:
+    """Who last changed the ticket: the newest event's actor, preferring a person or agent over Home Desk's own follow-on
+    made in the same moment. None for a ticket nothing has happened to since it was raised."""
+    events = ticket["events"]
+    if len(events) < 2:
+        return None
+    last = events[-1]
+    if last["actor"] != "Home Desk":
+        return last["actor"]
+    for e in reversed(events[:-1]):
+        if e["created_at"] != last["created_at"]:
+            break
+        if e["actor"] != "Home Desk":
+            return e["actor"]
+    return last["actor"]
+
+
 def _summary(ticket: dict[str, Any]) -> dict[str, Any]:
     """The list-row view: everything but the body and timeline."""
     comments = [e for e in ticket["events"] if e["kind"] in ("comment", "note")]
@@ -357,6 +374,7 @@ def _summary(ticket: dict[str, Any]) -> dict[str, Any]:
         **{k: v for k, v in ticket.items() if k not in (
             "description", "events", "resolution", "attachments", "repair_members", "repair_base", "repair_generic", "source_aliases",
         )},
+        "updated_by": _updated_by(ticket),
         "comment_count": len(comments),
         "attachment_count": len(ticket.get("attachments", [])),
         "has_resolution": bool(ticket.get("resolution")),
@@ -535,6 +553,7 @@ async def async_get_ticket(hass: HomeAssistant, ticket_id: int, *, user_id: str 
         data = await _load(hass)
         ticket = _get(data, ticket_id)
         out = dict(ticket)
+        out["updated_by"] = _updated_by(ticket)
         if user_id:
             marks, _ = _seen(data, user_id)
             out["seen_at"] = _since(marks, ticket_id)

@@ -527,7 +527,7 @@
               <span class="ref">Opened ${_e(e.created_at,this.language)} by <span class="who" role="button" tabindex="0" aria-label="Show tickets from ${$e(e.requester)}"
                 @click=${t=>this._filterPerson(t,e.requester)}
                 @keydown=${t=>("Enter"===t.key||" "===t.key)&&this._filterPerson(t,e.requester)}><ha-icon icon=${we(e.requester)}></ha-icon> ${$e(e.requester)}</span></span>
-              ${e.unread&&e.activity&&"created"!==e.activity.kind?q`<span class="activity"><ha-icon icon=${we(e.activity.actor)}></ha-icon> ${$e(e.activity.actor)} ${i=e.activity.kind,Re[i]??"updated it"} ${_e(e.activity.at,this.language)}</span>`:W}
+              ${e.unread&&e.activity&&"created"!==e.activity.kind?q`<span class="activity"><ha-icon icon=${we(e.activity.actor)}></ha-icon> ${$e(e.activity.actor)} ${i=e.activity.kind,Re[i]??"updated it"} ${_e(e.activity.at,this.language)}</span>`:e.updated_by?q`<span>Updated ${_e(e.updated_at,this.language)} by <ha-icon icon=${we(e.updated_by)}></ha-icon> ${$e(e.updated_by)}</span>`:W}
               ${e.assignee&&ke(e.assignee)?q`<span><ha-icon icon=${we(e.assignee)}></ha-icon> With AI Agent</span>`:W}
               ${e.labels.includes(Oe)?q`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>`:W}
               ${e.comment_count?q`<span><ha-icon icon="mdi:comment-outline"></ha-icon> ${e.comment_count}</span>`:W}
@@ -947,6 +947,7 @@ function it(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         <div class="sub">
           <div class="meta-line">
             <span>Opened ${_e(e.created_at,this.language)} by <ha-icon icon=${we(e.requester)}></ha-icon> ${$e(e.requester)}</span>
+            ${e.updated_by?q`<span>Updated ${_e(e.updated_at,this.language)} by <ha-icon icon=${we(e.updated_by)}></ha-icon> ${$e(e.updated_by)}</span>`:W}
             ${e.assignee&&ke(e.assignee)?q`<span><ha-icon icon=${we(e.assignee)}></ha-icon> With ${Ee(e.assignee)}</span>`:W}
             ${e.labels.includes(Oe)?q`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>`:W}
             ${e.comment_count?q`<span><ha-icon icon="mdi:comment-outline"></ha-icon> ${e.comment_count}</span>`:W}
