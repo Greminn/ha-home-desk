@@ -23,6 +23,7 @@ import "./views/dropdown";
 import "./views/confirm-dialog";
 import "./views/picker-popup";
 import "./views/category-dialog";
+import "./views/home-page";
 import type { PickerItem } from "./views/picker-popup";
 import type { DropdownOption } from "./views/dropdown";
 
@@ -80,7 +81,7 @@ export class HomeDeskPanel extends LitElement {
   @state() private _newCategory: { ticket: TicketSummary; name: string; error: string } | null = null;
   @state() private _removing: { ticket: TicketSummary; label: Label } | null = null;
   /** A full-page view in place of the ticket list: the label or category manager, or the settings. */
-  @state() private _page: Page = "";
+  @state() private _page: Page = "home";
   @state() private _creating = false;
   @state() private _error = "";
 
@@ -307,6 +308,7 @@ export class HomeDeskPanel extends LitElement {
 
   private async _open(id: number, navigate = true) {
     if (this._selectedId !== id) this._seenAt = "";
+    this._page = "";
     this._selectedId = id;
     if (navigate) this._navigate(`${this._prefix}/${id}`);
     await this._loadSelected(id);
@@ -541,14 +543,30 @@ export class HomeDeskPanel extends LitElement {
     const lang = this.hass.language;
     const selecting = this._selectedId !== null;
     return html`
-      <st-app-header .page=${this._page} .view=${this._view} .tickets=${this._tickets} .narrow=${this.narrow} .admin=${this._admin}
+      <st-app-header .page=${this._page === "home" ? "" : this._page} .view=${this._page === "home" ? "" : this._view} .tickets=${this._tickets} .narrow=${this.narrow} .admin=${this._admin}
         @page-change=${(e: CustomEvent<Page>) => (this._page = e.detail)}
-        @view-change=${(e: CustomEvent<string>) => this._setView(e.detail)}
+        @view-change=${(e: CustomEvent<string>) => {
+          this._page = "";
+          this._setView(e.detail);
+        }}
+        @go-home=${() => {
+          this._page = "home";
+          this._close();
+        }}
         @refresh=${() => void this._refresh()}
         @mark-all-read=${() => void this._markRead()}></st-app-header>
       ${this._error ? html`<div class="banner">${this._error}</div>` : nothing}
       ${!this._admin && this._client
         ? html`<st-report-form .client=${this._client}></st-report-form>`
+        : this._page === "home" && this._client
+          ? html`<st-home-page .tickets=${this._tickets} .language=${lang} .userName=${this.hass.user?.name ?? ""}
+              @open-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
+              @go-view=${(e: CustomEvent<{ view: string; priority: string }>) => {
+                this._page = "";
+                this._close();
+                this._setView(e.detail.view);
+                this._priority = e.detail.priority;
+              }}></st-home-page>`
         : this._page === "labels" && this._client
         ? html`<st-label-manager .client=${this._client} .labels=${this._labelList}
             @labels-changed=${() => void this._refresh()}></st-label-manager>`

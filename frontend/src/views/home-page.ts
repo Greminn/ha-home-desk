@@ -1,0 +1,294 @@
+import { LitElement, html, css, nothing } from "lit";
+import { property } from "lit/decorators.js";
+import { safeCustomElement } from "../define";
+import { sharedStyles } from "../styles";
+import type { TicketSummary } from "../types";
+import { VIEWS } from "../list-model";
+import { STATE_ICON, STATE_COLOR, actorLabel, actorName, isAgent, metaIcon, relativeTime } from "../format";
+
+const WEEK_MS = 7 * 24 * 3600 * 1000;
+const HISTORY = "history";
+
+const live = (t: TicketSummary) => (t.status === "new" || t.status === "in_progress") && !t.merged_into && !t.labels.includes(HISTORY);
+const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+
+/** The Home page: what needs you, what the AI Agent is doing, and what has happened lately. Everything links through. */
+@safeCustomElement("st-home-page")
+export class HomePage extends LitElement {
+  static override styles = [
+    sharedStyles,
+    css`
+      :host {
+        display: block;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        background: var(--st-bg);
+      }
+      .page {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: var(--st-fs-heading);
+        font-weight: var(--st-fw-heading);
+      }
+      .lead {
+        margin: 0 0 20px;
+        color: var(--st-fg-secondary);
+        font-size: var(--st-fs-body);
+      }
+      h2 {
+        margin: 0 0 8px;
+        font-size: var(--st-fs-title);
+        font-weight: 500;
+      }
+      .tiles {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+      .tile {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        height: auto;
+        padding: 14px 16px;
+        border: 1px solid var(--st-outline);
+        border-radius: var(--ha-border-radius-xl, 12px);
+        background: var(--st-surface);
+        text-align: left;
+        font-weight: 400;
+      }
+      .tile.static {
+        cursor: default;
+      }
+      .tile .top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--st-fg-secondary);
+        font-size: var(--st-fs-body);
+      }
+      .tile .top ha-icon {
+        --mdc-icon-size: 20px;
+      }
+      .tile .n {
+        font-size: 28px;
+        line-height: 1.2;
+        font-weight: 500;
+        color: var(--st-fg);
+      }
+      .tile .sub-n {
+        font-size: var(--st-fs-body);
+        font-weight: 400;
+        color: var(--st-fg-secondary);
+      }
+      .tile.hot .n,
+      .tile.hot .top ha-icon {
+        color: var(--st-accent);
+      }
+      .tile.warn .n,
+      .tile.warn .top ha-icon {
+        color: var(--st-warning);
+      }
+      .cols {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+        gap: 24px;
+        align-items: start;
+      }
+      .card {
+        border: 1px solid var(--st-outline);
+        border-radius: var(--ha-border-radius-xl, 12px);
+        background: var(--st-surface);
+        overflow: hidden;
+        margin-bottom: 24px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        gap: 12px;
+        width: 100%;
+        height: auto;
+        padding: 10px 16px;
+        border-radius: 0;
+        border-bottom: 1px solid var(--st-divider);
+        text-align: left;
+        font-weight: 400;
+        color: var(--st-fg);
+        align-items: start;
+      }
+      .row:last-child {
+        border-bottom: none;
+      }
+      .row:hover {
+        background: var(--st-hover);
+      }
+      .row .ic {
+        --mdc-icon-size: 22px;
+        margin-top: 1px;
+      }
+      .row .title {
+        font-size: var(--st-fs-row);
+        overflow-wrap: anywhere;
+      }
+      .row.unread .title {
+        font-weight: 600;
+      }
+      .row .sub {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0 10px;
+        margin-top: 2px;
+        font-size: var(--st-fs-caption);
+        color: var(--st-fg-secondary);
+      }
+      .row .sub > span {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+      }
+      .row .sub ha-icon {
+        --mdc-icon-size: 14px;
+      }
+      .row .sub .work {
+        color: var(--st-accent);
+        font-weight: 500;
+      }
+      .row .sub .work ha-icon {
+        animation: pulse 1.4s ease-in-out infinite;
+      }
+      .row .sub .hot {
+        color: var(--st-warning);
+      }
+      @keyframes pulse {
+        50% {
+          opacity: 0.3;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .row .sub .work ha-icon {
+          animation: none;
+        }
+      }
+      .none {
+        padding: 16px;
+        color: var(--st-fg-secondary);
+        font-size: var(--st-fs-body);
+      }
+    `,
+  ];
+
+  @property({ attribute: false }) tickets: TicketSummary[] = [];
+  @property() language: string | undefined = undefined;
+  @property() userName = "";
+
+  private _fire(name: string, detail: unknown) {
+    this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
+  }
+
+  private _greeting(): string {
+    const h = new Date().getHours();
+    const part = h < 5 ? "Good evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+    return this.userName ? `${part}, ${this.userName}` : part;
+  }
+
+  private _tile(icon: string, label: string, n: number, opts: { view?: string; priority?: string; cls?: string; sub?: string } = {}) {
+    const go = opts.view !== undefined;
+    return html`<button class="tile ${go ? "" : "static"} ${n && opts.cls ? opts.cls : ""}"
+      @click=${() => go && this._fire("go-view", { view: opts.view, priority: opts.priority ?? "" })}>
+      <span class="top"><ha-icon .icon=${icon}></ha-icon>${label}</span>
+      <span class="n">${n}${opts.sub ? html`<span class="sub-n"> ${opts.sub}</span>` : nothing}</span>
+    </button>`;
+  }
+
+  private _row(t: TicketSummary) {
+    const by = t.updated_by ?? t.requester;
+    const verb = t.updated_by ? "Updated" : "Opened";
+    return html`<button class="row ${t.unread ? "unread" : ""}" @click=${() => this._fire("open-ticket", t.id)}>
+      <ha-icon class="ic" .icon=${STATE_ICON[t.status]} style="color: ${STATE_COLOR[t.status]}"></ha-icon>
+      <div>
+        <div class="title">${t.title}</div>
+        <div class="sub">
+          ${t.agent_state ? html`<span class="work"><ha-icon icon="mdi:star-four-points"></ha-icon> ${actorLabel(`ai:${t.agent_state.agent}`)} working…</span>` : nothing}
+          ${t.priority === "urgent" || t.priority === "high"
+            ? html`<span class="hot"><ha-icon .icon=${t.priority === "urgent" ? "mdi:alert" : "mdi:alert-outline"}></ha-icon> ${t.priority === "urgent" ? "Urgent" : "High"}</span>`
+            : nothing}
+          <span>${verb} ${relativeTime(t.updated_at, this.language)} by <ha-icon icon=${metaIcon(by)}></ha-icon> ${actorName(by)}</span>
+        </div>
+      </div>
+    </button>`;
+  }
+
+  private _card(title: string, rows: TicketSummary[], empty: string) {
+    return html`<section>
+      <h2>${title}</h2>
+      <div class="card">${rows.length ? rows.map((t) => this._row(t)) : html`<div class="none">${empty}</div>`}</div>
+    </section>`;
+  }
+
+  override render() {
+    const all = this.tickets.filter((t) => !t.merged_into);
+    const view = (id: string) => all.filter(VIEWS.find((v) => v.id === id)!.match).length;
+    const now = Date.now();
+    const urgent = all.filter((t) => live(t) && (t.priority === "urgent" || t.priority === "high"));
+    const unread = all.filter((t) => t.unread);
+    const working = all.filter((t) => t.agent_state);
+    const attention = all
+      .filter((t) => live(t) && (t.unread || t.priority === "urgent" || t.priority === "high" || t.status === "new"))
+      .sort(
+        (a, b) =>
+          Number(!!b.unread) - Number(!!a.unread) ||
+          (PRIORITY_RANK[a.priority] ?? 2) - (PRIORITY_RANK[b.priority] ?? 2) ||
+          b.updated_at.localeCompare(a.updated_at),
+      )
+      .slice(0, 6);
+    const aiReplies = all
+      .filter((t) => !t.agent_state && t.updated_by && isAgent(t.updated_by) && !t.labels.includes(HISTORY))
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .slice(0, 4);
+    const recent = all
+      .filter((t) => !t.labels.includes(HISTORY))
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .slice(0, 8);
+    const opened = all.filter((t) => now - new Date(t.created_at).getTime() < WEEK_MS && !t.labels.includes(HISTORY)).length;
+    const resolved = all.filter(
+      (t) => (t.status === "resolved" || t.status === "closed") && t.closed_at && now - new Date(t.closed_at).getTime() < WEEK_MS && !t.labels.includes(HISTORY),
+    ).length;
+    return html`<div class="page">
+      <h1>${this._greeting()}</h1>
+      <p class="lead">${attention.length ? "Here's what needs a look." : "Nothing needs you right now."}</p>
+
+      <div class="tiles">
+        ${this._tile("mdi:inbox-outline", "Inbox", view("active"), { view: "active", cls: "hot" })}
+        ${this._tile("mdi:progress-wrench", "In Progress", view("progress"), { view: "progress" })}
+        ${this._tile("mdi:star-four-points-outline", "Assigned to AI", view("agent"), { view: "agent" })}
+        ${this._tile("mdi:alert-outline", "Urgent / High", urgent.length, { view: "progress", cls: "warn" })}
+        ${this._tile("mdi:email-open-outline", "Unread", unread.length, { view: "all", cls: "hot" })}
+        ${this._tile("mdi:calendar-week", "This week", opened, { sub: `opened · ${resolved} resolved` })}
+      </div>
+
+      <div class="cols">
+        <div>
+          ${this._card("Needs attention", attention, "All clear.")}
+          ${working.length || aiReplies.length || view("agent")
+            ? this._card("AI Agent", [...working, ...aiReplies], "The AI Agent has nothing in hand.")
+            : nothing}
+        </div>
+        <div>${this._card("Recent activity", recent, "Nothing has happened yet.")}</div>
+      </div>
+    </div>`;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "st-home-page": HomePage;
+  }
+}
