@@ -12,4 +12,4 @@ frontend/dev/dist/
 frontend/dev/local/
 
 # The downloaded brand pack: the extracted home_desk_brand/ folder is the copy kept in git.
-home_desk_brand.zip
+home_desk_brand*.zip

@@ -1,10 +1,10 @@
 # Home Desk brand pack
 
-Mark: a solid house with the tick cut out of it; the tick carries on past the wall as a separate shape.
+Mark: a solid house with the tick and a small AI spark cut out of it; the tick carries on past the roof as a solid tip.
 One colour. The V of the tick sits on the house's centre line.
 
 custom_components/home_desk/brand/   -> copy into the integration
-  icon.png 256x256, icon@2x.png 512x512, logo.png 1308x256, logo@2x.png 2616x512
+  icon.png 256x256, icon@2x.png 512x512, logo.png and logo@2x.png: height 256 / 512 px (landscape)
   dark_icon / dark_logo and their @2x versions (for dark backgrounds)
 source/   SVG masters (wordmark converted to outlines from Roboto Medium, Apache-2.0)
   home-desk-icon (.svg / -dark / -mono (currentColor) / -black / -white), home-desk-logo (.svg / -dark / -black),
