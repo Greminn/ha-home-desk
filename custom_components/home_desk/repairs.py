@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -30,6 +31,9 @@ _LOGGER = logging.getLogger(__name__)
 
 START_GRACE = 15 * 60  # seconds after Home Assistant starts before a repair that is still missing counts as cleared
 REMOVE_GRACE = 2 * 60  # seconds a repair may be gone, while Home Assistant runs, before it counts as cleared
+# While Home Assistant is still starting, integrations remove their old issues and raise them again minutes later (Spook's
+# checks take up to ten), so a removal in that window waits out the rest of START_GRACE as well.
+_clock = time.monotonic
 
 
 def _fill(text: str, placeholders: dict[str, Any] | None) -> str:
@@ -117,6 +121,7 @@ async def async_setup_repairs(hass: HomeAssistant, options: dict[str, Any]) -> C
     the panel takes effect without a restart. Turning it on calls the catch-up below.
     """
     ignored = {d.strip() for d in options.get(CONF_REPAIRS_IGNORE) or [] if d.strip()}
+    started = _clock()
 
     # Repairs waiting out a grace period before they count as cleared, by (domain, issue_id).
     pending: dict[tuple[str, str], Callable[[], None]] = {}
@@ -171,7 +176,11 @@ async def async_setup_repairs(hass: HomeAssistant, options: dict[str, Any]) -> C
         if issue is None or not issue.active:
             if (domain, issue_id) in pending:
                 return  # already waiting it out
-            _clear_later((domain, issue_id), REMOVE_GRACE, "")
+            settling = START_GRACE - (_clock() - started)
+            if settling > REMOVE_GRACE:  # still early after a start: wait until the integrations have had their time
+                _clear_later((domain, issue_id), int(settling), f" (still not reported {START_GRACE // 60} minutes after Home Assistant started)")
+            else:
+                _clear_later((domain, issue_id), REMOVE_GRACE, "")
             return
         _cancel((domain, issue_id))
         hass.async_create_task(_sync(hass, domain, issue_id, ignored))

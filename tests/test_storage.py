@@ -500,15 +500,22 @@ async def main():
     listener(Ev)
     await asyncio.gather(*hass3.tasks)
     assert (await s.async_get_ticket(hass3, hue["id"]))["status"] != "resolved", "an integration reload removes and re-raises its issues"
-    assert [t[0] for t in TIMERS if not t[2]] == [repairs.REMOVE_GRACE]
+    early = [t[0] for t in TIMERS if not t[2]]
+    assert len(early) == 1 and repairs.REMOVE_GRACE < early[0] <= repairs.START_GRACE, early  # soon after a start: waits out the rest of the start grace
+    real_clock = repairs._clock
     FakeRegistry.issues = saved_issues  # it is raised again within the grace period
     listener(type("Ev", (), {"data": {"action": "create", "domain": "hue", "issue_id": "old_fw"}}))
     await asyncio.gather(*hass3.tasks)
     await fire_timers()
     assert (await s.async_get_ticket(hass3, hue["id"]))["status"] == "new", "back in time: nothing happened"
+    # later on, a removal waits only the short grace
+    base = real_clock()
+    repairs._clock = lambda: base + 2 * repairs.START_GRACE
     FakeRegistry.issues = {}
     listener(Ev)
     await asyncio.gather(*hass3.tasks)
+    assert [t[0] for t in TIMERS if not t[2]] == [repairs.REMOVE_GRACE], [t[0] for t in TIMERS if not t[2]]
+    repairs._clock = real_clock
     await fire_timers()  # and this time it stays away
     gone = await s.async_get_ticket(hass3, hue["id"])
     assert gone["status"] == "resolved" and gone["resolution"] == "Cleared by Home Assistant: this repair is no longer reported.", gone["resolution"]
