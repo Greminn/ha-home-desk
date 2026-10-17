@@ -540,6 +540,7 @@ def _hand_back(ticket: dict[str, Any], actor: str, ts: str) -> bool:
     if not (is_agent(actor) or _agent_key(actor) == _agent_key(assignee)):
         return False
     ticket["assignee"] = None
+    ticket.pop("agent_state", None)
     _event(ticket, actor, "assignee", None, {"field": "assignee", "from": assignee, "to": None}, ts)
     return True
 
@@ -723,6 +724,8 @@ async def async_update_ticket(
         ticket = _get(data, ticket_id)
         assignee_before = ticket["assignee"]
         changed = _apply_update(data, ticket, actor, fields)
+        if not is_agent(ticket["assignee"]) and ticket.pop("agent_state", None):
+            changed = True  # the ticket left the agent, so it is no longer working on it
         if changed and "status" not in fields:
             _progress(ticket, actor, ticket["updated_at"])
         if changed:
@@ -731,6 +734,20 @@ async def async_update_ticket(
         _fire(hass, ticket, "updated", actor)
         if ticket["assignee"] != assignee_before and is_agent(ticket["assignee"]):
             _fire(hass, ticket, "assigned", actor)  # lets an automation start the AI agent
+    return ticket
+
+
+async def async_set_agent_state(hass: HomeAssistant, ticket_id: int, state: dict[str, Any] | None) -> dict[str, Any]:
+    """Say that the AI agent is working on a ticket (`state` like {"state": "working", "agent", "since", "note"}), or clear it."""
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _get(data, ticket_id)
+        if state:
+            ticket["agent_state"] = state
+        else:
+            ticket.pop("agent_state", None)
+        await _save(hass, data)
+    _fire(hass, ticket, "agent", "Home Desk")
     return ticket
 
 
@@ -1447,6 +1464,17 @@ async def async_save_settings(
         patch["repairs"] = bool(patch["repairs"])
     if "transcribe" in patch:
         patch["transcribe"] = bool(patch["transcribe"])
+    for key in ("agent_auto", "agent_states", "agent_config", "agent_related"):
+        if key in patch:
+            patch[key] = bool(patch[key])
+    if "agent_daily_cap" in patch:
+        try:
+            cap = int(patch["agent_daily_cap"])
+        except (TypeError, ValueError):
+            raise TicketError("The daily limit must be a whole number") from None
+        if not 1 <= cap <= 500:
+            raise TicketError("The daily limit must be between 1 and 500")
+        patch["agent_daily_cap"] = cap
     for key in ("agent", "stt"):
         if key in patch:
             patch[key] = _limit(str(patch[key]).strip(), 200, f"The {key} setting")

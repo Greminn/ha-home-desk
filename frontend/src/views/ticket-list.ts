@@ -63,6 +63,24 @@ export class TicketList extends LitElement {
       .row.unread .title {
         font-weight: 600;
       }
+      /* The AI Agent is working on it: a sparkle that pulses. */
+      .meta .working {
+        color: var(--st-accent);
+        font-weight: 500;
+      }
+      .meta .working ha-icon {
+        animation: working 1.4s ease-in-out infinite;
+      }
+      @keyframes working {
+        50% {
+          opacity: 0.3;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .meta .working ha-icon {
+          animation: none;
+        }
+      }
       .meta .activity {
         color: var(--st-accent);
         font-weight: 500;
@@ -303,6 +321,9 @@ export class TicketList extends LitElement {
               <span class="ref">Opened ${relativeTime(t.created_at, this.language)} by <span class="who" role="button" tabindex="0" aria-label="Show tickets from ${actorName(t.requester)}"
                 @click=${(e: Event) => this._filterPerson(e, t.requester)}
                 @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && this._filterPerson(e, t.requester)}><ha-icon icon=${metaIcon(t.requester)}></ha-icon> ${actorName(t.requester)}</span></span>
+              ${t.agent_state
+                ? html`<span class="working"><ha-icon icon="mdi:star-four-points"></ha-icon> ${actorName(t.agent_state.agent)} is working…</span>`
+                : nothing}
               ${t.unread && t.activity && t.activity.kind !== "created"
                 ? html`<span class="activity"><ha-icon icon=${metaIcon(t.activity.actor)}></ha-icon> ${actorName(t.activity.actor)} ${activityVerb(t.activity.kind)} ${relativeTime(t.activity.at, this.language)}</span>`
                 : t.updated_by

@@ -46,7 +46,7 @@ jobs:
         run: |
           python tools/gen_services.py
           git diff --exit-code -- custom_components/home_desk/services.yaml custom_components/home_desk/strings.json custom_components/home_desk/translations/en.json
-      - run: pip install voluptuous aiohttp "mcp<2"
+      - run: pip install voluptuous aiohttp pyyaml "mcp<2"
       - name: Storage tests (tickets, labels, categories, statuses, the AI agent, settings, repairs)
         run: python -I tests/test_storage.py
       - name: API tests (who may do what over the websocket and the services)
@@ -55,6 +55,8 @@ jobs:
         run: python tests/test_mcp.py
       - name: Report tests (photos and voice messages: upload, download, file checks, transcription)
         run: python tests/test_attachments.py
+      - name: AI agent tests (redaction, the context sent, a full turn against a fake AI Task)
+        run: python tests/test_agent.py
 
   hassfest:
     name: Home Assistant hassfest

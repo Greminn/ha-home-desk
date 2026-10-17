@@ -14,6 +14,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
 from .const import AUTO_CLOSE_SECONDS, DOMAIN, LABEL_COLORS, PRIORITIES, STATUS_ALIASES, STATUSES
+from .agent import async_stop_turn, async_test_agent
 from .storage import (
     TicketError,
     async_add_comment,
@@ -424,6 +425,13 @@ async def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConne
         vol.Optional("auto_close"): vol.In(list(AUTO_CLOSE_SECONDS)),
         vol.Optional("agent"): str,
         vol.Optional("repairs"): bool,
+        vol.Optional("stt"): str,
+        vol.Optional("transcribe"): bool,
+        vol.Optional("agent_auto"): bool,
+        vol.Optional("agent_states"): bool,
+        vol.Optional("agent_config"): bool,
+        vol.Optional("agent_related"): bool,
+        vol.Optional("agent_daily_cap"): vol.All(int, vol.Range(min=1, max=500)),
         vol.Optional("notify"): {
             vol.Optional("targets"): [str],
             vol.Optional("new_ticket"): bool,
@@ -452,11 +460,42 @@ async def ws_settings_save(hass: HomeAssistant, connection: websocket_api.Active
     connection.send_result(msg["id"], result)
 
 
+@websocket_api.websocket_command({vol.Required("type"): "home_desk/agent_stop", vol.Required("ticket_id"): int})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_agent_stop(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Stop the AI agent working on a ticket and hand the ticket back."""
+    try:
+        await async_get_ticket(hass, msg["ticket_id"])
+    except TicketError as err:
+        _fail(connection, msg, "not_found", str(err))
+        return
+    await async_stop_turn(hass, msg["ticket_id"], _actor(connection))
+    connection.send_result(msg["id"], {"stopped": msg["ticket_id"]})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "home_desk/agent_test"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_agent_test(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Ask the chosen AI agent a harmless question, to show it works (or why it doesn't)."""
+    entity = (await async_get_settings(hass)).get("agent") or ""
+    if not entity:
+        _fail(connection, msg, "invalid", "Choose an AI agent first")
+        return
+    try:
+        reply = await async_test_agent(hass, entity)
+    except Exception as err:  # noqa: BLE001 - shown to the person trying it
+        _fail(connection, msg, "failed", str(err).strip().splitlines()[0][:300] if str(err).strip() else err.__class__.__name__)
+        return
+    connection.send_result(msg["id"], {"reply": reply})
+
+
 def async_register_commands(hass: HomeAssistant) -> None:
     for command in (
         ws_list, ws_get, ws_mark_read, ws_stats, ws_create, ws_update, ws_comment, ws_close, ws_link, ws_merge,
         ws_labels, ws_label_create, ws_label_update, ws_label_delete,
         ws_categories, ws_category_create, ws_category_update, ws_category_delete,
-        ws_settings, ws_settings_save,
+        ws_settings, ws_settings_save, ws_agent_stop, ws_agent_test,
     ):
         websocket_api.async_register_command(hass, command)

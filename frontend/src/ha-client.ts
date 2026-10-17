@@ -71,6 +71,11 @@ export class HaClient {
         repairs: true,
         stt: "",
         transcribe: true,
+        agent_auto: true,
+        agent_states: true,
+        agent_config: true,
+        agent_related: true,
+        agent_daily_cap: 30,
         notify: { targets: [], new_ticket: true, comment: true, resolved: false },
       };
     }
@@ -109,6 +114,16 @@ export class HaClient {
 
   update(ticketId: number, patch: TicketPatch): Promise<Ticket> {
     return this.send("update", { ticket_id: ticketId, ...patch });
+  }
+
+  /** Stop the AI agent working on a ticket; the ticket comes back to you. */
+  stopAgent(ticketId: number): Promise<{ stopped: number }> {
+    return this.send("agent_stop", { ticket_id: ticketId });
+  }
+
+  /** Ask the chosen AI agent a harmless question, to show it answers. */
+  testAgent(): Promise<{ reply: string }> {
+    return this.send("agent_test");
   }
 
   /** Mark tickets as read for you; with no ids, mark everything. */

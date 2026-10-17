@@ -118,9 +118,11 @@ def stub(name, **attrs):
 async_response = lambda fn: fn  # noqa: E731 - the real one schedules a task; here handlers are awaited directly
 
 stub("homeassistant")
-stub("homeassistant.core", HomeAssistant=FakeHass, ServiceCall=ServiceCall, SupportsResponse=SupportsResponse, callback=lambda f: f)
+stub("homeassistant.core", HomeAssistant=FakeHass, ServiceCall=ServiceCall, SupportsResponse=SupportsResponse, Event=object, callback=lambda f: f)
 stub("homeassistant.exceptions", HomeAssistantError=HomeAssistantError)
 stub("homeassistant.helpers.storage", Store=FakeStore)
+stub("homeassistant.util")
+stub("homeassistant.util.dt", utcnow=lambda: None, DEFAULT_TIME_ZONE=None)
 def _string(value):
     if value is None or isinstance(value, (list, dict)):  # like Home Assistant's cv.string
         raise vol.Invalid("string value is None")
@@ -147,7 +149,7 @@ helpers.storage = sys.modules["homeassistant.helpers.storage"]
 pkg = types.ModuleType("home_desk")
 pkg.__path__ = [str(PKG)]
 sys.modules["home_desk"] = pkg
-for mod in ("const", "changelog", "storage", "websocket_api", "services"):
+for mod in ("const", "changelog", "redact", "storage", "agent_context", "agent", "websocket_api", "services"):
     spec = importlib.util.spec_from_file_location(f"home_desk.{mod}", PKG / f"{mod}.py")
     m = importlib.util.module_from_spec(spec)
     sys.modules[f"home_desk.{mod}"] = m
@@ -191,7 +193,7 @@ async def main():
     wsapi.async_register_commands(hass)
     # The decorators wrap each handler, so they are matched to names by registration order (see async_register_commands).
     names = ["list", "get", "mark_read", "stats", "create", "update", "comment", "close", "link", "merge", "labels", "label_create", "label_update",
-             "label_delete", "categories", "category_create", "category_update", "category_delete", "settings", "settings_save"]
+             "label_delete", "categories", "category_create", "category_update", "category_delete", "settings", "settings_save", "agent_stop", "agent_test"]
     assert len(REGISTERED) == len(names), (len(REGISTERED), "commands registered")
     HANDLERS.update(dict(zip(names, REGISTERED)))
 
@@ -283,12 +285,15 @@ async def main():
         except vol.Invalid:
             pass
     save_schema = HANDLERS["settings_save"]._schema
-    for bad in ({"auto_close": "soon"}, {"notify": {"colour": True}}, {"repairs": "yes please"}):
+    for bad in ({"auto_close": "soon"}, {"notify": {"colour": True}}, {"repairs": "yes please"}, {"agent_daily_cap": 0}, {"agent_auto": "sure"}):
         try:
             save_schema({"type": "home_desk/settings_save", **bad})
             raise SystemExit(f"settings schema accepted {bad}")
         except vol.Invalid:
             pass
+    for good in ({"stt": "stt.whisper"}, {"transcribe": False}, {"agent_auto": False, "agent_states": True, "agent_config": True,
+                                                                 "agent_related": True, "agent_daily_cap": 20}):
+        save_schema({"type": "home_desk/settings_save", **good})  # every setting the panel saves must be accepted
     print("websocket schemas ok")
 
     # ---- services: only the guide and the changelog are open to everyone

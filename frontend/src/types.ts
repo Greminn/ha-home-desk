@@ -95,6 +95,8 @@ export interface TicketSummary {
   attachment_count?: number;
   /** Set on a ticket that was folded into another: that ticket's number. */
   merged_into?: number | null;
+  /** Set while the built-in AI agent is working on the ticket. */
+  agent_state?: { state: "working"; agent: string; since: string; note?: string } | null;
   /** Who last changed it (null until anything has happened since it was raised); `updated_at` says when. */
   updated_by?: string | null;
   /** True when someone else changed the ticket since you last looked at it. */
@@ -169,6 +171,14 @@ export interface HomeDeskSettings {
   stt: string;
   /** Turn voice messages into text on the ticket. */
   transcribe: boolean;
+  /** The AI agent starts work as soon as a ticket is assigned to it. */
+  agent_auto: boolean;
+  /** What is sent to the AI provider with a ticket: entity states, automation and script configuration, related tickets. */
+  agent_states: boolean;
+  agent_config: boolean;
+  agent_related: boolean;
+  /** The most turns the AI agent takes in a day. */
+  agent_daily_cap: number;
   notify: {
     /** Notify services to send to, e.g. "mobile_app_simons_iphone" or "persistent_notification". */
     targets: string[];

@@ -79,7 +79,16 @@ AUTO_CLOSE_SECONDS = {
 # Shared options, and each manager's own notification options.
 # "stt" is a speech-to-text entity ("" = whatever Assist's preferred pipeline uses); "transcribe" turns voice-message
 # transcription on or off.
-DEFAULT_SETTINGS = {"auto_close": "7d", "agent": "", "repairs": True, "stt": "", "transcribe": True}
+#
+# The built-in AI agent: "agent_auto" lets it start work the moment a ticket is assigned to it, "agent_states",
+# "agent_config" and "agent_related" choose what is sent to the AI provider (entity states, automation and script
+# configuration, related tickets), and "agent_daily_cap" limits how many turns it takes in a day.
+DEFAULT_SETTINGS = {
+    "auto_close": "7d", "agent": "", "repairs": True, "stt": "", "transcribe": True,
+    "agent_auto": True, "agent_states": True, "agent_config": True, "agent_related": True, "agent_daily_cap": 30,
+}
+AGENT_TIMEOUT = 150  # seconds a turn may take before it is given up on
+AGENT_CONTEXT_CHARS = 24000  # the most context sent in one turn
 DEFAULT_NOTIFY = {"targets": [], "new_ticket": True, "comment": True, "resolved": False}
 
 # Colours handed out automatically to new labels: no red (reads as an alarm) and no greys (low contrast).

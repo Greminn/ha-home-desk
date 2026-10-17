@@ -130,6 +130,15 @@ export class SettingsPage extends LitElement {
         font-size: var(--st-fs-small);
         color: var(--st-fg-secondary);
       }
+      .test-out {
+        padding: 0 16px 12px;
+        font-size: var(--st-fs-small);
+        color: var(--st-fg-secondary);
+        white-space: pre-wrap;
+      }
+      .test-out.bad {
+        color: var(--st-danger);
+      }
       .error {
         margin-bottom: 12px;
         padding: 12px 16px;
@@ -145,6 +154,17 @@ export class SettingsPage extends LitElement {
 
   @state() private _s: HomeDeskSettings | null = null;
   @state() private _error = "";
+  @state() private _test: { busy: boolean; reply?: string; error?: string } | null = null;
+
+  private async _runTest() {
+    this._test = { busy: true };
+    try {
+      this._test = { busy: false, reply: (await this.client.testAgent()).reply };
+    } catch (err) {
+      const message = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : String(err);
+      this._test = { busy: false, error: message };
+    }
+  }
 
   override async connectedCallback() {
     super.connectedCallback();
@@ -262,6 +282,51 @@ export class SettingsPage extends LitElement {
           </div>
           <st-dropdown plain label="AI Agent" .value=${s.agent} .options=${agents}
             @change=${(e: CustomEvent<string>) => void this._save({ agent: e.detail })}></st-dropdown>
+        </div>
+        ${s.agent && !s.agent.startsWith("ai_task.")
+          ? html`<div class="note">Home Desk can only hand tickets to an <b>AI Task</b> agent to work on them. A conversation agent can still be named as the assignee.</div>`
+          : nothing}
+        <div class="srow">
+          <div class="text">
+            <div class="name">Start work when assigned</div>
+            <div class="desc">Assigning a ticket to the AI Agent makes it read the ticket and reply, straight away. It can only read and reply: it never changes anything in your home. Turn this off if you work tickets with an agent outside Home Assistant.</div>
+          </div>
+          ${this._switch(s.agent_auto, "Start work when assigned", (v) => void this._save({ agent_auto: v }))}
+        </div>
+        <div class="srow">
+          <div class="text">
+            <div class="name">Daily limit</div>
+            <div class="desc">The most turns it takes in a day. Past that, tickets come straight back to you.</div>
+          </div>
+          <st-dropdown plain label="Daily limit" .value=${String(s.agent_daily_cap)}
+            .options=${[...new Set([10, 30, 100, 300, s.agent_daily_cap])].sort((a, b) => a - b).map((n) => ({ id: String(n), label: `${n} a day` }))}
+            @change=${(e: CustomEvent<string>) => void this._save({ agent_daily_cap: Number(e.detail) })}></st-dropdown>
+        </div>
+        <div class="srow">
+          <div class="text">
+            <div class="name">Test the agent</div>
+            <div class="desc">Sends a harmless question, with nothing from your home, to check it answers.</div>
+          </div>
+          <button ?disabled=${!s.agent || this._test?.busy} @click=${() => void this._runTest()}>${this._test?.busy ? "Asking…" : "Test"}</button>
+        </div>
+        ${this._test?.reply ? html`<div class="test-out">${this._test.reply}</div>` : nothing}
+        ${this._test?.error ? html`<div class="test-out bad">${this._test.error}</div>` : nothing}
+      </div>
+
+      <h2>What the AI Agent is sent</h2>
+      <p class="help">The ticket and its comments are always sent. Everything sent goes to your AI provider, with passwords, keys, coordinates and email addresses taken out first.</p>
+      <div class="card">
+        <div class="srow">
+          <div class="text"><div class="name">Entity states</div><div class="desc">The state, attributes and last day of changes of the entities a ticket names.</div></div>
+          ${this._switch(s.agent_states, "Entity states", (v) => void this._save({ agent_states: v }))}
+        </div>
+        <div class="srow">
+          <div class="text"><div class="name">Automation and script configuration</div><div class="desc">The configuration of any automation or script a ticket names.</div></div>
+          ${this._switch(s.agent_config, "Automation and script configuration", (v) => void this._save({ agent_config: v }))}
+        </div>
+        <div class="srow">
+          <div class="text"><div class="name">Related tickets</div><div class="desc">Linked tickets and ones about the same entities, with how they were resolved.</div></div>
+          ${this._switch(s.agent_related, "Related tickets", (v) => void this._save({ agent_related: v }))}
         </div>
       </div>
 

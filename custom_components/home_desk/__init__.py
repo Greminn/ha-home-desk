@@ -19,6 +19,7 @@ from homeassistant.helpers.start import async_at_started
 
 from .const import CONF_REPAIRS
 from .storage import async_auto_close, async_get_settings, async_save_settings
+from .agent import async_setup_agent
 from .attachments import async_register_views
 from .frontend import async_register_sidebar_panel, async_register_static_paths
 from .repairs import async_setup_repairs
@@ -59,6 +60,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await async_auto_close(hass)
         except Exception:  # noqa: BLE001 - a failed check just waits for the next hour
             _LOGGER.warning("Could not auto-close resolved tickets", exc_info=True)
+
+    entry.async_on_unload(async_setup_agent(hass))  # the built-in AI agent takes tickets assigned to it
 
     await _close_resolved()
     entry.async_on_unload(async_track_time_interval(hass, _close_resolved, timedelta(hours=1)))

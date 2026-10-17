@@ -122,7 +122,7 @@ function seed() {
     t.category = CATEGORY_OF.find(([w]) => t.title.includes(w))?.[1] ?? null;
     if (t.source === "Home Assistant Repairs" && !t.category) t.category = "home-assistant";
   }
-  const settings = { auto_close: "7d", agent: "ai_task.claude_ai_task", repairs: true, stt: "", transcribe: true, notify: { targets: ["mobile_app_simons_iphone"], new_ticket: true, comment: true, resolved: false } };
+  const settings = { auto_close: "7d", agent: "ai_task.claude_ai_task", repairs: true, stt: "", transcribe: true, agent_auto: true, agent_states: true, agent_config: true, agent_related: true, agent_daily_cap: 30, notify: { targets: ["mobile_app_simons_iphone"], new_ticket: true, comment: true, resolved: false } };
   return { labels, tickets, categories, settings, nextId: n + 2, seen: { base: iso(30 * 60 * 1000), tickets: {} } };
 }
 
@@ -180,7 +180,34 @@ export function createMock() {
     return t;
   };
 
+  // The built-in AI agent: working for a few seconds, then a reply that hands the ticket back.
+  const agentRuns = new Map();
+  const startAgent = (t) => {
+    const name = t.assignee.replace(/^ai:/i, "");
+    const set = (note) => { t.agent_state = { state: "working", agent: name, since: iso(0), note }; fire(t, "agent", "Home Desk"); };
+    set("Reading the ticket");
+    const timers = [
+      setTimeout(() => set("Thinking it through"), 2500),
+      setTimeout(() => {
+        agentRuns.delete(t.id);
+        if (!t.agent_state) return;
+        t.events.push({ id: t.events.length + 1, actor: `ai:${name}`, kind: "comment", body: "From the entity history, the light stayed on after the motion sensor cleared. The automation only has a turn-on action, so add a **turn off** action after a delay.", data: null, created_at: iso(0) });
+        t.assignee = null; delete t.agent_state; t.updated_at = iso(0);
+        fire(t, "comment", `ai:${name}`);
+      }, 6000),
+    ];
+    agentRuns.set(t.id, timers);
+  };
+
   const handlers = {
+    agent_stop: (m) => {
+      const t = get(m.ticket_id);
+      (agentRuns.get(t.id) ?? []).forEach(clearTimeout); agentRuns.delete(t.id);
+      t.events.push({ id: t.events.length + 1, actor: "Home Desk", kind: "comment", body: `Stopped by ${state.user.name}. The ticket is back with you.`, data: null, created_at: iso(0) });
+      t.assignee = null; delete t.agent_state; t.updated_at = iso(0); fire(t, "agent", "Home Desk");
+      return { stopped: t.id };
+    },
+    agent_test: () => ({ reply: "Hello! I'm ready to help with your smart home tickets." }),
     list: (m) => {
       const q = (m.q ?? "").toLowerCase();
       const rows = Object.values(db.tickets).filter(visible).filter((t) => !q || [`#${t.id}`, t.title, t.description, ...t.events.map((e) => e.body ?? ""), ...t.labels.map((l) => db.labels[l]?.name ?? "")].join(" ").toLowerCase().includes(q));
@@ -270,10 +297,13 @@ export function createMock() {
     },
     update: (m) => {
       const { id: _i, type: _t, ticket_id, ...fields } = m;
-      const t = get(ticket_id); apply(t, state.user.name, fields);
+      const t = get(ticket_id); const before = t.assignee; apply(t, state.user.name, fields);
       // The backend rule: the first thing done to a new ticket moves it to In progress.
       if (t.status === "new" && !("status" in fields)) apply(t, "Home Desk", { status: "in_progress" });
-      fire(t, "updated", state.user.name); return t;
+      if (!/^ai:/i.test(t.assignee ?? "")) delete t.agent_state;
+      fire(t, "updated", state.user.name);
+      if (t.assignee !== before && /^ai:/i.test(t.assignee ?? "") && db.settings.agent_auto) startAgent(t);
+      return t;
     },
     comment: (m) => {
       const t = get(m.ticket_id); const internal = !!m.internal && isAdmin();
