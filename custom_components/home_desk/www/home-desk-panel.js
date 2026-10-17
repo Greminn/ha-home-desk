@@ -1267,7 +1267,7 @@ function re(t,e){return function(t){if(Array.isArray(t))return t}(t)||function(t
           ${this.isAdmin&&this.client?q`<button class="plain" @click=${()=>{this.client.stopAgent(t.id)}}>Stop</button>`:W}
         </div>
       </div>
-    </div>`}_actionWords(t){switch(t.action){case"close":return`${"closed"===t.status?"Close":"Resolve"} this ticket: ${t.resolution}`;case"set_priority":return`Set the priority to ${xt[t.priority]??t.priority}`;case"add_label":return`Add the label ${t.label}`;case"remove_label":return`Remove the label ${t.label}`;case"set_category":return`Move it to the category ${t.category}`}}_proposal(t){const e=t.data?.proposal;if(!e||!this.ticket)return W;const i=[...this.ticket.events].reverse().find(t=>t.data?.proposal)?.id===t.id,s="pending"===e.state&&i&&this.isAdmin,o=e=>this._fire("proposal",{eventId:t.id,action:e});return q`<div class="proposal">
+    </div>`}_actionWords(t){switch(t.action){case"close":return q`<b>${"closed"===t.status?"Close":"Resolve"} this ticket</b><div class="p-sub">Resolution: “${t.resolution}”</div>`;case"set_priority":return q`Set the priority to <b>${xt[t.priority]??t.priority}</b>`;case"add_label":return q`Add the label <b>${t.label}</b>`;case"remove_label":return q`Remove the label <b>${t.label}</b>`;case"set_category":return q`Move it to the category <b>${t.category}</b>`}}_proposal(t){const e=t.data?.proposal;if(!e||!this.ticket)return W;const i=[...this.ticket.events].reverse().find(t=>t.data?.proposal)?.id===t.id,s="pending"===e.state&&i&&this.isAdmin,o=e=>this._fire("proposal",{eventId:t.id,action:e});return q`<div class="proposal">
       <div class="p-head"><ha-icon icon="mdi:star-four-points"></ha-icon>Proposed change${e.actions.length>1?"s":""}</div>
       <ul>${e.actions.map(t=>q`<li>${this._actionWords(t)}</li>`)}</ul>
       ${s?q`<div class="p-acts"><button class="primary" @click=${()=>o("apply")}>Apply</button><button @click=${()=>o("dismiss")}>Dismiss</button></div>`:q`<div class="p-state"><ha-icon .icon=${"applied"===e.state?"mdi:check":"mdi:close"}></ha-icon>${"applied"===e.state?`Applied by ${$t(e.by??"")}`:"dismissed"===e.state?`Dismissed by ${$t(e.by??"")}`:"Replaced by a newer reply"}</div>`}
@@ -1889,6 +1889,12 @@ function re(t,e){return function(t){if(Array.isArray(t))return t}(t)||function(t
       .proposal ul {
         margin: 6px 0 0;
         padding-left: 22px;
+      }
+      .proposal li + li {
+        margin-top: 6px;
+      }
+      .proposal .p-sub {
+        color: var(--st-fg-secondary);
       }
       .proposal .p-acts {
         display: flex;

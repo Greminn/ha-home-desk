@@ -553,6 +553,12 @@ export class TicketDetail extends LitElement {
         margin: 6px 0 0;
         padding-left: 22px;
       }
+      .proposal li + li {
+        margin-top: 6px;
+      }
+      .proposal .p-sub {
+        color: var(--st-fg-secondary);
+      }
       .proposal .p-acts {
         display: flex;
         gap: 8px;
@@ -1213,19 +1219,19 @@ export class TicketDetail extends LitElement {
     </div>`;
   }
 
-  /** One proposed change in words. */
-  private _actionWords(a: ProposedAction): string {
+  /** One proposed change in words: what it does, and for a resolution the words it will be recorded with. */
+  private _actionWords(a: ProposedAction) {
     switch (a.action) {
       case "close":
-        return `${a.status === "closed" ? "Close" : "Resolve"} this ticket: ${a.resolution}`;
+        return html`<b>${a.status === "closed" ? "Close" : "Resolve"} this ticket</b><div class="p-sub">Resolution: “${a.resolution}”</div>`;
       case "set_priority":
-        return `Set the priority to ${PRIORITY_LABEL[a.priority] ?? a.priority}`;
+        return html`Set the priority to <b>${PRIORITY_LABEL[a.priority] ?? a.priority}</b>`;
       case "add_label":
-        return `Add the label ${a.label}`;
+        return html`Add the label <b>${a.label}</b>`;
       case "remove_label":
-        return `Remove the label ${a.label}`;
+        return html`Remove the label <b>${a.label}</b>`;
       case "set_category":
-        return `Move it to the category ${a.category}`;
+        return html`Move it to the category <b>${a.category}</b>`;
     }
   }
 
