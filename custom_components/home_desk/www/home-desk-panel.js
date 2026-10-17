@@ -615,9 +615,13 @@
         font-size: var(--st-fs-caption);
         color: var(--st-fg-secondary);
       }
+      .meta > span {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+      }
       .meta ha-icon {
         --mdc-icon-size: 14px;
-        vertical-align: -2px;
       }
       .who {
         cursor: pointer;
@@ -1162,6 +1166,12 @@ function tt(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         align-items: center;
         gap: 8px 10px;
       }
+      /* Each item (icon and words) is a centred row, so icons line up with the text whatever the font. */
+      .meta-line > span {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
       .sub .status {
         display: inline-flex;
         align-items: center;
@@ -1190,7 +1200,6 @@ function tt(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
       }
       .sub ha-icon {
         --mdc-icon-size: 16px;
-        vertical-align: -3px;
       }
       .chips {
         display: flex;

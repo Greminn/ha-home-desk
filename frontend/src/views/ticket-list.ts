@@ -109,9 +109,13 @@ export class TicketList extends LitElement {
         font-size: var(--st-fs-caption);
         color: var(--st-fg-secondary);
       }
+      .meta > span {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+      }
       .meta ha-icon {
         --mdc-icon-size: 14px;
-        vertical-align: -2px;
       }
       .who {
         cursor: pointer;

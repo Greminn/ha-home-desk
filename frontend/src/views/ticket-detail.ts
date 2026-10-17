@@ -264,6 +264,12 @@ export class TicketDetail extends LitElement {
         align-items: center;
         gap: 8px 10px;
       }
+      /* Each item (icon and words) is a centred row, so icons line up with the text whatever the font. */
+      .meta-line > span {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
       .sub .status {
         display: inline-flex;
         align-items: center;
@@ -292,7 +298,6 @@ export class TicketDetail extends LitElement {
       }
       .sub ha-icon {
         --mdc-icon-size: 16px;
-        vertical-align: -3px;
       }
       .chips {
         display: flex;
