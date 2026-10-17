@@ -499,26 +499,23 @@ export class TicketDetail extends LitElement {
       .ev .bubble.note {
         background: color-mix(in srgb, var(--st-warning) 14%, transparent);
       }
-      /* The AI Agent is working: a flat strip under the header with what it is doing and a Stop button. */
-      .agent-strip {
+      /* The AI Agent is working: a comment in the thread with what it is doing, and a Stop button. */
+      .ev.working .bubble {
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 8px 16px;
-        border-left: 3px solid var(--st-accent);
-        background: color-mix(in srgb, var(--st-accent) 10%, transparent);
-        font-size: var(--st-fs-body);
       }
-      .agent-strip ha-icon {
-        --mdc-icon-size: 20px;
+      .ev.working .bubble > ha-icon {
+        --mdc-icon-size: 18px;
+        flex: none;
         color: var(--st-accent);
         animation: working 1.4s ease-in-out infinite;
       }
-      .agent-strip .what {
+      .ev.working .what {
         flex: 1;
         min-width: 0;
       }
-      .agent-strip .note {
+      .ev.working .what .note {
         color: var(--st-fg-secondary);
       }
       @keyframes working {
@@ -527,11 +524,10 @@ export class TicketDetail extends LitElement {
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        .agent-strip ha-icon {
+        .ev.working .bubble > ha-icon {
           animation: none;
         }
       }
-      /* What is new since you last looked: a small dot and "New", the same dot the list uses for unread. */
       /* Changes the AI Agent proposes: a flat box under its comment with what it would do, and Apply and Dismiss. */
       .proposal {
         margin-top: 8px;
@@ -849,6 +845,8 @@ export class TicketDetail extends LitElement {
         this._priorityTo = "";
         this._expanded = false;
         this._comment = "";
+      } else if (this.ticket?.agent_state && !prev?.agent_state) {
+        this._scrollTo = "bottom"; // the AI Agent has started: show its comment
       } else if (this.ticket && this.ticket.events.length > had) {
         // A comment (yours, or an agent's arriving live) is on the end: bring it into view.
         this._scrollTo = "bottom";
@@ -1196,6 +1194,23 @@ export class TicketDetail extends LitElement {
     return !!this.seenAt && e.created_at > this.seenAt && e.actor !== this.me;
   }
 
+  /** While the AI Agent works, a comment from it says so and what it is doing; its reply takes its place. */
+  private _workingComment(t: Ticket) {
+    const state = t.agent_state!;
+    const who = `ai:${state.agent}`;
+    return html`<div class="ev working" role="status">
+      ${this._avatar(who)}
+      <div>
+        <div class="who"><b>${actorLabel(who)}</b> · <span class="when">now</span></div>
+        <div class="bubble">
+          <ha-icon icon="mdi:star-four-points"></ha-icon>
+          <span class="what">working on this${state.note ? html` <span class="note">· ${state.note}</span>` : nothing}</span>
+          ${this.isAdmin && this.client ? html`<button class="plain" @click=${() => void this.client!.stopAgent(t.id)}>Stop</button>` : nothing}
+        </div>
+      </div>
+    </div>`;
+  }
+
   /** One proposed change in words. */
   private _actionWords(a: ProposedAction): string {
     switch (a.action) {
@@ -1300,13 +1315,6 @@ export class TicketDetail extends LitElement {
             ${t.labels.includes(BLOCKED) ? html`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>` : nothing}
             ${t.comment_count ? html`<span><ha-icon icon="mdi:comment-outline"></ha-icon> ${t.comment_count}</span>` : nothing}
           </div>
-          ${t.agent_state
-            ? html`<div class="agent-strip" role="status">
-                <ha-icon icon="mdi:star-four-points"></ha-icon>
-                <span class="what"><b>${actorLabel(`ai:${t.agent_state.agent}`)}</b> working on this${t.agent_state.note ? html` <span class="note">· ${t.agent_state.note}</span>` : nothing}</span>
-                ${this.isAdmin && this.client ? html`<button class="plain" @click=${() => void this.client!.stopAgent(t.id)}>Stop</button>` : nothing}
-              </div>`
-            : nothing}
           <!-- Second line: the category, status and priority, then the labels (which wrap on to their own line if they don't fit). -->
           <div class="tag-line">
             <button class="num ${this._copied ? "copied" : ""}" title=${this._copied ? "Copied" : "Copy the ticket number"} aria-label="Ticket ${t.id}: copy the number"
@@ -1358,7 +1366,8 @@ export class TicketDetail extends LitElement {
           ${t.events
             .filter((e) => this._showHistory || e.kind === "comment" || e.kind === "note")
             .map((e) => this._eventTemplate(e))}
-          ${!this._showHistory && !t.events.some((e) => e.kind === "comment" || e.kind === "note")
+          ${t.agent_state ? this._workingComment(t) : nothing}
+          ${!this._showHistory && !t.agent_state && !t.events.some((e) => e.kind === "comment" || e.kind === "note")
             ? html`<div class="none">No comments yet</div>`
             : nothing}
         </div>

@@ -418,6 +418,7 @@ async def main():
         c = [e for e in (await ticket_of(hass, d["id"]))["events"] if e["kind"] == "comment"][-1]
         t = await s.async_dismiss_proposal(hass, d["id"], c["id"], actor="Simon")
         assert t["status"] != "closed" and [e for e in t["events"] if e["id"] == c["id"]][0]["data"]["proposal"]["state"] == "dismissed"
+        assert "you never could" in (await ctx.async_build_prompt(hass, d["id"], await s.async_get_settings(hass), "Claude")), "the agent is told it cannot act"
         assert "Never list options" in (await ctx.async_build_prompt(hass, d["id"], await s.async_get_settings(hass), "Claude")), "the agent is told to decide"
         stop()
         print("proposals ok")
