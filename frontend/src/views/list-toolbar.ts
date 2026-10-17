@@ -108,6 +108,22 @@ export class ListToolbar extends LitElement {
         border-radius: 50%;
         background: var(--st-accent);
       }
+      .selbar .count {
+        flex: 1;
+        font-size: var(--st-fs-body);
+        font-weight: 500;
+      }
+      .selbar .merge {
+        flex: none;
+        height: var(--st-h-bar);
+        padding: 0 16px;
+        gap: 8px;
+        border-radius: var(--st-r-pill);
+      }
+      .selbar .merge[disabled] {
+        opacity: 0.5;
+        cursor: default;
+      }
       .filters {
         flex: none;
         display: flex;
@@ -189,6 +205,11 @@ export class ListToolbar extends LitElement {
   @property({ attribute: false }) tickets: TicketSummary[] = [];
   @property({ attribute: false }) categories: Category[] = [];
   @property({ attribute: false }) labels: Label[] = [];
+  /** Admins can tick tickets to act on several at once. */
+  @property({ type: Boolean }) selectable = false;
+  /** Checkboxes are showing (the Select button is on). */
+  @property({ type: Boolean }) selecting = false;
+  @property({ type: Number }) checkedCount = 0;
 
   private _fire(name: string, detail?: unknown) {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
@@ -198,9 +219,29 @@ export class ListToolbar extends LitElement {
     return (e: CustomEvent<string>) => this._fire("filters-change", { [key]: e.detail });
   }
 
+  private _merge(e: Event) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    this._fire("merge-selected", { rect });
+  }
+
   override render() {
     const f = this.filters;
     const count = filterCount(f);
+    if (this.checkedCount) {
+      return html`<div class="toolbar selbar">
+        <button class="icon" title="Clear selection" aria-label="Clear selection" @click=${() => this._fire("clear-selection")}>
+          <ha-icon icon="mdi:close"></ha-icon>
+        </button>
+        <span class="count">${this.checkedCount} selected</span>
+        <button class="icon" title="Select all" aria-label="Select all" @click=${() => this._fire("select-all")}>
+          <ha-icon icon="mdi:select-all"></ha-icon>
+        </button>
+        <button class="merge" ?disabled=${this.checkedCount < 2} title=${this.checkedCount < 2 ? "Select at least two tickets" : "Merge selected tickets"}
+          @click=${(e: Event) => this.checkedCount >= 2 && this._merge(e)}>
+          <ha-icon icon="mdi:call-merge"></ha-icon> Merge
+        </button>
+      </div>`;
+    }
     return html`
       <div class="toolbar ${this.open ? "joined" : ""}">
         <span class="add-slot">
@@ -213,6 +254,12 @@ export class ListToolbar extends LitElement {
           <input type="search" placeholder="Search tickets" aria-label="Search tickets" .value=${this.q}
             @input=${(e: Event) => this._fire("search", (e.target as HTMLInputElement).value)} />
         </div>
+        ${this.selectable
+          ? html`<button class="icon filter-btn ${this.selecting ? "on" : ""}" title="Select Tickets" aria-label="Select Tickets" aria-pressed=${this.selecting}
+              @click=${() => this._fire("toggle-select")}>
+              <ha-icon icon="mdi:checkbox-multiple-marked-outline"></ha-icon>
+            </button>`
+          : nothing}
         <button class="icon filter-btn ${count ? "on" : ""}" title="Filters" aria-label="Filters" aria-expanded=${this.open}
           @click=${() => this._fire("toggle-filters")}>
           <ha-icon icon="mdi:filter-variant"></ha-icon>${count ? html`<span class="dot"></span>` : nothing}

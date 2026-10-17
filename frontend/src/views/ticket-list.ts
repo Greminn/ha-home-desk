@@ -60,6 +60,46 @@ export class TicketList extends LitElement {
         width: 3px;
         background: var(--st-accent);
       }
+      /* Admins: the state icon turns into a checkbox on hover, and always while ticking tickets. */
+      .lead {
+        position: relative;
+        width: 32px;
+        height: 24px;
+        margin: -1px 0 0 4px;
+        padding: 0;
+        border: none;
+        background: none;
+        cursor: inherit;
+        color: inherit;
+      }
+      .lead .state,
+      .lead .box {
+        position: absolute;
+        left: 0;
+        top: 0;
+        margin: 0;
+      }
+      .lead .box {
+        --mdc-icon-size: 24px;
+        display: none;
+        color: var(--st-fg-secondary);
+      }
+      .lead.on .box {
+        color: var(--st-accent);
+      }
+      .ticking .lead .state,
+      .row:hover .lead .state,
+      .lead.on .state {
+        display: none;
+      }
+      .ticking .lead .box,
+      .row:hover .lead .box,
+      .lead.on .box {
+        display: block;
+      }
+      .row.checked {
+        background: color-mix(in srgb, var(--st-accent) 12%, transparent);
+      }
       /* State colours: open is green, in progress blue, resolved purple, closed grey. */
       .state {
         --mdc-icon-size: 24px;
@@ -166,6 +206,39 @@ export class TicketList extends LitElement {
   @property({ type: Boolean }) isAdmin = false;
   @property({ attribute: false }) categoryMap: Map<string, Category> = new Map();
   @property({ attribute: false }) labelMap: Map<string, Label> = new Map();
+  /** Ids of the ticked tickets, and whether checkboxes show on every row. */
+  @property({ attribute: false }) checked: Set<number> = new Set();
+  @property({ type: Boolean }) ticking = false;
+  private _pressTimer: number | undefined;
+  private _pressed = false;
+
+  private _toggle(id: number, range = false) {
+    this.dispatchEvent(new CustomEvent("toggle-check", { detail: { id, range }, bubbles: true, composed: true }));
+  }
+
+  /** A long press on a row starts ticking on a touch screen. */
+  private _pressStart(id: number) {
+    if (!this.isAdmin) return;
+    this._pressed = false;
+    window.clearTimeout(this._pressTimer);
+    this._pressTimer = window.setTimeout(() => {
+      this._pressed = true;
+      this._toggle(id);
+    }, 500);
+  }
+
+  private _pressEnd() {
+    window.clearTimeout(this._pressTimer);
+  }
+
+  private _rowClick(id: number, e: MouseEvent) {
+    if (this._pressed) {
+      this._pressed = false;
+      return;
+    }
+    if (this.isAdmin && (this.ticking || e.shiftKey || e.ctrlKey || e.metaKey)) this._toggle(id, e.shiftKey);
+    else this._select(id);
+  }
 
   private _select(id: number) {
     this.dispatchEvent(
@@ -188,10 +261,23 @@ export class TicketList extends LitElement {
       const done = t.status === "resolved" || t.status === "closed";
       return html`
         <button
-          class="row s-${t.status} ${done ? "done" : ""} ${t.id === this.selectedId ? "selected" : ""}"
-          @click=${() => this._select(t.id)}
+          class="row s-${t.status} ${done ? "done" : ""} ${t.id === this.selectedId ? "selected" : ""} ${this.checked.has(t.id) ? "checked" : ""} ${this.ticking ? "ticking" : ""}"
+          @click=${(e: MouseEvent) => this._rowClick(t.id, e)}
+          @pointerdown=${(e: PointerEvent) => e.pointerType === "touch" && this._pressStart(t.id)}
+          @pointerup=${() => this._pressEnd()}
+          @pointercancel=${() => this._pressEnd()}
+          @pointermove=${() => this._pressEnd()}
         >
-          <ha-icon class="state" .icon=${STATE_ICON[t.status]} role="img" aria-label=${STATUS_LABEL[t.status]}></ha-icon>
+          ${this.isAdmin
+            ? html`<span class="lead ${this.checked.has(t.id) ? "on" : ""}" role="checkbox" aria-checked=${this.checked.has(t.id)} aria-label="Select #${t.id}"
+                @click=${(e: MouseEvent) => {
+                  e.stopPropagation();
+                  this._toggle(t.id, e.shiftKey);
+                }}>
+                <ha-icon class="state" .icon=${STATE_ICON[t.status]} aria-label=${STATUS_LABEL[t.status]}></ha-icon>
+                <ha-icon class="box" .icon=${this.checked.has(t.id) ? "mdi:checkbox-marked" : "mdi:checkbox-blank-outline"}></ha-icon>
+              </span>`
+            : html`<ha-icon class="state" .icon=${STATE_ICON[t.status]} role="img" aria-label=${STATUS_LABEL[t.status]}></ha-icon>`}
           <div class="body">
             <div class="title">${t.title}</div>
             <div class="meta">

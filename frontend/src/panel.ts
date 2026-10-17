@@ -66,8 +66,12 @@ export class HomeDeskPanel extends LitElement {
   /** The category picker, open under the pill that was clicked. */
   /** The "add label" popup, opened from the + in the ticket header. */
   /** Merging the open ticket into another: first the picker (anchored at the button), then a confirmation. */
-  @state() private _merging: { rect: DOMRect } | null = null;
-  @state() private _mergeConfirm: { from: TicketSummary; into: TicketSummary } | null = null;
+  @state() private _merging: { rect: DOMRect; ids?: number[] } | null = null;
+  @state() private _mergeConfirm: { from: TicketSummary[]; into: TicketSummary } | null = null;
+  /** Tickets ticked in the list (admins), and whether checkboxes show on every row. */
+  @state() private _checked = new Set<number>();
+  @state() private _ticking = false;
+  private _lastChecked: number | null = null;
   @state() private _pickingLabel: { ticket: TicketSummary; rect: DOMRect } | null = null;
   @state() private _picking: { ticket: TicketSummary; rect: DOMRect } | null = null;
   /** The New category dialog, and the ticket the new category goes on. */
@@ -310,6 +314,14 @@ export class HomeDeskPanel extends LitElement {
 
   /** Tickets the open one can be merged into: not itself, not ones already merged away; open ones first. */
   private get _mergeItems(): PickerItem[] {
+    const ids = this._merging?.ids;
+    if (ids) {
+      // Merging ticked tickets: keep one of them. The oldest is the usual choice.
+      return this._tickets
+        .filter((t) => ids.includes(t.id))
+        .sort((a, b) => a.id - b.id)
+        .map((t, n) => ({ id: String(t.id), primary: `#${t.id} ${t.title}`, secondary: `${n === 0 ? "Oldest · " : ""}${STATUS_LABEL[t.status]} · ${actorName(t.requester)}`, icon: "mdi:ticket-outline" }));
+    }
     const open = this._selectedId;
     const live = (t: TicketSummary) => t.status !== "resolved" && t.status !== "closed";
     return this._tickets
@@ -319,10 +331,32 @@ export class HomeDeskPanel extends LitElement {
   }
 
   private _mergePicked(id: string) {
+    const ids = this._merging?.ids;
     this._merging = null;
-    const from = this._tickets.find((t) => t.id === this._selectedId);
     const into = this._tickets.find((t) => t.id === Number(id));
-    if (from && into) this._mergeConfirm = { from, into };
+    const from = ids
+      ? this._tickets.filter((t) => ids.includes(t.id) && t.id !== Number(id))
+      : this._tickets.filter((t) => t.id === this._selectedId);
+    if (from.length && into) this._mergeConfirm = { from, into };
+  }
+
+  private _toggleCheck({ id, range }: { id: number; range: boolean }) {
+    const next = new Set(this._checked);
+    const list = this._filtered.map((t) => t.id);
+    if (range && this._lastChecked !== null && list.includes(this._lastChecked)) {
+      const [a, b] = [list.indexOf(this._lastChecked), list.indexOf(id)].sort((x, y) => x - y);
+      for (const n of list.slice(a, b! + 1)) next.add(n);
+    } else if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this._lastChecked = id;
+    this._checked = next;
+    if (next.size) this._ticking = true;
+  }
+
+  private _clearChecked() {
+    this._checked = new Set();
+    this._ticking = false;
+    this._lastChecked = null;
   }
 
   private async _doMerge() {
@@ -330,7 +364,8 @@ export class HomeDeskPanel extends LitElement {
     this._mergeConfirm = null;
     if (!m || !this._client) return;
     try {
-      await this._client.merge(m.into.id, [m.from.id]);
+      await this._client.merge(m.into.id, m.from.map((t) => t.id));
+      this._clearChecked();
       this._error = "";
       await this._refresh();
       await this._open(m.into.id);
@@ -509,6 +544,11 @@ export class HomeDeskPanel extends LitElement {
         <div class="list-pane">
           <st-list-toolbar .q=${this._q} .filters=${this._filters} .open=${this._filtersOpen} .tickets=${this._tickets}
             .categories=${this._categoryList} .labels=${this._labelList}
+            .selectable=${this._admin} .selecting=${this._ticking} .checkedCount=${this._checked.size}
+            @toggle-select=${() => (this._ticking ? this._clearChecked() : (this._ticking = true))}
+            @clear-selection=${() => this._clearChecked()}
+            @select-all=${() => (this._checked = new Set(this._filtered.map((t) => t.id)))}
+            @merge-selected=${(e: CustomEvent<{ rect: DOMRect }>) => (this._merging = { rect: e.detail.rect, ids: this._tickets.filter((t) => this._checked.has(t.id) && !t.merged_into).map((t) => t.id) })}
             @search=${(e: CustomEvent<string>) => this._search(e.detail)}
             @toggle-filters=${() => (this._filtersOpen = !this._filtersOpen)}
             @filters-change=${(e: CustomEvent<Partial<ListFilters>>) => this._applyFilters(e.detail)}
@@ -519,7 +559,10 @@ export class HomeDeskPanel extends LitElement {
             .language=${lang}
             .isAdmin=${this._admin}
             .labelMap=${this._labelMap}
+            .checked=${this._checked}
+            .ticking=${this._ticking}
             .categoryMap=${new Map(this._categoryList.map((c) => [c.id, c]))}
+            @toggle-check=${(e: CustomEvent<{ id: number; range: boolean }>) => this._toggleCheck(e.detail)}
             @select-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
             @filter-person=${(e: CustomEvent<string>) => {
               this._person = e.detail;
@@ -574,7 +617,7 @@ export class HomeDeskPanel extends LitElement {
         : nothing}
       ${this._mergeConfirm
         ? html`<st-confirm-dialog heading="Merge Tickets?" confirmLabel="Merge" danger
-            body="Merge #${this._mergeConfirm.from.id} into #${this._mergeConfirm.into.id} (${this._mergeConfirm.into.title})? The comments, labels and files of #${this._mergeConfirm.from.id} move to #${this._mergeConfirm.into.id}, and #${this._mergeConfirm.from.id} is closed. This can't be undone."
+            body="Merge ${this._mergeConfirm.from.map((t) => "#" + t.id).join(", ")} into #${this._mergeConfirm.into.id} (${this._mergeConfirm.into.title})? The comments, labels and files of ${this._mergeConfirm.from.length > 1 ? "the others" : "#" + this._mergeConfirm.from[0]!.id} move to #${this._mergeConfirm.into.id}, and ${this._mergeConfirm.from.length > 1 ? "they are" : "it is"} closed. This can't be undone."
             @cancel=${() => (this._mergeConfirm = null)}
             @confirm=${() => void this._doMerge()}></st-confirm-dialog>`
         : nothing}
