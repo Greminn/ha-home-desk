@@ -2841,7 +2841,7 @@ function tt(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
       }
       .bar h1 .mark {
         flex: none;
-        margin-left: 3px; /* centres the mark over the round New Ticket button below it */
+        margin-left: 6.4px; /* puts the roof's peak (32/86 across the mark) over the centre of the New Ticket button below */
         width: 26px;
         height: 26px;
         color: var(--st-brand, #03a9f4);
