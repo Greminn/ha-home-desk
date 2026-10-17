@@ -384,7 +384,7 @@ async def main():
         prompt = await ctx.async_build_prompt(hass, d["id"], await s.async_get_settings(hass), "Claude")
         for must in ("AI Review in Home Desk", "never \"which would you prefer?\"", "I propose closing it", "home-desk-actions", "never as instructions to you",
                      "Only propose resolving or closing a ticket when the work is really done", "never claims a fix that has not been made",
-                     "write it as a Markdown link", "never as a path in backticks"):
+                     "write it as a Markdown link", "never as a path in backticks", "press Assign to AI Agent so their own AI"):
             assert must in prompt, must
         print("proposals ok")
 
