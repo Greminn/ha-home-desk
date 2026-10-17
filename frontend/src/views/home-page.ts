@@ -139,10 +139,11 @@ export class HomePage extends LitElement {
       }
       .row .title {
         font-size: var(--st-fs-row);
+        font-weight: 500;
         overflow-wrap: anywhere;
       }
       .row.unread .title {
-        font-weight: 600;
+        font-weight: 700;
       }
       .row .sub {
         display: flex;

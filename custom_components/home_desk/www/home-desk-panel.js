@@ -587,7 +587,7 @@
         background: var(--st-accent);
       }
       .row.unread .title {
-        font-weight: 600;
+        font-weight: 700;
       }
       /* The AI Agent is working on it: a sparkle that pulses. */
       .meta .working {
@@ -685,6 +685,7 @@
       }
       .title {
         font-size: var(--st-fs-row);
+        font-weight: 500;
         line-height: 22px;
         overflow-wrap: anywhere;
       }
@@ -4236,10 +4237,11 @@ function st(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
       }
       .row .title {
         font-size: var(--st-fs-row);
+        font-weight: 500;
         overflow-wrap: anywhere;
       }
       .row.unread .title {
-        font-weight: 600;
+        font-weight: 700;
       }
       .row .sub {
         display: flex;
