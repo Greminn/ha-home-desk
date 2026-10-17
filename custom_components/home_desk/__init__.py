@@ -19,6 +19,7 @@ from homeassistant.helpers.start import async_at_started
 
 from .const import CONF_REPAIRS
 from .storage import async_auto_close, async_get_settings, async_save_settings
+from .attachments import async_register_views
 from .frontend import async_register_sidebar_panel, async_register_static_paths
 from .repairs import async_setup_repairs
 from .services import async_setup_services
@@ -31,6 +32,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up integration-wide resources: WebSocket commands, services, panel."""
     async_register_commands(hass)
     await async_setup_services(hass)
+    try:
+        async_register_views(hass)  # photos and voice messages: the report upload and the file download
+    except Exception:  # noqa: BLE001 - tickets must keep working even if the upload endpoints can't be added
+        _LOGGER.warning("Failed to register Home Desk's report and attachment endpoints", exc_info=True)
 
     try:
         await async_register_static_paths(hass)

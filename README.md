@@ -141,7 +141,7 @@ cp .env.example .env # then `npm run push` rsyncs the panel bundle to HA; a hard
 
 Service names and descriptions (what AI agents read) are generated into `services.yaml`, `strings.json` and `translations/en.json` from one table: edit `tools/gen_services.py`, then run it. HA reads custom-integration service descriptions from `services.yaml`.
 
-Tests (no HA install needed, no private data): `python3 -I tests/test_storage.py` (tickets, labels, categories, the status rules, the AI agent, settings, auto-close, repairs), `uv run --with voluptuous python tests/test_api.py` (who may do what over the websocket and the services) and `uv run --with "mcp<2" python tests/test_mcp.py`. They run in GitHub on every push (`.github/workflows/validate.yml`, with Home Assistant's `hassfest` and HACS validation).
+Tests (no HA install needed, no private data): `python3 -I tests/test_storage.py` (tickets, labels, categories, the status rules, the AI agent, settings, auto-close, repairs), `uv run --with voluptuous python tests/test_api.py` (who may do what over the websocket and the services) `uv run --with aiohttp python tests/test_attachments.py` (reports with photos and a voice message) and `uv run --with "mcp<2" python tests/test_mcp.py`. They run in GitHub on every push (`.github/workflows/validate.yml`, with Home Assistant's `hassfest` and HACS validation).
 
 ## Known limits
 

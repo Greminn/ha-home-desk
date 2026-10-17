@@ -61,13 +61,25 @@ MAX_TITLE = 300
 MAX_TEXT = 100_000
 MAX_NAME = 80
 
+# Photos and a voice message sent with a report. The panel shrinks photos before sending and records the voice message
+# as 16 kHz mono WAV (what Home Assistant's speech-to-text takes), so these are generous ceilings, not typical sizes.
+MAX_IMAGES = 6
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_AUDIO_BYTES = 12 * 1024 * 1024
+MAX_AUDIO_SECONDS = 190  # the panel stops at 3 minutes; a little slack for the last buffer
+MAX_REPORTS_PER_HOUR = 10  # per user, so one account can't fill the disk
+ATTACHMENT_DIR = "home_desk_attachments"  # under the config directory
+TRANSCRIBE_TIMEOUT = 180  # seconds to wait for speech-to-text
+
 # How long a resolved ticket stays resolved before it closes by itself ("never" and "immediately" are special).
 AUTO_CLOSE_SECONDS = {
     "immediately": 0, "1h": 3600, "6h": 6 * 3600, "1d": 86400, "3d": 3 * 86400,
     "7d": 7 * 86400, "14d": 14 * 86400, "30d": 30 * 86400, "never": None,
 }
 # Shared options, and each manager's own notification options.
-DEFAULT_SETTINGS = {"auto_close": "7d", "agent": "", "repairs": True}
+# "stt" is a speech-to-text entity ("" = whatever Assist's preferred pipeline uses); "transcribe" turns voice-message
+# transcription on or off.
+DEFAULT_SETTINGS = {"auto_close": "7d", "agent": "", "repairs": True, "stt": "", "transcribe": True}
 DEFAULT_NOTIFY = {"targets": [], "new_ticket": True, "comment": True, "resolved": False}
 
 # Colours handed out automatically to new labels: no red (reads as an alarm) and no greys (low contrast).

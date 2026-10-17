@@ -264,6 +264,9 @@ def _migrate(data: dict[str, Any]) -> bool:
         if "category" not in ticket:
             ticket["category"] = None
             changed = True
+        if "attachments" not in ticket:
+            ticket["attachments"] = []
+            changed = True
         # Tickets raised from Home Assistant Repairs are about Home Assistant.
         if (ticket.get("source_key") or "").startswith("repair:") and not ticket["category"]:
             ticket["category"] = HA_CATEGORY_ID
@@ -351,8 +354,9 @@ def _summary(ticket: dict[str, Any]) -> dict[str, Any]:
     """The list-row view: everything but the body and timeline."""
     comments = [e for e in ticket["events"] if e["kind"] in ("comment", "note")]
     return {
-        **{k: v for k, v in ticket.items() if k not in ("description", "events", "resolution")},
+        **{k: v for k, v in ticket.items() if k not in ("description", "events", "resolution", "attachments")},
         "comment_count": len(comments),
+        "attachment_count": len(ticket.get("attachments", [])),
         "has_resolution": bool(ticket.get("resolution")),
     }
 
@@ -409,6 +413,7 @@ def _new_ticket(
         "assignee": assignee or None,
         "labels": label_ids,
         "category": _resolve_category(data, category) if category else None,
+        "attachments": [],
         "entities": sorted(set(entities or [])),
         "links": [],
         "legacy_ref": legacy_ref,
@@ -1094,6 +1099,11 @@ async def async_save_settings(
         raise TicketError(f"Unknown setting(s) {sorted(unknown)}")
     if "repairs" in patch:
         patch["repairs"] = bool(patch["repairs"])
+    if "transcribe" in patch:
+        patch["transcribe"] = bool(patch["transcribe"])
+    for key in ("agent", "stt"):
+        if key in patch:
+            patch[key] = _limit(str(patch[key]).strip(), 200, f"The {key} setting")
     async with _lock(hass):
         data = await _load(hass)
         data["settings"] = {**_settings(data), **patch}
@@ -1136,3 +1146,68 @@ async def async_auto_close(hass: HomeAssistant) -> int:
     for ticket in closed:
         _fire(hass, ticket, "updated", "Home Desk")
     return len(closed)
+
+
+# ------------------------------------------------------------------ attachments (photos and a voice message)
+
+
+def _attachment_summary(items: list[dict[str, Any]]) -> str:
+    images = sum(1 for a in items if a["kind"] == "image")
+    audio = sum(1 for a in items if a["kind"] == "audio")
+    parts = []
+    if images:
+        parts.append(f"{images} photo{'s' if images != 1 else ''}")
+    if audio:
+        parts.append("a voice message" if audio == 1 else f"{audio} voice messages")
+    return " and ".join(parts)
+
+
+async def async_add_attachments(
+    hass: HomeAssistant, ticket_id: int, items: list[dict[str, Any]], *, actor: str
+) -> dict[str, Any]:
+    """Record files that were saved for a ticket (the bytes live on disk, see attachments.py)."""
+    if not items:
+        return await async_get_ticket(hass, ticket_id)
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _get(data, ticket_id)
+        ticket.setdefault("attachments", []).extend(items)
+        _event(ticket, actor, "attachment", None, {"field": "attachments", "to": _attachment_summary(items)})
+        ticket["updated_at"] = _now()
+        await _save(hass, data)
+    return ticket
+
+
+async def async_find_attachment(
+    hass: HomeAssistant, ticket_id: int, attachment_id: str
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """(ticket, attachment) for a download, so the caller can check who may have it."""
+    async with _lock(hass):
+        data = await _load(hass)
+    ticket = _get(data, ticket_id)
+    for attachment in ticket.get("attachments", []):
+        if attachment["id"] == attachment_id:
+            return ticket, attachment
+    raise TicketError(f"Attachment {attachment_id!r} not found")
+
+
+async def async_set_transcript(hass: HomeAssistant, ticket_id: int, attachment_id: str, text: str) -> None:
+    """Keep what speech-to-text heard, and add it to the description so it can be read, searched and handed on."""
+    text = (text or "").strip()
+    if not text:
+        return
+    text = _limit(text, MAX_TEXT, "The transcript")
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _get(data, ticket_id)
+        for attachment in ticket.get("attachments", []):
+            if attachment["id"] == attachment_id:
+                attachment["transcript"] = text
+                break
+        else:
+            raise TicketError(f"Attachment {attachment_id!r} not found")
+        quoted = "\n".join(f"> {line}" if line.strip() else ">" for line in text.splitlines())
+        block = f"**Voice message** (transcribed by Home Assistant)\n\n{quoted}"
+        description = f"{ticket['description']}\n\n{block}" if ticket["description"] else block
+        _apply_update(data, ticket, "Home Desk", {"description": description[:MAX_TEXT]})
+        await _save(hass, data)
