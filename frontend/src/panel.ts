@@ -7,10 +7,7 @@ import { HaClient } from "./ha-client";
 import type { NewTicket } from "./ha-client";
 import type { Category, HomeAssistant, HomeDeskSettings, Label, Ticket, TicketPatch, TicketSummary } from "./types";
 import type { Person } from "./format";
-import {
-  VIEWS, SCOPES_OPTIONS, agentOptions, categoryOptions, filterCount, filterTickets, labelOptions, personOptions,
-  priorityOptions, type ListFilters,
-} from "./list-model";
+import { VIEWS, filterCount, filterTickets, type ListFilters } from "./list-model";
 import "./views/ticket-list";
 import "./views/ticket-detail";
 import "./views/new-ticket-dialog";
@@ -18,6 +15,7 @@ import "./views/label-manager";
 import "./views/category-manager";
 import "./views/settings-page";
 import "./views/app-header";
+import "./views/list-toolbar";
 import type { Page } from "./views/app-header";
 import "./views/dropdown";
 import "./views/confirm-dialog";
@@ -277,8 +275,8 @@ export class HomeDeskPanel extends LitElement {
 
   // ---- handlers
 
-  private _onSearch(e: Event) {
-    this._q = (e.target as HTMLInputElement).value;
+  private _search(q: string) {
+    this._q = q;
     window.clearTimeout(this._searchTimer);
     this._searchTimer = window.setTimeout(() => void this._runSearch(), SEARCH_DEBOUNCE_MS);
   }
@@ -400,6 +398,16 @@ export class HomeDeskPanel extends LitElement {
 
   // ---- derived
 
+  /** A change from the filter dropdowns. */
+  private _applyFilters(c: Partial<ListFilters>) {
+    if (c.scope !== undefined) this._scope = c.scope;
+    if (c.category !== undefined) this._category = c.category;
+    if (c.person !== undefined) this._person = c.person;
+    if (c.agent !== undefined) this._agentFilter = c.agent;
+    if (c.priority !== undefined) this._priority = c.priority;
+    if (c.label !== undefined) this._label = c.label;
+  }
+
   private get _filters(): ListFilters {
     return {
       view: this._view, scope: this._scope, category: this._category, priority: this._priority,
@@ -463,39 +471,12 @@ export class HomeDeskPanel extends LitElement {
                 @settings-changed=${(e: CustomEvent<HomeDeskSettings>) => (this._settings = e.detail)}></st-settings>`
             : html`<main class=${selecting ? "has-selection" : ""}>
         <div class="list-pane">
-          <div class="toolbar ${this._filtersOpen ? "joined" : ""}">
-            <span class="add-slot">
-              <button class="icon add-btn" title="New Ticket" aria-label="New Ticket" @click=${() => (this._creating = true)}>
-                <ha-icon icon="mdi:plus"></ha-icon><span class="words">New Ticket</span>
-              </button>
-            </span>
-            <div class="search">
-              <ha-icon icon="mdi:magnify"></ha-icon>
-              <input type="search" placeholder="Search tickets" aria-label="Search tickets" .value=${this._q} @input=${this._onSearch} />
-            </div>
-            <button class="icon filter-btn ${this._filterCount ? "on" : ""}" title="Filters" aria-label="Filters" aria-expanded=${this._filtersOpen}
-              @click=${() => (this._filtersOpen = !this._filtersOpen)}>
-              <ha-icon icon="mdi:filter-variant"></ha-icon>${this._filterCount ? html`<span class="dot"></span>` : nothing}
-            </button>
-          </div>
-          ${this._filtersOpen
-            ? html`<div class="filters">
-                ${this._view === "all"
-                  ? html`<st-dropdown label="Show" .options=${SCOPES_OPTIONS} .value=${this._scope}
-                      @change=${(e: CustomEvent<string>) => (this._scope = e.detail)}></st-dropdown>`
-                  : nothing}
-                <st-dropdown label="Category" placeholder="Category" .options=${categoryOptions(this._categoryList)} .value=${this._category}
-                  @change=${(e: CustomEvent<string>) => (this._category = e.detail)}></st-dropdown>
-                <st-dropdown label="Raised By" placeholder="Raised By" .options=${personOptions(this._tickets, this._person)} .value=${this._person}
-                  @change=${(e: CustomEvent<string>) => (this._person = e.detail)}></st-dropdown>
-                <st-dropdown label="AI Agent" placeholder="AI Agent" .options=${agentOptions()} .value=${this._agentFilter}
-                  @change=${(e: CustomEvent<string>) => (this._agentFilter = e.detail)}></st-dropdown>
-                <st-dropdown label="Priority" placeholder="Priority" .options=${priorityOptions()} .value=${this._priority}
-                  @change=${(e: CustomEvent<string>) => (this._priority = e.detail)}></st-dropdown>
-                <st-dropdown label="Label" placeholder="Label" .options=${labelOptions(this._labelList)} .value=${this._label}
-                  @change=${(e: CustomEvent<string>) => (this._label = e.detail)}></st-dropdown>
-              </div>`
-            : nothing}
+          <st-list-toolbar .q=${this._q} .filters=${this._filters} .open=${this._filtersOpen} .tickets=${this._tickets}
+            .categories=${this._categoryList} .labels=${this._labelList}
+            @search=${(e: CustomEvent<string>) => this._search(e.detail)}
+            @toggle-filters=${() => (this._filtersOpen = !this._filtersOpen)}
+            @filters-change=${(e: CustomEvent<Partial<ListFilters>>) => this._applyFilters(e.detail)}
+            @new-ticket=${() => (this._creating = true)}></st-list-toolbar>
           <st-ticket-list
             .tickets=${this._filtered}
             .selectedId=${this._selectedId}
