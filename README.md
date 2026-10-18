@@ -138,6 +138,8 @@ Every change fires `home_desk_event` with `ticket_id`, `kind` (`created`, `updat
 
 ## Development
 
+A handoff for picking the work up again (how to run, test and deploy, where things stand, what is next) is in [docs/development.md](docs/development.md).
+
 ```sh
 cd frontend && npm install
 npm run build        # writes custom_components/home_desk/www/home-desk-panel.js (committed, like Spatial Context)
@@ -147,7 +149,7 @@ cp .env.example .env # then `npm run push` rsyncs the panel bundle to HA; a hard
 
 **Preview without Home Assistant:** `npm run dev` (in `frontend/`) serves the real panel against a mock Home Assistant at <http://localhost:5173> and rebuilds on every save. The control bar switches dark/light, phone/tablet/desktop width and admin/household user, fires a fake "agent update" to test live updates, and resets the mock data (`frontend/dev/mock-hass.js`). It uses Home Assistant's real theme tokens and the real Material Design Icons. `npm run dev:theme` regenerates `dev/theme.css` from a checkout of `home-assistant/frontend` (default `~/Projects/ha-frontend-reference`; the tokens are Apache-2.0). The preview is development-only and not part of the installed integration.
 
-**Brand:** the logo and icon Home Assistant shows for the integration are in `custom_components/home_desk/brand/` (light and dark, with `@2x`). `home_desk_brand/` has the SVG masters, favicon, avatars and social-preview images. The mark is a house with a tick cut out of it.
+**Brand:** the logo and icon Home Assistant shows for the integration are in `custom_components/home_desk/brand/` (light and dark, with `@2x`). `home_desk_brand/` has the SVG masters, favicon, avatars and social-preview images. The mark is a house with a tick and a small AI spark cut out of it.
 
 Service names and descriptions (what AI agents read) are generated into `services.yaml`, `strings.json` and `translations/en.json` from one table: edit `tools/gen_services.py`, then run it. HA reads custom-integration service descriptions from `services.yaml`.
 
@@ -156,6 +158,7 @@ Tests (no HA install needed, no private data): `python3 -I tests/test_storage.py
 ## Known limits
 
 - Tested without a Home Assistant install (storage logic, the websocket and service layers against stand-ins for Home Assistant, the MCP bridge, and the panel in a mock page) and by use on a live install; there is no automated test of the panel itself or of the real HA wiring.
-- Services (other than the guide and changelog) and the Settings need an administrator; admin-only features rely on HA's own admin flag. Non-admins only see tickets they raised, and the simple report form for them is not built yet (they use the same panel, cut down).
+- Services (other than the guide and changelog) and the Settings need an administrator; admin-only features rely on HA's own admin flag. Non-admins only see the simple report form (a problem or a suggestion, with photos and a voice message); they can't open tickets.
 - Label colours are limited to the theme-aware names, not arbitrary hex values.
 - The Settings notification options are stored but nothing is sent yet.
+- Review with AI only advises and proposes: nothing in Home Desk starts an AI agent on its own yet (assigning only marks a ticket; auto-starting your own agent is being designed, see `docs/development.md`).
