@@ -624,6 +624,7 @@ export class HomeDeskPanel extends LitElement {
         @page-change=${(e: CustomEvent<Page>) => (this._page = e.detail)}
         @view-change=${(e: CustomEvent<string>) => {
           this._page = "";
+          this._wide = false; // a tab means the list: back out of the full width view
           this._setView(e.detail);
         }}
         @go-home=${() => {

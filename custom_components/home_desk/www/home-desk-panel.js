@@ -4748,7 +4748,7 @@ ${e.related?.length?B`<div class="chips"><span class="sect">Related</span>${e.re
       @go-view=${e=>{this._page="",this._close(),this._setView(e.detail.view),this._scope=e.detail.scope??"",this._priority=e.detail.priority}}></st-home-page>`}render(){if(!this.hass)return F;const e=this.hass.language,t=null!==this._selectedId;return B`
       <st-app-header .page=${"home"===this._page?"":this._page} .view=${"home"===this._page?"":this._view} .tickets=${this._tickets} .narrow=${this.narrow} .admin=${this._admin}
         @page-change=${e=>this._page=e.detail}
-        @view-change=${e=>{this._page="",this._setView(e.detail)}}
+        @view-change=${e=>{this._page="",this._wide=!1,this._setView(e.detail)}}
         @go-home=${()=>{this._page="home",this._close()}}
         @refresh=${()=>{this._refresh()}}
         @mark-all-read=${()=>{this._markRead()}}></st-app-header>
