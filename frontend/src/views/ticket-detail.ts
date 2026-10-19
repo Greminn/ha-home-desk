@@ -348,17 +348,20 @@ export class TicketDetail extends LitElement {
         flex: 1;
         min-height: 0;
         display: grid;
-        grid-template-columns: clamp(340px, 36%, 560px) minmax(0, 1fr);
+        /* The same width as the list in the standard view, so the two views line up. */
+        grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
       }
       /*
        * The left panel is laid out like the standard view: the details sit on the header's colour, with a line under
-       * them, and the description below is on the softer tint of the thread. The description scrolls; the details stay put.
+       * them, and the description below is on the softer tint of the thread. The whole panel scrolls as one, and the
+       * ticket's history is listed under the description.
        */
       .side {
         min-width: 0;
         min-height: 0;
         display: flex;
         flex-direction: column;
+        overflow-y: auto;
         border-right: 1px solid var(--st-divider);
         background: var(--st-selected-soft, var(--st-surface));
       }
@@ -375,11 +378,13 @@ export class TicketDetail extends LitElement {
       .side .tag-line st-ticket-tags[show="labels"] {
         flex: 1 1 100%;
       }
+      /* The details and the description scroll as one; the softer band runs on to the bottom even when the text is short. */
       .side-wrap {
-        flex: 1;
-        min-height: 0;
-        overflow-y: auto;
+        flex: 1 0 auto;
         padding: 16px 18px 28px;
+      }
+      .side-wrap .history {
+        margin-top: 8px;
       }
       /* In the side panel the description just sits there, whole: it isn't pinned or squeezed. */
       .desc-sticky.plain {
@@ -997,6 +1002,8 @@ export class TicketDetail extends LitElement {
   @state() private _expanded = false;
   /** Status changes and other system lines are tucked away; the history button brings them back. */
   @state() private _showHistory = false;
+  /** In the full width view the history sits under the description (the history button hides it). */
+  @state() private _wideHistory = true;
   /** A long description collapses to one line as soon as the ticket is scrolled, and opens again at the top. */
   @state() private _descCollapsed = false;
   /** The description's natural height, measured while it is not folded to one line. */
@@ -1565,6 +1572,13 @@ export class TicketDetail extends LitElement {
     const done = t.status === "resolved" || t.status === "closed";
     // The full width view (not offered on a phone, where the ticket already has the whole screen).
     const canWide = !this.narrow;
+    // In the full width view the changes are listed in the left panel, so the thread is only comments.
+    const historyOn = this.wide ? this._wideHistory : this._showHistory;
+    const showAll = this._showHistory && !this.wide;
+    const historyBlock = html`<div class="timeline history">
+      <h2>History</h2>
+      ${t.events.filter((e) => e.kind !== "comment" && e.kind !== "note").map((e) => this._eventTemplate(e))}
+    </div>`;
     const headRow = html`
 <div class="head ${this.isAdmin ? "admin" : ""} ${canWide ? "has-wide" : ""}">
   ${this.narrow
@@ -1586,9 +1600,9 @@ export class TicketDetail extends LitElement {
         @click=${(e: Event) => this._fire("pick-merge", { rect: (e.currentTarget as HTMLElement).getBoundingClientRect() })}>
         <ha-icon icon="mdi:call-merge"></ha-icon></button>`
     : nothing}
-  <button class="icon hist" aria-pressed=${this._showHistory ? "true" : "false"}
-    title=${this._showHistory ? "Hide history" : "Show history"} aria-label="Show history"
-    @click=${() => (this._showHistory = !this._showHistory)}><ha-icon icon="mdi:history"></ha-icon></button>
+  <button class="icon hist" aria-pressed=${historyOn ? "true" : "false"}
+    title=${historyOn ? "Hide history" : "Show history"} aria-label="Show history"
+    @click=${() => (this.wide ? (this._wideHistory = !this._wideHistory) : (this._showHistory = !this._showHistory))}><ha-icon icon="mdi:history"></ha-icon></button>
 ${canWide
   ? html`<button class="icon hist wide-toggle" title=${this.wide ? "Exit full width view" : "Full width view"} aria-label=${this.wide ? "Exit full width view" : "Full width view"}
       @click=${() => this._fire("toggle-wide")}><ha-icon icon=${this.wide ? "mdi:arrow-collapse-horizontal" : "mdi:arrow-expand-horizontal"}></ha-icon></button>`
@@ -1648,12 +1662,12 @@ ${t.related?.length
   : nothing}`;
     const timelineBlock = html`
 <div class="timeline" aria-live="polite" aria-relevant="additions">
-  <h2>${this._showHistory ? "Activity" : "Comments"}</h2>
+  <h2>${showAll ? "Activity" : "Comments"}</h2>
   ${t.events
-    .filter((e) => this._showHistory || e.kind === "comment" || e.kind === "note")
+    .filter((e) => showAll || e.kind === "comment" || e.kind === "note")
     .map((e) => this._eventTemplate(e))}
   ${t.agent_state ? this._workingComment(t) : nothing}
-  ${!this._showHistory && !t.agent_state && !t.events.some((e) => e.kind === "comment" || e.kind === "note")
+  ${!showAll && !t.agent_state && !t.events.some((e) => e.kind === "comment" || e.kind === "note")
     ? html`<div class="none">No comments yet</div>`
     : nothing}
 </div>`;
@@ -1690,7 +1704,7 @@ ${t.related?.length
       return html`
         <div class="top">${headRow}</div>
         <div class="wide-body">
-          <aside class="side"><div class="side-head">${subBlock}</div><div class="side-wrap">${descBlock}${resolutionBlock}${relatedBlock}</div></aside>
+          <aside class="side"><div class="side-head">${subBlock}</div><div class="side-wrap">${descBlock}${resolutionBlock}${relatedBlock}${this._wideHistory ? historyBlock : nothing}</div></aside>
           <section class="main">
             <div class="scroll"><div class="wrap">${timelineBlock}</div></div>
             ${dock}
