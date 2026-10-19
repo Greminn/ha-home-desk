@@ -3852,11 +3852,12 @@ function at(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         flex: 1;
         min-width: 0;
         display: flex;
-        flex-wrap: wrap;
         gap: 8px;
       }
+      /* One line, however many there are: they share the width and shorten their words (with an ellipsis) when it is tight. */
       .filters st-dropdown {
-        flex: 1 1 120px;
+        flex: 1 1 0;
+        min-width: 0;
       }
     `],e([de({attribute:!1})],oo.prototype,"filters",void 0),e([de({attribute:!1})],oo.prototype,"tickets",void 0),e([de({attribute:!1})],oo.prototype,"categories",void 0),e([de({attribute:!1})],oo.prototype,"labels",void 0),e([de({type:Boolean})],oo.prototype,"selectable",void 0),e([de({type:Boolean})],oo.prototype,"selecting",void 0),e([de({type:Number})],oo.prototype,"checkedCount",void 0),oo=e([pe("st-list-toolbar")],oo);let no=class extends re{constructor(){super(...arguments),this.q=""}_fire(e,t){this.dispatchEvent(new CustomEvent(e,{detail:t,bubbles:!0,composed:!0}))}render(){return B`<div class="bar">
       <button class="add" title="New Ticket" aria-label="New Ticket" @click=${()=>this._fire("new-ticket")}>

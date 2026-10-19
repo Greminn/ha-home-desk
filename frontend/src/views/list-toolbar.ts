@@ -78,11 +78,12 @@ export class ListToolbar extends LitElement {
         flex: 1;
         min-width: 0;
         display: flex;
-        flex-wrap: wrap;
         gap: 8px;
       }
+      /* One line, however many there are: they share the width and shorten their words (with an ellipsis) when it is tight. */
       .filters st-dropdown {
-        flex: 1 1 120px;
+        flex: 1 1 0;
+        min-width: 0;
       }
     `,
   ];
