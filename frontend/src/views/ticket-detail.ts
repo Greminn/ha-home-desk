@@ -362,6 +362,10 @@ export class TicketDetail extends LitElement {
       .side .sub {
         margin-top: 0;
       }
+      /* The labels always get a line of their own under the category, status and priority. */
+      .side .tag-line st-ticket-tags[show="labels"] {
+        flex: 1 1 100%;
+      }
       .side-wrap {
         margin-top: 16px;
       }
@@ -1610,11 +1614,11 @@ ${t.description || t.attachments?.length
       @click=${this._expandDescription}
       @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && this._descCollapsed && (e.preventDefault(), this._expandDescription())}>
       <div class="card desc">
-        ${t.description ? html`<div class="md ${long && !this._expanded ? "clamp" : ""}">${unsafeHTML(renderMarkdown(t.description))}</div>` : nothing}
+        ${t.description ? html`<div class="md ${long && !this._expanded && !this.wide ? "clamp" : ""}">${unsafeHTML(renderMarkdown(t.description))}</div>` : nothing}
         ${t.attachments?.length && this.client
           ? html`<st-ticket-attachments class="attached" .client=${this.client} .ticketId=${t.id} .items=${t.attachments}></st-ticket-attachments>`
           : nothing}
-        ${long ? html`<button class="more" @click=${() => (this._expanded = !this._expanded)}>${this._expanded ? "Show Less" : "Show All"}</button>` : nothing}
+        ${long && !this.wide ? html`<button class="more" @click=${() => (this._expanded = !this._expanded)}>${this._expanded ? "Show Less" : "Show All"}</button>` : nothing}
         <st-ticket-things class="about" .hass=${this.hass} .client=${this.client} .ticketId=${t.id} .editable=${this.isAdmin}
           .entities=${t.entities} .devices=${t.devices ?? []} .areas=${t.areas ?? []} 
           @change=${(e: CustomEvent<{ entities: string[]; devices: string[]; areas: string[] }>) => this._patch(e.detail)}></st-ticket-things>
