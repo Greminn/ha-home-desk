@@ -18,10 +18,27 @@ export const STATE_ICON: Record<Status, string> = {
   closed: "mdi:close-circle-outline",
 };
 
-/** The icon for a ticket's state: a ticket queued for an AI agent shows the agent's spark in place of its status circle. */
-export function stateIcon(status: Status, assignee?: string | null): string {
+/** The Enhancement label's own id (an idea for the future) and its icon. */
+const ENHANCEMENT_LABEL = "enhancement";
+const ENHANCEMENT_ICON = "mdi:lightbulb-on-outline";
+
+/**
+ * The icon for a ticket's state. A ticket queued for an AI agent shows the agent's spark; an Enhancement that has not been
+ * started (still New) shows the Enhancement lightbulb. Every other ticket shows its status circle.
+ */
+export function stateIcon(status: Status, assignee?: string | null, labels?: readonly string[]): string {
   const open = status !== "resolved" && status !== "closed";
-  return open && assignee && isAgent(assignee) ? "mdi:star-four-points" : STATE_ICON[status];
+  if (open && assignee && isAgent(assignee)) return "mdi:star-four-points";
+  if (status === "new" && labels?.includes(ENHANCEMENT_LABEL)) return ENHANCEMENT_ICON;
+  return STATE_ICON[status];
+}
+
+/** The colour that goes with stateIcon. */
+export function stateColor(status: Status, assignee?: string | null, labels?: readonly string[]): string {
+  const open = status !== "resolved" && status !== "closed";
+  if (open && assignee && isAgent(assignee)) return "var(--st-accent, var(--primary-color))";
+  if (status === "new" && labels?.includes(ENHANCEMENT_LABEL)) return "var(--teal-color, #26a69a)";
+  return STATE_COLOR[status];
 }
 
 /** State colours: new is green, in progress blue, resolved purple, closed grey. */

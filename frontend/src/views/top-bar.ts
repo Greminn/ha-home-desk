@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { safeCustomElement } from "../define";
 import { sharedStyles } from "../styles";
-import { STATE_COLOR, STATE_ICON, STATUS_LABEL, isAgent, stateIcon } from "../format";
+import { STATUS_LABEL, stateColor, stateIcon } from "../format";
 import type { Priority, Status, TicketSummary } from "../types";
 
 /** The room a chip should have for its title before the bar makes way for it, in pixels. */
@@ -17,6 +17,8 @@ export interface TabInfo {
   unread: boolean;
   /** Queued for an AI agent. */
   queued: boolean;
+  /** Labelled Enhancement (an idea for the future). */
+  enhancement: boolean;
   /** An AI agent is working on it right now. */
   working: boolean;
 }
@@ -470,7 +472,7 @@ export class TopBar extends LitElement {
             @click=${() => this._fire("tab-select", t.id)}
             @auxclick=${(e: MouseEvent) => e.button === 1 && (e.preventDefault(), this._fire("tab-close", t.id))}
             @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), this._fire("tab-select", t.id))}>
-            <ha-icon class="st" .icon=${t.queued ? stateIcon(t.status, "ai:AI") : STATE_ICON[t.status]} style="color: ${t.queued ? "var(--st-accent)" : STATE_COLOR[t.status]}"></ha-icon>
+            <ha-icon class="st" .icon=${stateIcon(t.status, t.queued ? "ai:AI" : null, t.enhancement ? ["enhancement"] : [])} style="color: ${stateColor(t.status, t.queued ? "ai:AI" : null, t.enhancement ? ["enhancement"] : [])}"></ha-icon>
             <span class="num">#${t.id}</span><span class="ttl">${t.title}</span>
             ${t.working ? html`<ha-icon class="flag" icon="mdi:star-four-points" title="An AI agent is working on it"></ha-icon>` : t.unread ? html`<span class="dot" title="Changed since you looked"></span>` : nothing}
             <button class="x" title="Close" aria-label=${`Close #${t.id}`} @click=${(e: Event) => { e.stopPropagation(); this._fire("tab-close", t.id); }}><ha-icon icon="mdi:close"></ha-icon></button>
@@ -489,7 +491,7 @@ export class TopBar extends LitElement {
                 ? this.results.map(
                     (t, i) => html`<button class="hit ${i === this._active ? "on" : ""}" role="option" aria-selected=${i === this._active}
                       @mouseenter=${() => (this._active = i)} @click=${() => this._fire("open-result", t.id)}>
-                      <ha-icon .icon=${stateIcon(t.status, t.assignee)} style="color: ${t.assignee && isAgent(t.assignee) && t.status !== "resolved" && t.status !== "closed" ? "var(--st-accent)" : STATE_COLOR[t.status]}"></ha-icon>
+                      <ha-icon .icon=${stateIcon(t.status, t.assignee, t.labels)} style="color: ${stateColor(t.status, t.assignee, t.labels)}"></ha-icon>
                       <span class="num">#${t.id}</span><span class="ttl">${t.title}</span><span class="state">${STATUS_LABEL[t.status]}</span>
                     </button>`,
                   )

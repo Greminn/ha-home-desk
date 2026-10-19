@@ -4,7 +4,7 @@ import { safeCustomElement } from "../define";
 import { sharedStyles } from "../styles";
 import type { TicketSummary } from "../types";
 import { VIEWS } from "../list-model";
-import { STATE_ICON, STATE_COLOR, reviewLabel, actorName, metaIcon, relativeTime } from "../format";
+import { stateIcon, stateColor, reviewLabel, actorName, metaIcon, relativeTime } from "../format";
 
 const WEEK_MS = 7 * 24 * 3600 * 1000;
 const HISTORY = "history";
@@ -222,7 +222,7 @@ export class HomePage extends LitElement {
     const by = t.updated_by ?? t.requester;
     const verb = t.updated_by ? "Updated" : "Opened";
     return html`<button class="row ${t.unread ? "unread" : ""}" @click=${() => this._fire("open-ticket", t.id)}>
-      <ha-icon class="ic" .icon=${STATE_ICON[t.status]} style="color: ${STATE_COLOR[t.status]}"></ha-icon>
+      <ha-icon class="ic" .icon=${stateIcon(t.status, t.assignee, t.labels)} style="color: ${stateColor(t.status, t.assignee, t.labels)}"></ha-icon>
       <div>
         <div class="title">${t.title}</div>
         <div class="sub">

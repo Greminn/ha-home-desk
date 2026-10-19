@@ -278,7 +278,7 @@ export class HomeDeskPanel extends LitElement {
     return this._tabs.flatMap((tab) => {
       const t = byId.get(tab.id);
       if (!t || t.merged_into) return [];
-      return [{ id: t.id, title: t.title, status: t.status, priority: t.priority, unread: !!t.unread, queued: !!t.assignee && isAgent(t.assignee), working: !!t.agent_state }];
+      return [{ id: t.id, title: t.title, status: t.status, priority: t.priority, unread: !!t.unread, queued: !!t.assignee && isAgent(t.assignee), enhancement: t.labels.includes("enhancement"), working: !!t.agent_state }];
     });
   }
 
