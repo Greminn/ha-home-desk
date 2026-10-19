@@ -57,7 +57,7 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 
 ## 4. Git
 
-- Branch `main`, **68 local commits, nothing pushed**. Nothing is pushed to GitHub until the author says it is **Beta v1**.
+- Branch `main`, **local commits only, nothing pushed**. Nothing is pushed to GitHub until the author says it is **Beta v1**.
 - Commit messages end with the attribution lines the tooling asks for. Every user-visible change gets a `CHANGELOG.md` entry (under Unreleased); a repair or service change that agents need to know about is marked **Action:** or **Breaking:**.
 - `home_desk_brand*.zip` is ignored (the extracted `home_desk_brand/` is the kept copy).
 
@@ -71,9 +71,21 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 
 ## 6. Where it stands
 
+**The panel's layout and workflow as of 2026-10-20** (all in the CHANGELOG under Unreleased; the preview, `npm run dev`, shows all of it, but only what is listed under "On the real install" below has been deployed):
+- **Names:** the *app header* (logo and tabs), the *top bar* (New Ticket, open-ticket chips, search), the *list bar* (Select Tickets and the filters), the *ticket header*, the *comment box* (a strip that opens on hover, focus or **R**).
+- **Tabs are exclusive buckets, first match wins:** Completed, Queued for AI, Enhancements (not started), Inbox (New, including tickets reopened by Home Assistant or an AI agent, which go back to New), Working. The Completed tab's Show filter reaches Open, History and Everything.
+- **Enhancements** collect notes and stay New (backend `_progress` skips them); **Start Working** moves one to In Progress, so it shows under Working.
+- **Open tickets are chips** in the top bar (up to 8, remembered per browser, each remembering normal or full width view). New Ticket then Search squeeze to a plus and a magnifier as chips need room, and open out on hover. The **live search drop down** searches every tab (a bare number finds exactly that ticket).
+- **Full width view** (icon beside History, or **F**): header across the top, details, description and history on the left (as wide as the list), comments on the right. **X** closes the open ticket's chip.
+- **Hotkeys** (ignored while typing): R reply box, F full width, X close the ticket. HA's own C, E, D, M and A are left alone. They are not documented in the panel yet.
+- **Queued for AI** tickets show a spark as their status icon (list, chips, search results).
+- A new brand pack (home_desk_brand3) is applied.
+
 **Built, tested here and deployed to the real install** (details in the README and CHANGELOG): the ticket list and detail views, statuses, categories, labels, search and filters, merge (single and from the list), unread marks and "Updated by", previous/next, a Home page (Inbox beside an overview), Settings in Home Assistant's card style, the household report form with photos and voice (speech-to-text works on the real install), devices/entities/areas on tickets with clickable chips and "Related?" guesses, Repairs to tickets (grouped; waits 15 minutes before counting a missing repair as cleared), Review with AI (editable prompt, proposed changes, working indicator, Stop), the MCP bridge and agent guide, a new logo.
 
 **Confirmed on the real install:** voice and photo report (#234), speech-to-text, Review with AI replies, the repairs fix across several restarts (#230 to #232), the #241 deprecation fix (needs a restart to show in the log).
+
+**On the real install (deployed 2026-10-19):** Queue for AI Agent beside the priority icons, the AI Action control with Review, the repair fixes (ignored in HA resolves, restart-required skipped), the new tabs and reopen-to-New, the agent guide changes. **Not yet deployed:** everything in the list above from the top bar onwards, the Enhancement workflow, the search by number backend change and the brand pack. Deploying needs a Home Assistant restart (backend) and a browser hard refresh.
 
 **Not built:** push notifications (settings stored, nothing sent), "Your requests" for household users, an Assist voice sentence, device watchers (offline devices, batteries), agent permissions, auto-starting an AI agent, reporting.
 
