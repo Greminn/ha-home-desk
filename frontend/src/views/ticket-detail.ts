@@ -394,7 +394,7 @@ export class TicketDetail extends LitElement {
         background: var(--st-selected, var(--st-hover));
       }
       .side .sub {
-        margin-top: 0;
+        margin: 0;
       }
       /* The labels always get a line of their own under the category, status and priority. */
       .side .tag-line st-ticket-tags[show="labels"] {
@@ -453,7 +453,8 @@ export class TicketDetail extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 8px;
-        margin: 16px 0 0;
+        /* A little closer to the title, and more room above the line under the header. */
+        margin: 10px 0 8px;
         font-size: var(--st-fs-body);
         color: var(--st-fg-secondary);
       }
