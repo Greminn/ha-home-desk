@@ -80,6 +80,8 @@ export class HaClient {
         agent_config: true,
         agent_related: true,
         agent_daily_cap: 30,
+        agent_runner: false,
+        agent_user: "",
         agent_prompt: "",
         agent_prompt_default: "",
         agent_prompt_fixed: "",
@@ -90,6 +92,15 @@ export class HaClient {
 
   saveSettings(patch: Partial<Omit<HomeDeskSettings, "notify">> & { notify?: Partial<HomeDeskSettings["notify"]> }): Promise<HomeDeskSettings> {
     return this.send("settings_save", patch);
+  }
+
+  /** The Home Assistant users that can be the AI Agent's own user (not administrators). */
+  async users(): Promise<{ id: string; name: string }[]> {
+    try {
+      return (await this.send<{ users: { id: string; name: string; is_admin: boolean }[] }>("users")).users.filter((u) => !u.is_admin);
+    } catch {
+      return [];
+    }
   }
 
   async labels(): Promise<Label[]> {
@@ -128,12 +139,12 @@ export class HaClient {
     return this.send("agent_run", { ticket_id: ticketId });
   }
 
-  /** Run AI Agent Now: the agent on the Network LXC works the ticket read-only, then says what it would change. Not built yet (preview only). */
+  /** Run AI Agent Now: the runner works the ticket read-only, then says what it would change and waits for Proceed. */
   runAgentNow(ticketId: number): Promise<Ticket> {
     return this.send("agent_run_now", { ticket_id: ticketId });
   }
 
-  /** Approve (Proceed) or dismiss what the AI Agent said it would do. Not built yet (preview only). */
+  /** Approve (Proceed) or dismiss what the AI Agent said it would do. Only an administrator's press counts. */
   proceed(ticketId: number, eventId: number, action: "approve" | "dismiss"): Promise<Ticket> {
     return this.send("proceed", { ticket_id: ticketId, event_id: eventId, do: action });
   }

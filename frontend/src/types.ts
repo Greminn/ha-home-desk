@@ -202,8 +202,10 @@ export interface HomeDeskSettings {
   auto_close: string;
   /** The entity id of the AI agent tickets can be assigned to (an AI Task or conversation agent). */
   agent: string;
-  /** Run AI Agent Now is set up (the runner on the Network LXC). Not stored by the backend yet: only the preview sets it. */
-  agent_runner?: boolean;
+  /** Run AI Agent Now is offered (the runner on the Network LXC is set up). */
+  agent_runner: boolean;
+  /** The Home Assistant user the runner signs in as (not an administrator), or empty. */
+  agent_user: string;
   /** Raise a ticket for each Home Assistant Repair. */
   repairs: boolean;
   /** The speech-to-text engine (an stt entity id) for voice messages; empty to use the Assist default. */

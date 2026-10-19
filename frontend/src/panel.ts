@@ -351,7 +351,7 @@ export class HomeDeskPanel extends LitElement {
     this._confirmCost = { text, run };
   }
 
-  /** Run AI Agent Now: only the preview's mock answers so far, as the runner isn't built (see docs/agent-runs.md). */
+  /** Run AI Agent Now: post the comment (the instruction), then ask the runner; see docs/agent-runs.md. */
   private _runNow(detail: { body: string; done: () => void }) {
     const ticket = this._selected;
     if (!ticket) return;

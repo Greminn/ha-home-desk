@@ -89,7 +89,6 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 
 **Not built:** push notifications (settings stored, nothing sent), "Your requests" for household users, an Assist voice sentence, device watchers (offline devices, batteries), agent permissions, auto-starting an AI agent, reporting.
 
-## 7. Next steps, in order
 
 Small items first, after the usage reset:
 

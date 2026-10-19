@@ -236,7 +236,7 @@ export const AI_ASSIGNEE = "ai:AI";
 export const assigneeName = (assignee: string): string => (isAgent(assignee) ? "AI" : actorName(assignee));
 
 /** The agent that works a ticket after Run AI Agent Now, as its comments are signed: "AI Agent (Claude)". */
-export const runLabel = (actor: string): string => `AI Agent (${actorName(actor)})`;
+export const runLabel = (actor: string): string => (/^ai agent/i.test(actorName(actor)) ? actorName(actor) : `AI Agent (${actorName(actor)})`);
 
 /** The AI that Home Assistant asks to review a ticket (Review with AI), as its comments are signed: "AI Review (Claude)". */
 export const reviewLabel = (actor: string): string => `AI Review (${actorName(actor)})`;

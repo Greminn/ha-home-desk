@@ -46,6 +46,8 @@ All take an optional `actor`. **Always pass `actor` with your own name** (e.g. `
 | `delete_category` | `category` (name or id). Only a category no ticket uses; one in use is refused (ask the manager to delete it in the panel). |
 | `get_stats` | Counts by status, urgent, unassigned and with-AI-agent counts, active tickets with no category, and the labels and categories with their counts. |
 | `import_file` | Admin: `path` to a JSON file inside the config directory. Not for routine use. |
+| `claim_run` | Runner only. `ticket_id`: take a run a person asked for (**Run**) or approved (**Proceed**). Fails if another runner has it. |
+| `finish_run` | Runner only. `ticket_id`, `state` (`proposed`, `done` or `failed`), `body` (the comment). Fails if the run was stopped. `list_tickets` takes `run_state` (e.g. `requested,approved`) to find runs. |
 | `get_guide` | This guide. No parameters. |
 | `get_changelog` | The installed version and what changed, with any **Action:** or **Breaking:** notes. `since` (the last version you reviewed) returns only newer releases; check after Home Desk is updated. |
 

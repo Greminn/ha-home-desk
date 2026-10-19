@@ -10,5 +10,6 @@ run uv run --with pyyaml python tests/test_agent.py
 run uv run --with voluptuous python tests/test_api.py
 run uv run --with "mcp<2" python tests/test_mcp.py
 run uv run --with aiohttp python tests/test_attachments.py
+run python3 -I tests/test_runner.py
 echo "fail=$fail"
 exit $fail
