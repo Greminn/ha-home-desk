@@ -161,9 +161,12 @@ export class TicketList extends LitElement {
       .queued .state {
         color: var(--st-accent);
       }
-      /* An Enhancement not started yet: the lightbulb, in the Enhancement teal. */
+      /* An Enhancement not started yet: the lightbulb, green while it has no notes and blue once it has some. */
       .enh .state {
-        color: var(--teal-color, #26a69a);
+        color: var(--success-color, var(--st-success));
+      }
+      .enh.noted .state {
+        color: var(--st-accent);
       }
       .body {
         min-width: 0;
@@ -325,7 +328,7 @@ export class TicketList extends LitElement {
       const done = t.status === "resolved" || t.status === "closed";
       return html`
         <button
-          class="row s-${t.status} ${t.assignee && isAgent(t.assignee) && !done ? "queued" : t.status === "new" && t.labels.includes("enhancement") ? "enh" : ""} ${done ? "done" : ""} ${t.id === this.selectedId ? "selected" : ""} ${this.checked.has(t.id) ? "checked" : ""} ${this.ticking ? "ticking" : ""} ${t.unread ? "unread" : ""}"
+          class="row s-${t.status} ${t.assignee && isAgent(t.assignee) && !done ? "queued" : t.status === "new" && t.labels.includes("enhancement") ? `enh ${t.comment_count ? "noted" : ""}` : ""} ${done ? "done" : ""} ${t.id === this.selectedId ? "selected" : ""} ${this.checked.has(t.id) ? "checked" : ""} ${this.ticking ? "ticking" : ""} ${t.unread ? "unread" : ""}"
           @click=${(e: MouseEvent) => this._rowClick(t.id, e)}
           @pointerdown=${(e: PointerEvent) => e.pointerType === "touch" && this._pressStart(t.id)}
           @pointerup=${() => this._pressEnd()}

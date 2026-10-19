@@ -33,11 +33,14 @@ export function stateIcon(status: Status, assignee?: string | null, labels?: rea
   return STATE_ICON[status];
 }
 
-/** The colour that goes with stateIcon. */
-export function stateColor(status: Status, assignee?: string | null, labels?: readonly string[]): string {
+/**
+ * The colour that goes with stateIcon. A New Enhancement is green while nobody has added a note, and blue once it has comments;
+ * when it is started it is an ordinary In Progress ticket.
+ */
+export function stateColor(status: Status, assignee?: string | null, labels?: readonly string[], comments = 0): string {
   const open = status !== "resolved" && status !== "closed";
   if (open && assignee && isAgent(assignee)) return "var(--st-accent, var(--primary-color))";
-  if (status === "new" && labels?.includes(ENHANCEMENT_LABEL)) return "var(--teal-color, #26a69a)";
+  if (status === "new" && labels?.includes(ENHANCEMENT_LABEL)) return comments > 0 ? "var(--st-accent, var(--primary-color))" : STATE_COLOR.new;
   return STATE_COLOR[status];
 }
 

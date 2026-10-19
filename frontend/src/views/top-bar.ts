@@ -19,6 +19,8 @@ export interface TabInfo {
   queued: boolean;
   /** Labelled Enhancement (an idea for the future). */
   enhancement: boolean;
+  /** How many comments it has (a New Enhancement is blue once it has notes). */
+  comments: number;
   /** An AI agent is working on it right now. */
   working: boolean;
 }
@@ -472,7 +474,7 @@ export class TopBar extends LitElement {
             @click=${() => this._fire("tab-select", t.id)}
             @auxclick=${(e: MouseEvent) => e.button === 1 && (e.preventDefault(), this._fire("tab-close", t.id))}
             @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), this._fire("tab-select", t.id))}>
-            <ha-icon class="st" .icon=${stateIcon(t.status, t.queued ? "ai:AI" : null, t.enhancement ? ["enhancement"] : [])} style="color: ${stateColor(t.status, t.queued ? "ai:AI" : null, t.enhancement ? ["enhancement"] : [])}"></ha-icon>
+            <ha-icon class="st" .icon=${stateIcon(t.status, t.queued ? "ai:AI" : null, t.enhancement ? ["enhancement"] : [])} style="color: ${stateColor(t.status, t.queued ? "ai:AI" : null, t.enhancement ? ["enhancement"] : [], t.comments)}"></ha-icon>
             <span class="num">#${t.id}</span><span class="ttl">${t.title}</span>
             ${t.working ? html`<ha-icon class="flag" icon="mdi:star-four-points" title="An AI agent is working on it"></ha-icon>` : t.unread ? html`<span class="dot" title="Changed since you looked"></span>` : nothing}
             <button class="x" title="Close" aria-label=${`Close #${t.id}`} @click=${(e: Event) => { e.stopPropagation(); this._fire("tab-close", t.id); }}><ha-icon icon="mdi:close"></ha-icon></button>
@@ -491,7 +493,7 @@ export class TopBar extends LitElement {
                 ? this.results.map(
                     (t, i) => html`<button class="hit ${i === this._active ? "on" : ""}" role="option" aria-selected=${i === this._active}
                       @mouseenter=${() => (this._active = i)} @click=${() => this._fire("open-result", t.id)}>
-                      <ha-icon .icon=${stateIcon(t.status, t.assignee, t.labels)} style="color: ${stateColor(t.status, t.assignee, t.labels)}"></ha-icon>
+                      <ha-icon .icon=${stateIcon(t.status, t.assignee, t.labels)} style="color: ${stateColor(t.status, t.assignee, t.labels, t.comment_count)}"></ha-icon>
                       <span class="num">#${t.id}</span><span class="ttl">${t.title}</span><span class="state">${STATUS_LABEL[t.status]}</span>
                     </button>`,
                   )

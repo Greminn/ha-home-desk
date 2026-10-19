@@ -1666,7 +1666,7 @@ ${canWide
     <button class="num ${this._copied ? "copied" : ""}" title=${this._copied ? "Copied" : "Copy the ticket number"} aria-label="Ticket ${t.id}: copy the number"
       @click=${() => void this._copyNumber(t.id)}>${this._copied ? html`<ha-icon icon="mdi:check"></ha-icon>Copied` : html`#${t.id}`}</button>
     <st-ticket-tags show="category" .ticket=${t} .categoryMap=${this.categoryMap} .labelMap=${this.labelMap} .isAdmin=${this.isAdmin}></st-ticket-tags>
-    <span class="status" style="--state: ${stateColor(t.status, null, t.labels)}"><ha-icon .icon=${stateIcon(t.status, null, t.labels)}></ha-icon>${STATUS_LABEL[t.status]}</span>
+    <span class="status" style="--state: ${stateColor(t.status, null, t.labels, t.events.filter((e) => e.kind === "comment" || e.kind === "note").length)}"><ha-icon .icon=${stateIcon(t.status, null, t.labels)}></ha-icon>${STATUS_LABEL[t.status]}</span>
     ${t.priority === "urgent" || t.priority === "high"
       ? html`<span class="prio ${t.priority}"><ha-icon .icon=${t.priority === "urgent" ? "mdi:alert" : "mdi:alert-outline"}></ha-icon>${PRIORITY_LABEL[t.priority]}</span>`
       : nothing}
