@@ -1650,6 +1650,12 @@ ${e.related?.length?B`<div class="chips"><span class="sect">Related</span>${e.re
       .hist ha-icon {
         --mdc-icon-size: 20px;
       }
+      /* The header buttons are 32px circles, 44px apart. (button.icon is 48px and would win over .hist, so their pressed and hover backgrounds overlapped.) */
+      button.icon.hist {
+        top: -1px;
+        width: var(--st-h-bar);
+        height: var(--st-h-bar);
+      }
       /* The merge button sits just left of the history button. */
       .hist.merge {
         right: 44px;
