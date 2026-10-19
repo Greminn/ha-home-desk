@@ -72,7 +72,7 @@ export class TicketDetail extends LitElement {
         position: relative;
         z-index: 5;
         flex: none;
-        height: 68px;
+        height: 76px;
       }
       .dock .dock-in {
         position: absolute;
@@ -88,9 +88,12 @@ export class TicketDetail extends LitElement {
         margin: 0;
         padding: 0;
       }
+      /* A closed strip is as tall as an input (48px, box-sizing border-box), so its one line of text sits in the middle. */
       .dock .composer textarea {
-        height: 40px;
+        box-sizing: border-box;
+        height: 48px;
         min-height: 0;
+        padding: 13px 16px 12px;
         resize: none;
       }
       .dock .composer .bar {

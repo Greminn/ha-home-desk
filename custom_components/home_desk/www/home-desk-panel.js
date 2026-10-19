@@ -1406,7 +1406,7 @@ function at(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         position: relative;
         z-index: 5;
         flex: none;
-        height: 68px;
+        height: 76px;
       }
       .dock .dock-in {
         position: absolute;
@@ -1422,9 +1422,12 @@ function at(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         margin: 0;
         padding: 0;
       }
+      /* A closed strip is as tall as an input (48px, box-sizing border-box), so its one line of text sits in the middle. */
       .dock .composer textarea {
-        height: 40px;
+        box-sizing: border-box;
+        height: 48px;
         min-height: 0;
+        padding: 13px 16px 12px;
         resize: none;
       }
       .dock .composer .bar {
