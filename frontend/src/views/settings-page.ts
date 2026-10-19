@@ -461,9 +461,7 @@ export class SettingsPage extends LitElement {
           <div class="text"><div class="name">A ticket is resolved</div></div>
           ${this._switch(s.notify.resolved, "A ticket is resolved", (v) => void this._save({ notify: { resolved: v } }))}
         </div>
-      </div>
-      <div class="card">
-        <h2>Send notifications to</h2>
+        <div class="sub">Send notifications to</div>
         ${this._targets.length
           ? this._targets.map(
               (k) => html`<label class="srow pick">

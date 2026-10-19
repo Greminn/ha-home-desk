@@ -3608,9 +3608,7 @@ ${e.related?.length?B`<div class="chips"><span class="sect">Related</span>${e.re
           <div class="text"><div class="name">A ticket is resolved</div></div>
           ${this._switch(e.notify.resolved,"A ticket is resolved",e=>{this._save({notify:{resolved:e}})})}
         </div>
-      </div>
-      <div class="card">
-        <h2>Send notifications to</h2>
+        <div class="sub">Send notifications to</div>
         ${this._targets.length?this._targets.map(t=>B`<label class="srow pick">
                 <input class="check" type="checkbox" .checked=${e.notify.targets.includes(t)} @change=${()=>this._toggleTarget(t)} />
                 <div class="text"><div class="name">${this._targetName(t)}</div></div>
