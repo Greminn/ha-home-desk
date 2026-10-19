@@ -645,6 +645,9 @@ async def async_list_tickets(
             if fresh:
                 await _save(hass, data)
     needle = (q or "").lower()
+    # A search for just a ticket's number ("244" or "#244") finds exactly that ticket, when there is one, not every ticket that mentions the digits.
+    number = re.fullmatch(r"#?\s*(\d+)", needle.strip())
+    exact_id = int(number.group(1)) if number and str(int(number.group(1))) in data["tickets"] else None
     label_id = None
     if label:
         label_id = _resolve_label(data, label, create=False) or "\0"
@@ -675,7 +678,10 @@ async def async_list_tickets(
             continue
         if not include_history and HISTORY_LABEL_ID in t["labels"]:
             continue
-        if needle:
+        if exact_id is not None:
+            if t["id"] != exact_id:
+                continue
+        elif needle:
             hay = " ".join(
                 [
                     f"#{t['id']}",

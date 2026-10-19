@@ -28,7 +28,7 @@ All take an optional `actor`. **Always pass `actor` with your own name** (e.g. `
 
 | Service | Use |
 |---|---|
-| `list_tickets` | Summaries, no bodies. Filters: `status` (a status, comma list, `active` (default) or `all`), `query` (searches title, description, comments, resolution, labels, category), `priority`, `assignee` (`unassigned` allowed; **your queue is `ai:AI`**, and also check the older `ai:Claude`), `requester`, `label`, `category` (`none` for uncategorised), `include_history` (default false; tickets labelled History are left out), `limit`. |
+| `list_tickets` | Summaries, no bodies. Filters: `status` (a status, comma list, `active` (default) or `all`), `query` (searches title, description, comments, resolution, labels, category; just a ticket number such as `244` or `#244` returns exactly that ticket), `priority`, `assignee` (`unassigned` allowed; **your queue is `ai:AI`**, and also check the older `ai:Claude`), `requester`, `label`, `category` (`none` for uncategorised), `include_history` (default false; tickets labelled History are left out), `limit`. |
 | `get_ticket` | One ticket in full: description, resolution, timeline, related tickets. |
 | `create_ticket` | `title` required; `description` (markdown), `priority`, `labels` (label it Bug, Enhancement, Task or Question), `category`, `entities`, `assignee`. |
 | `update_ticket` | `ticket_id` plus only the fields to change: `status`, `priority`, `assignee`, `title`, `description`, `labels`, `add_labels`, `remove_labels`, `category` (empty to clear), `entities`. Each change is logged. |

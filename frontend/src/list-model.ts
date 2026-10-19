@@ -66,8 +66,20 @@ export interface ListFilters {
   person: string;
 }
 
-/** The tickets to show: the tab, then each filter, and the search's matching ids if a search is running. */
-export function filterTickets(tickets: TicketSummary[], f: ListFilters, matchIds: Set<number> | null): TicketSummary[] {
+/** A search for just a ticket's number ("244" or "#244"): the number, else null. */
+export function ticketNumber(q: string): number | null {
+  const m = /^#?\s*(\d+)$/.exec(q.trim());
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * The tickets to show: the tab, then each filter, and the search's matching ids if a search is running. Searching for a
+ * ticket's number finds exactly that ticket, whichever tab or filter it would otherwise be under.
+ */
+export function filterTickets(tickets: TicketSummary[], f: ListFilters, matchIds: Set<number> | null, q = ""): TicketSummary[] {
+  const number = ticketNumber(q);
+  const exact = number === null ? undefined : tickets.find((t) => t.id === number && !t.merged_into);
+  if (exact) return [exact];
   const view = VIEWS.find((v) => v.id === f.view) ?? VIEWS[0]!;
   return tickets.filter(
     (t) =>

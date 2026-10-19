@@ -17,6 +17,7 @@ import "./views/category-manager";
 import "./views/settings-page";
 import "./views/app-header";
 import "./views/list-toolbar";
+import "./views/top-bar";
 import "./views/report-form";
 import type { Page } from "./views/app-header";
 import "./views/dropdown";
@@ -576,7 +577,7 @@ export class HomeDeskPanel extends LitElement {
   }
 
   private get _filtered(): TicketSummary[] {
-    return filterTickets(this._tickets, this._filters, this._matchIds);
+    return filterTickets(this._tickets, this._filters, this._matchIds, this._q);
   }
 
   private get _filterCount(): number {
@@ -651,8 +652,10 @@ export class HomeDeskPanel extends LitElement {
             ? html`<st-settings .client=${this._client} .hass=${this.hass}
                 @settings-changed=${(e: CustomEvent<HomeDeskSettings>) => (this._settings = e.detail)}></st-settings>`
             : html`<main class=${selecting ? "has-selection" : ""}>
+        <st-top-bar .q=${this._q} @search=${(e: CustomEvent<string>) => this._search(e.detail)}
+          @new-ticket=${() => (this._creating = true)}></st-top-bar>
         <div class="list-pane">
-          <st-list-toolbar .q=${this._q} .filters=${this._filters} .open=${this._filtersOpen} .tickets=${this._tickets}
+          <st-list-toolbar .filters=${this._filters} .open=${this._filtersOpen} .tickets=${this._tickets}
             .categories=${this._categoryList} .labels=${this._labelList}
             .selectable=${this._admin} .selecting=${this._ticking} .checkedCount=${this._checked.size}
             @toggle-select=${() => (this._ticking ? this._clearChecked() : (this._ticking = true))}
@@ -660,10 +663,8 @@ export class HomeDeskPanel extends LitElement {
             @mark-read-selected=${() => void this._markRead([...this._checked]).then(() => this._clearChecked())}
             @select-all=${() => (this._checked = new Set(this._filtered.map((t) => t.id)))}
             @merge-selected=${(e: CustomEvent<{ rect: DOMRect }>) => (this._merging = { rect: e.detail.rect, ids: this._tickets.filter((t) => this._checked.has(t.id) && !t.merged_into).map((t) => t.id) })}
-            @search=${(e: CustomEvent<string>) => this._search(e.detail)}
             @toggle-filters=${() => (this._filtersOpen = !this._filtersOpen)}
-            @filters-change=${(e: CustomEvent<Partial<ListFilters>>) => this._applyFilters(e.detail)}
-            @new-ticket=${() => (this._creating = true)}></st-list-toolbar>
+            @filters-change=${(e: CustomEvent<Partial<ListFilters>>) => this._applyFilters(e.detail)}></st-list-toolbar>
           <st-ticket-list
             .tickets=${this._filtered}
             .selectedId=${this._selectedId}

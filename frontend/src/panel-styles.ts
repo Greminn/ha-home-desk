@@ -35,9 +35,13 @@ export const panelStyles = css`
         flex: 1;
         display: grid;
         grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-        grid-template-rows: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
         min-height: 0;
         overflow: hidden;
+      }
+      /* The New Ticket and search bar runs across both columns, over the list and the open ticket. */
+      st-top-bar {
+        grid-column: 1 / -1;
       }
       .list-pane {
         position: relative;
@@ -54,6 +58,7 @@ export const panelStyles = css`
           grid-template-columns: minmax(0, 1fr);
         }
         main.has-selection .list-pane,
+        main.has-selection st-top-bar,
         main:not(.has-selection) st-ticket-detail,
         main st-home-page {
           display: none;

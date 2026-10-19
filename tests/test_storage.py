@@ -162,6 +162,12 @@ async def main():
     assert st["total"] == 4 and st["by_status"] == {"in_progress": 1, "closed": 2, "new": 1}, st  # "open" became in_progress
     assert (await s.async_list_tickets(hass, status="active", label="needs-review"))["total"] == 1
     assert (await s.async_list_tickets(hass, status="all", q="z2m"))["total"] == 1
+    # a search for just a ticket's number finds exactly that ticket, "#" or not, not every ticket that has those digits in its text
+    one = (await s.async_list_tickets(hass, status="all"))["tickets"][0]["id"]
+    for q in (str(one), f"#{one}", f" # {one} "):
+        got = (await s.async_list_tickets(hass, status="all", q=q))["tickets"]
+        assert [x["id"] for x in got] == [one], (q, [x["id"] for x in got])
+    assert (await s.async_list_tickets(hass, status="all", q="99999"))["total"] == 0, "no such ticket: falls back to a text search"
     assert (await s.async_list_tickets(hass, status="active", include_history=False))["total"] == 2
     imported = (await s.async_list_tickets(hass, status="all"))["tickets"]
     assert all(t["category"] is None and "home-assistant" not in t["labels"] for t in imported), "imports are uncategorised"
