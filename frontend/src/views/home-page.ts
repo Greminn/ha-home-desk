@@ -209,10 +209,10 @@ export class HomePage extends LitElement {
     return this.userName ? `${part}, ${this.userName}` : part;
   }
 
-  private _tile(icon: string, label: string, n: number, opts: { view?: string; priority?: string; cls?: string; sub?: string } = {}) {
+  private _tile(icon: string, label: string, n: number, opts: { view?: string; priority?: string; scope?: string; cls?: string; sub?: string } = {}) {
     const go = opts.view !== undefined;
     return html`<button class="tile ${go ? "" : "static"} ${n && opts.cls ? opts.cls : ""}"
-      @click=${() => go && this._fire("go-view", { view: opts.view, priority: opts.priority ?? "" })}>
+      @click=${() => go && this._fire("go-view", { view: opts.view, priority: opts.priority ?? "", scope: opts.scope ?? "" })}>
       <span class="top"><ha-icon .icon=${icon}></ha-icon>${label}</span>
       <span class="n">${n}${opts.sub ? html`<span class="sub-n">${opts.sub}</span>` : nothing}</span>
     </button>`;
@@ -248,7 +248,7 @@ export class HomePage extends LitElement {
     const view = (id: string) => all.filter(VIEWS.find((v) => v.id === id)!.match).length;
     const now = Date.now();
     const inbox = all
-      .filter(VIEWS.find((v) => v.id === "active")!.match)
+      .filter(VIEWS.find((v) => v.id === "inbox")!.match)
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
     const urgent = all.filter((t) => live(t) && (t.priority === "urgent" || t.priority === "high"));
     const unread = all.filter((t) => t.unread);
@@ -265,11 +265,11 @@ export class HomePage extends LitElement {
         <div class="card">
           <h2>Overview</h2>
           <div class="tiles">
-            ${this._tile("mdi:inbox-outline", "Inbox", view("active"), { view: "active", cls: "hot" })}
-            ${this._tile("mdi:progress-wrench", "In Progress", view("progress"), { view: "progress" })}
-            ${this._tile("mdi:star-four-points-outline", "Queued for AI", view("agent"), { view: "agent" })}
-            ${this._tile("mdi:alert-outline", "Urgent / High", urgent.length, { view: "progress", cls: "warn" })}
-            ${this._tile("mdi:email-open-outline", "Unread", unread.length, { view: "all", cls: "hot" })}
+            ${this._tile("mdi:inbox-outline", "Inbox", view("inbox"), { view: "inbox", cls: "hot" })}
+            ${this._tile("mdi:progress-wrench", "Working", view("working"), { view: "working" })}
+            ${this._tile("mdi:star-four-points-outline", "Queued for AI", view("queued"), { view: "queued" })}
+            ${this._tile("mdi:alert-outline", "Urgent / High", urgent.length, { view: "completed", scope: "open", cls: "warn" })}
+            ${this._tile("mdi:email-open-outline", "Unread", unread.length, { view: "completed", scope: "everything", cls: "hot" })}
             ${this._tile("mdi:calendar-week", "This week", opened, { sub: `opened · ${resolved} resolved` })}
           </div>
         </div>

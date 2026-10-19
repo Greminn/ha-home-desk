@@ -503,6 +503,8 @@ def _apply_update(data: dict[str, Any], ticket: dict[str, Any], actor: str, fiel
         elif key == "status":
             new = _status(new)
             _check(new, STATUSES, "status")
+            if new == "in_progress" and ticket["status"] in ("resolved", "closed") and (actor in SYSTEM_ACTORS or is_agent(actor)):
+                new = "new"  # reopened by Home Assistant or an AI agent: back to the Inbox for a person to look at
         elif key == "priority":
             _check(new, PRIORITIES, "priority")
         elif key in _THINGS:

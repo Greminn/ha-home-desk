@@ -47,7 +47,7 @@ export class HomeDeskPanel extends LitElement {
   @state() private _matchIds: Set<number> | null = null;
   @state() private _selected: Ticket | null = null;
   @state() private _selectedId: number | null = null;
-  @state() private _view = "active";
+  @state() private _view = "inbox";
   @state() private _q = "";
   @state() private _priority = "";
   @state() private _label = "";
@@ -210,7 +210,8 @@ export class HomeDeskPanel extends LitElement {
   private _restoreState() {
     try {
       const raw = localStorage.getItem("home-desk-view");
-      if (raw && VIEWS.some((v) => v.id === raw)) this._view = raw;
+      const id = ({ active: "inbox", progress: "working", agent: "queued", all: "completed" } as Record<string, string>)[raw ?? ""] ?? raw; // tabs saved under their old names
+      if (id && VIEWS.some((v) => v.id === id)) this._view = id;
     } catch {
       // Fall through to the default view.
     }
@@ -218,7 +219,8 @@ export class HomeDeskPanel extends LitElement {
 
   private _setView(id: string) {
     this._view = id;
-    if (id === "all") this._filtersOpen = true; // the Show filter lives there; make it visible
+    this._scope = ""; // the Show choice belongs to the Completed tab
+    if (id === "completed") this._filtersOpen = true; // the Show filter lives there; make it visible
     try {
       localStorage.setItem("home-desk-view", id);
     } catch {
@@ -357,7 +359,7 @@ export class HomeDeskPanel extends LitElement {
 
   private async _open(id: number, navigate = true) {
     if (this._selectedId !== id) this._seenAt = "";
-    if (this._page === "home") this._setView("active"); // the list beside Home is the Inbox: keep it as you open a ticket
+    if (this._page === "home") this._setView("inbox"); // the list beside Home is the Inbox: keep it as you open a ticket
     this._page = "";
     this._selectedId = id;
     if (navigate) this._navigate(`${this._prefix}/${id}`);
@@ -526,7 +528,7 @@ export class HomeDeskPanel extends LitElement {
     try {
       const ticket = await this._client.create(detail);
       this._creating = false;
-      this._setView("active");
+      this._setView("inbox");
       this._selected = ticket;
       void this._open(ticket.id);
       void this._refresh();
@@ -548,7 +550,7 @@ export class HomeDeskPanel extends LitElement {
 
   private get _filters(): ListFilters {
     return {
-      view: this._page === "home" ? "active" : this._view, scope: this._scope, category: this._category, priority: this._priority,
+      view: this._page === "home" ? "inbox" : this._view, scope: this._scope, category: this._category, priority: this._priority,
       label: this._label, person: this._person,
     };
   }
@@ -557,7 +559,7 @@ export class HomeDeskPanel extends LitElement {
   private get _walk(): TicketSummary[] {
     const shown = this._filtered;
     if (this._selectedId === null || shown.some((t) => t.id === this._selectedId)) return shown;
-    return filterTickets(this._tickets, { ...this._filters, view: "all", scope: "", category: "", priority: "", label: "", person: "" }, null);
+    return filterTickets(this._tickets, { ...this._filters, view: "completed", scope: "everything", category: "", priority: "", label: "", person: "" }, null);
   }
 
   private get _navPos(): { index: number; total: number } | null {
@@ -606,10 +608,11 @@ export class HomeDeskPanel extends LitElement {
   private _homeTemplate(compact: boolean) {
     return html`<st-home-page .tickets=${this._tickets} .language=${this.hass.language} .userName=${this.hass.user?.name ?? ""} .compact=${compact}
       @open-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
-      @go-view=${(e: CustomEvent<{ view: string; priority: string }>) => {
+      @go-view=${(e: CustomEvent<{ view: string; priority: string; scope?: string }>) => {
         this._page = "";
         this._close();
         this._setView(e.detail.view);
+        this._scope = e.detail.scope ?? "";
         this._priority = e.detail.priority;
       }}></st-home-page>`;
   }

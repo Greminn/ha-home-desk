@@ -270,7 +270,7 @@ export class ListToolbar extends LitElement {
       </div>
       ${this.open
         ? html`<div class="filters">
-            ${f.view === "all"
+            ${f.view === "completed"
               ? html`<st-dropdown label="Show" .options=${SCOPES_OPTIONS} .value=${f.scope} @change=${this._change("scope")}></st-dropdown>`
               : nothing}
             <st-dropdown label="Category" placeholder="Category" .options=${categoryOptions(this.categories)} .value=${f.category}

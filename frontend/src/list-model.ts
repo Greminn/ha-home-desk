@@ -17,23 +17,39 @@ const isHistory = (t: TicketSummary) => t.labels.includes(HISTORY);
 const isActive = (t: TicketSummary) => ACTIVE.includes(t.status) && !isHistory(t);
 const isClosed = (t: TicketSummary) => (t.status === "resolved" || t.status === "closed") && !isHistory(t);
 const isEnhancement = (t: TicketSummary) => t.labels.includes(ENHANCEMENT);
+const isQueued = (t: TicketSummary) => isAgent(t.assignee ?? "");
+/** The AI Agent has replied and it is the person's turn (its reply hands the ticket back, so it is no longer queued). */
+const agentReplied = (t: TicketSummary) => isAgent(t.updated_by ?? "") && !t.agent_state;
+
+/**
+ * Every ticket is in exactly one tab, the first that fits, so the tabs never overlap and their counts add up:
+ * Completed, then Queued for AI (the agent has it), then Enhancements (ideas don't bury problems), then Inbox
+ * (new, or reopened by Home Assistant or an AI agent, which sends it back to New; or the agent has just replied), then Working.
+ */
+export function bucket(t: TicketSummary): "completed" | "queued" | "enhancements" | "inbox" | "working" {
+  if (!isActive(t)) return "completed";
+  if (isQueued(t)) return "queued";
+  if (isEnhancement(t)) return "enhancements";
+  if (t.status === "new" || agentReplied(t)) return "inbox";
+  return "working";
+}
 
 export const VIEWS: View[] = [
-  // New work that hasn't been started. Ideas have their own tab so they don't bury problems.
-  { id: "active", icon: "mdi:inbox-outline", label: "Inbox", count: true, match: (t) => t.status === "new" && !isHistory(t) && !isEnhancement(t) },
-  { id: "progress", icon: "mdi:progress-wrench", label: "In Progress", count: true, match: (t) => (t.status === "in_progress" || t.status === "open") && !isHistory(t) },
-  // What has been queued for an AI agent, whatever stage it is at.
-  { id: "agent", icon: "mdi:star-four-points-outline", label: "Queued for AI", count: true, match: (t) => isActive(t) && isAgent(t.assignee ?? "") },
-  { id: "enhancements", icon: "mdi:lightbulb-outline", label: "Enhancements", count: true, match: (t) => isActive(t) && isEnhancement(t) },
-  { id: "all", icon: "mdi:format-list-bulleted", label: "All", match: () => true },
+  { id: "inbox", icon: "mdi:inbox-outline", label: "Inbox", count: true, match: (t) => bucket(t) === "inbox" },
+  // What you or the other admins are working on.
+  { id: "working", icon: "mdi:progress-wrench", label: "Working", count: true, match: (t) => bucket(t) === "working" },
+  { id: "queued", icon: "mdi:star-four-points-outline", label: "Queued for AI", count: true, match: (t) => bucket(t) === "queued" },
+  { id: "enhancements", icon: "mdi:lightbulb-outline", label: "Enhancements", count: true, match: (t) => bucket(t) === "enhancements" },
+  // Done and closed tickets; its "Show" filter also reaches History, everything still open, or every ticket.
+  { id: "completed", icon: "mdi:check-circle-outline", label: "Completed", match: (t) => bucket(t) === "completed" },
 ];
 
-/** The "Show" filter on the All tab. History is only listed when asked for. */
+/** The "Show" filter on the Completed tab. History is only listed when asked for. */
 const SCOPES: { id: string; label: string; match: (t: TicketSummary) => boolean }[] = [
-  { id: "", label: "Everything", match: (t) => !isHistory(t) },
-  { id: "active", label: "Open", match: isActive },
-  { id: "closed", label: "Closed", match: isClosed },
+  { id: "", label: "Completed", match: isClosed },
+  { id: "open", label: "Open", match: isActive },
   { id: "history", label: "History", match: isHistory },
+  { id: "everything", label: "Everything", match: (t) => !isHistory(t) },
 ];
 
 export const SCOPES_OPTIONS: DropdownOption[] = SCOPES.map(({ id, label }) => ({ id, label }));
@@ -41,7 +57,7 @@ export const SCOPES_OPTIONS: DropdownOption[] = SCOPES.map(({ id, label }) => ({
 /** What the list is narrowed to. An empty string means "any". */
 export interface ListFilters {
   view: string;
-  /** The "Show" choice on the All tab. */
+  /** The "Show" choice on the Completed tab. */
   scope: string;
   /** A category id, or "none" for tickets with no category. */
   category: string;
@@ -56,8 +72,7 @@ export function filterTickets(tickets: TicketSummary[], f: ListFilters, matchIds
   const view = VIEWS.find((v) => v.id === f.view) ?? VIEWS[0]!;
   return tickets.filter(
     (t) =>
-      view.match(t) &&
-      (view.id !== "all" || !f.scope || SCOPES.find((x) => x.id === f.scope)!.match(t)) &&
+      (view.id === "completed" ? SCOPES.find((x) => x.id === f.scope)!.match(t) : view.match(t)) &&
       (!matchIds || matchIds.has(t.id)) &&
       (!f.priority || t.priority === f.priority) &&
       (!f.label || t.labels.includes(f.label)) &&
@@ -66,9 +81,9 @@ export function filterTickets(tickets: TicketSummary[], f: ListFilters, matchIds
   );
 }
 
-/** How many filters are on (the dot on the filter button). The scope only counts on the All tab. */
+/** How many filters are on (the dot on the filter button). The scope only counts on the Completed tab. */
 export function filterCount(f: ListFilters): number {
-  return [f.category, f.priority, f.label, f.person, f.view === "all" ? f.scope : ""].filter(Boolean).length;
+  return [f.category, f.priority, f.label, f.person, f.view === "completed" ? f.scope : ""].filter(Boolean).length;
 }
 
 export const priorityOptions = (): DropdownOption[] => [

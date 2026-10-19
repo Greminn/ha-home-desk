@@ -201,7 +201,7 @@ export class AppHeader extends LitElement {
 
   /** The full page open in place of the list, or "" for the list. */
   @property() page: Page = "";
-  @property() view = "active";
+  @property() view = "inbox";
   @property({ attribute: false }) tickets: TicketSummary[] = [];
   @property({ type: Boolean }) narrow = false;
   @property({ type: Boolean }) admin = false;

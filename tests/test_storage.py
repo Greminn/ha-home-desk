@@ -181,6 +181,14 @@ async def main():
     assert t["status"] == "resolved" and t["closed_at"] and t["resolution"] == "Restarted Z2M"
     t = await s.async_update_ticket(hass, t["id"], actor="simon", status="in_progress")  # reopen
     assert t["status"] == "in_progress" and t["closed_at"] is None
+    # reopened by an AI agent or Home Assistant it goes back to New (the Inbox); a person's reopen stays In Progress
+    await s.async_update_ticket(hass, t["id"], actor="simon", status="resolved", resolution="Done")
+    t = await s.async_update_ticket(hass, t["id"], actor="ai:claude", status="in_progress")
+    assert t["status"] == "new" and t["closed_at"] is None, t["status"]
+    await s.async_update_ticket(hass, t["id"], actor="simon", status="in_progress")
+    await s.async_update_ticket(hass, t["id"], actor="simon", status="resolved", resolution="Done")
+    assert (await s.async_update_ticket(hass, t["id"], actor="Home Assistant", status="in_progress"))["status"] == "new"
+    t = await s.async_update_ticket(hass, t["id"], actor="simon", status="in_progress")
     n = len(t["events"])
     assert len((await s.async_update_ticket(hass, t["id"], actor="simon", status="in_progress"))["events"]) == n  # a no-op records nothing
     for bad in ({"status": "bogus"}, {"status": "waiting"}, {"nope": 1}):
@@ -428,7 +436,7 @@ async def main():
     assert (await s.async_get_ticket(hass2, t["id"]))["status"] == "resolved"
     assert await sync(active=True, ignored=False, description="Update it.") == "reopened"
     t = await s.async_get_ticket(hass2, t["id"])
-    assert t["status"] == "in_progress" and "no longer ignored" in t["events"][-1]["body"], t["events"][-1]["body"]
+    assert t["status"] == "new" and "no longer ignored" in t["events"][-1]["body"], t["events"][-1]["body"]
     # a person who reopens it while the repair is still ignored is not fought
     assert await sync(active=True, ignored=True, description="Update it.") == "resolved"
     await s.async_update_ticket(hass2, t["id"], actor="simon", status="in_progress")
@@ -444,7 +452,7 @@ async def main():
     # it comes back -> the same ticket reopens, as in progress
     assert await sync(active=True, description="Update it.") == "reopened"
     t = await s.async_get_ticket(hass2, t["id"])
-    assert t["status"] == "in_progress" and t["closed_at"] is None and "reporting this repair again" in t["events"][-1]["body"]
+    assert t["status"] == "new" and t["closed_at"] is None and "reporting this repair again" in t["events"][-1]["body"]
     assert (await s.async_list_tickets(hass2, status="all"))["total"] == 1  # still one ticket
     # a better title from Home Assistant replaces an automatic one, but never a person's rename
     assert await sync(active=True, title="Hue bridge firmware needs updating", description="Update it.") == "updated"
@@ -471,7 +479,7 @@ async def main():
     assert await grp("b", active=False) == "resolved"
     assert (await s.async_get_ticket(hass2, g["id"]))["resolution"].startswith("Ignored in Home Assistant")
     assert await grp("a", active=True, ignored=False) == "reopened"
-    assert (await s.async_get_ticket(hass2, g["id"]))["status"] == "in_progress"
+    assert (await s.async_get_ticket(hass2, g["id"]))["status"] == "new"
     # with "close straight away", a repair that clears is closed as well as resolved
     await s.async_save_settings(hass2, {"auto_close": "immediately"})
     assert await s.async_sync_repair(hass2, domain="x", issue_id="y", active=False) == "resolved"
@@ -599,7 +607,7 @@ async def main():
     assert t["status"] != "resolved" and "Affected" not in t["description"] and any("Still affected: pve2" in (e["body"] or "") for e in t["events"])
     assert await s.async_open_repair_keys(hass5) == [("proxmoxve", "pve2")]
     assert await px("pve2", active=False) == "resolved", "the last one clears, the ticket resolves"
-    assert await px("pve", active=True) == "reopened" and (await s.async_get_ticket(hass5, t["id"]))["status"] == "in_progress"
+    assert await px("pve", active=True) == "reopened" and (await s.async_get_ticket(hass5, t["id"]))["status"] == "new"
     assert await px("pve", active=True, priority="urgent") == "updated" and (await s.async_get_ticket(hass5, t["id"]))["priority"] == "urgent"
     await s.async_sync_repair(hass5, domain="proxmoxve", issue_id="x", group="other_kind", active=True, title="Other")
     assert (await s.async_list_tickets(hass5, status="all"))["total"] == 2, "a different kind is a different ticket"
@@ -635,7 +643,7 @@ async def main():
     assert t6["status"] == "resolved" and t6["resolution"].endswith("(checked later)."), t6["resolution"]
     assert await s.async_sync_repair(hass6, domain="spook", issue_id="u1", active=True, group=K6, member="u1", title="t") == "reopened"
     t6 = await s.async_get_ticket(hass6, tid6)
-    assert t6["status"] == "in_progress" and t6["resolution"] is None and t6["closed_at"] is None, "a reopened ticket drops the old resolution"
+    assert t6["status"] == "new" and t6["resolution"] is None and t6["closed_at"] is None, "a reopened ticket drops the old resolution"
     # the same for a ticket from before grouping, adopted into its group when the repair next appears
     hass7 = FakeHass()
     FakeStore.saved = {}
