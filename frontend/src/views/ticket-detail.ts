@@ -356,7 +356,8 @@ export class TicketDetail extends LitElement {
         overflow-y: auto;
         padding: 16px 18px 28px;
         border-right: 1px solid var(--st-divider);
-        background: var(--st-selected-soft, var(--st-surface));
+        /* The same colour as the header bar and the open ticket's row in the list. */
+        background: var(--st-selected, var(--st-hover));
       }
       .side .sub {
         margin-top: 0;
@@ -371,6 +372,7 @@ export class TicketDetail extends LitElement {
         padding-top: 0;
         overflow: visible;
         z-index: auto;
+        background: transparent;
       }
       .main {
         min-width: 0;
