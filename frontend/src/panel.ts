@@ -8,7 +8,7 @@ import type { NewTicket } from "./ha-client";
 import type { Category, HomeAssistant, HomeDeskSettings, Label, Ticket, TicketPatch, TicketSummary } from "./types";
 import { AI_ASSIGNEE, STATUS_LABEL, actorName } from "./format";
 import type { Person } from "./format";
-import { VIEWS, filterCount, filterTickets, type ListFilters } from "./list-model";
+import { VIEWS, filterTickets, type ListFilters } from "./list-model";
 import "./views/ticket-list";
 import "./views/ticket-detail";
 import "./views/new-ticket-dialog";
@@ -56,7 +56,6 @@ export class HomeDeskPanel extends LitElement {
   @state() private _category = "";
   /** A requester's name (as stored), or "" for anyone. */
   @state() private _person = "";
-  @state() private _filtersOpen = false;
   /** True when only one pane fits: the list or the ticket, not both. */
   @state() private _compact = window.matchMedia(COMPACT_QUERY).matches;
   @state() private _scope = "";
@@ -221,7 +220,6 @@ export class HomeDeskPanel extends LitElement {
   private _setView(id: string) {
     this._view = id;
     this._scope = ""; // the Show choice belongs to the Completed tab
-    if (id === "completed") this._filtersOpen = true; // the Show filter lives there; make it visible
     try {
       localStorage.setItem("home-desk-view", id);
     } catch {
@@ -580,10 +578,6 @@ export class HomeDeskPanel extends LitElement {
     return filterTickets(this._tickets, this._filters, this._matchIds, this._q);
   }
 
-  private get _filterCount(): number {
-    return filterCount(this._filters);
-  }
-
   /** What "Queue for AI Agent" stores: any AI the person runs themselves, so no particular name. */
   private get _agentName(): string {
     return AI_ASSIGNEE;
@@ -655,7 +649,7 @@ export class HomeDeskPanel extends LitElement {
         <st-top-bar .q=${this._q} @search=${(e: CustomEvent<string>) => this._search(e.detail)}
           @new-ticket=${() => (this._creating = true)}></st-top-bar>
         <div class="list-pane">
-          <st-list-toolbar .filters=${this._filters} .open=${this._filtersOpen} .tickets=${this._tickets}
+          <st-list-toolbar .filters=${this._filters} .tickets=${this._tickets}
             .categories=${this._categoryList} .labels=${this._labelList}
             .selectable=${this._admin} .selecting=${this._ticking} .checkedCount=${this._checked.size}
             @toggle-select=${() => (this._ticking ? this._clearChecked() : (this._ticking = true))}
@@ -663,7 +657,6 @@ export class HomeDeskPanel extends LitElement {
             @mark-read-selected=${() => void this._markRead([...this._checked]).then(() => this._clearChecked())}
             @select-all=${() => (this._checked = new Set(this._filtered.map((t) => t.id)))}
             @merge-selected=${(e: CustomEvent<{ rect: DOMRect }>) => (this._merging = { rect: e.detail.rect, ids: this._tickets.filter((t) => this._checked.has(t.id) && !t.merged_into).map((t) => t.id) })}
-            @toggle-filters=${() => (this._filtersOpen = !this._filtersOpen)}
             @filters-change=${(e: CustomEvent<Partial<ListFilters>>) => this._applyFilters(e.detail)}></st-list-toolbar>
           <st-ticket-list
             .tickets=${this._filtered}
@@ -676,10 +669,7 @@ export class HomeDeskPanel extends LitElement {
             .categoryMap=${new Map(this._categoryList.map((c) => [c.id, c]))}
             @toggle-check=${(e: CustomEvent<{ id: number; range: boolean }>) => this._toggleCheck(e.detail)}
             @select-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
-            @filter-person=${(e: CustomEvent<string>) => {
-              this._person = e.detail;
-              this._filtersOpen = true;
-            }}
+            @filter-person=${(e: CustomEvent<string>) => (this._person = e.detail)}
             @pick-category=${(e: CustomEvent<{ ticket: TicketSummary; rect: DOMRect }>) => (this._picking = e.detail)}
             @remove-label=${(e: CustomEvent<{ ticket: TicketSummary; label: Label }>) => (this._removing = e.detail)}
           ></st-ticket-list>

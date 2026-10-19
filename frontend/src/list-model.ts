@@ -92,11 +92,6 @@ export function filterTickets(tickets: TicketSummary[], f: ListFilters, matchIds
   );
 }
 
-/** How many filters are on (the dot on the filter button). The scope only counts on the Completed tab. */
-export function filterCount(f: ListFilters): number {
-  return [f.category, f.priority, f.label, f.person, f.view === "completed" ? f.scope : ""].filter(Boolean).length;
-}
-
 export const priorityOptions = (): DropdownOption[] => [
   { id: "", label: "Any Priority" },
   // Low is no longer offered anywhere (Normal, High and Urgent are the choices), so it isn't a filter either.

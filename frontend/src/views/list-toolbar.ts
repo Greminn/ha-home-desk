@@ -4,14 +4,14 @@ import { safeCustomElement } from "../define";
 import "./dropdown";
 import { sharedStyles } from "../styles";
 import {
-  SCOPES_OPTIONS, categoryOptions, filterCount, labelOptions, personOptions, priorityOptions,
+  SCOPES_OPTIONS, categoryOptions, labelOptions, personOptions, priorityOptions,
   type ListFilters,
 } from "../list-model";
 import type { Category, Label, TicketSummary } from "../types";
 
 /**
- * The bar at the top of the ticket list: Select Tickets and Filters, with the filter dropdowns below when open (and the
- * actions for the ticked tickets in their place). It only reports what was asked for; the panel decides what the list shows.
+ * The bar at the top of the ticket list: Select Tickets and the filters, always showing (and the actions for the
+ * ticked tickets in their place). It only reports what was asked for; the panel decides what the list shows.
  */
 @safeCustomElement("st-list-toolbar")
 export class ListToolbar extends LitElement {
@@ -26,15 +26,17 @@ export class ListToolbar extends LitElement {
         flex: none;
         display: flex;
         align-items: center;
-        gap: var(--ha-space-4, 16px);
-        height: 48px;
-        padding: 0 16px;
+        gap: 8px;
+        min-height: 48px;
+        padding: 8px 16px;
         box-sizing: border-box;
         background: var(--st-bg);
         border-bottom: 1px solid var(--st-divider);
       }
-      .toolbar.joined {
-        border-bottom: none;
+      .toolbar.selbar {
+        gap: var(--ha-space-4, 16px);
+        height: 48px;
+        padding: 0 16px;
       }
       .toolbar .filter-btn {
         position: relative;
@@ -56,15 +58,6 @@ export class ListToolbar extends LitElement {
         border-color: var(--st-accent);
         background: color-mix(in srgb, var(--st-accent) 14%, var(--st-surface));
       }
-      .toolbar .filter-btn .dot {
-        position: absolute;
-        top: 4px;
-        right: 4px;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--st-accent);
-      }
       .selbar .count {
         flex: 1;
         font-size: var(--st-fs-body);
@@ -82,13 +75,11 @@ export class ListToolbar extends LitElement {
         cursor: default;
       }
       .filters {
-        flex: none;
+        flex: 1;
+        min-width: 0;
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
-        padding: 0 16px 12px;
-        background: var(--st-bg);
-        border-bottom: 1px solid var(--st-divider);
       }
       .filters st-dropdown {
         flex: 1 1 120px;
@@ -97,7 +88,6 @@ export class ListToolbar extends LitElement {
   ];
 
   @property({ attribute: false }) filters!: ListFilters;
-  @property({ type: Boolean }) open = false;
   @property({ attribute: false }) tickets: TicketSummary[] = [];
   @property({ attribute: false }) categories: Category[] = [];
   @property({ attribute: false }) labels: Label[] = [];
@@ -122,7 +112,6 @@ export class ListToolbar extends LitElement {
 
   override render() {
     const f = this.filters;
-    const count = filterCount(f);
     if (this.checkedCount) {
       return html`<div class="toolbar selbar">
         <button class="icon" title="Clear selection" aria-label="Clear selection" @click=${() => this._fire("clear-selection")}>
@@ -142,35 +131,29 @@ export class ListToolbar extends LitElement {
       </div>`;
     }
     return html`
-      <div class="toolbar ${this.open ? "joined" : ""}">
+      <div class="toolbar">
         ${this.selectable
           ? html`<button class="icon filter-btn ${this.selecting ? "on" : ""}" title="Select Tickets" aria-label="Select Tickets" aria-pressed=${this.selecting}
               @click=${() => this._fire("toggle-select")}>
               <ha-icon icon="mdi:checkbox-multiple-marked-outline"></ha-icon>
             </button>`
           : nothing}
-        <button class="icon filter-btn ${count ? "on" : ""}" title="Filters" aria-label="Filters" aria-expanded=${this.open}
-          @click=${() => this._fire("toggle-filters")}>
-          <ha-icon icon="mdi:filter-variant"></ha-icon>${count ? html`<span class="dot"></span>` : nothing}
-        </button>
+        <div class="filters">
+          ${f.view === "completed"
+            ? html`<st-dropdown label="Show" .options=${SCOPES_OPTIONS} .value=${f.scope} @change=${this._change("scope")}></st-dropdown>`
+            : nothing}
+          <st-dropdown label="Category" placeholder="Category" .options=${categoryOptions(this.categories)} .value=${f.category}
+            @change=${this._change("category")}></st-dropdown>
+          ${f.person
+            ? html`<st-dropdown label="Raised By" placeholder="Raised By" .options=${personOptions(this.tickets, f.person)} .value=${f.person}
+                @change=${this._change("person")}></st-dropdown>`
+            : nothing}
+          <st-dropdown label="Priority" placeholder="Priority" .options=${priorityOptions()} .value=${f.priority}
+            @change=${this._change("priority")}></st-dropdown>
+          <st-dropdown label="Label" placeholder="Label" .options=${labelOptions(this.labels)} .value=${f.label}
+            @change=${this._change("label")}></st-dropdown>
+        </div>
       </div>
-      ${this.open
-        ? html`<div class="filters">
-            ${f.view === "completed"
-              ? html`<st-dropdown label="Show" .options=${SCOPES_OPTIONS} .value=${f.scope} @change=${this._change("scope")}></st-dropdown>`
-              : nothing}
-            <st-dropdown label="Category" placeholder="Category" .options=${categoryOptions(this.categories)} .value=${f.category}
-              @change=${this._change("category")}></st-dropdown>
-            ${f.person
-              ? html`<st-dropdown label="Raised By" placeholder="Raised By" .options=${personOptions(this.tickets, f.person)} .value=${f.person}
-                  @change=${this._change("person")}></st-dropdown>`
-              : nothing}
-            <st-dropdown label="Priority" placeholder="Priority" .options=${priorityOptions()} .value=${f.priority}
-              @change=${this._change("priority")}></st-dropdown>
-            <st-dropdown label="Label" placeholder="Label" .options=${labelOptions(this.labels)} .value=${f.label}
-              @change=${this._change("label")}></st-dropdown>
-          </div>`
-        : nothing}
     `;
   }
 }
