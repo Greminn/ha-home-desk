@@ -51,6 +51,12 @@
     document.getElementById("reset").onclick = () => send({ cmd: "reset" });
     document.getElementById("reload").onclick = () => frame.contentWindow.location.reload();
     window.addEventListener("message", (e) => { if (e.data?.cmd === "ready") apply(); }); // the panel (re)loaded
+    // The panel is in an iframe here (it isn't in Home Assistant), so keys pressed while this page has the focus, for example
+    // after using the control bar, are handed on to it, as if the panel had been clicked.
+    window.addEventListener("keydown", (e) => {
+      if (e.target.closest?.("input, textarea, select")) return;
+      frame.contentWindow?.dispatchEvent(new KeyboardEvent("keydown", { key: e.key, code: e.code, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, shiftKey: e.shiftKey, repeat: e.repeat }));
+    });
     apply();
   </script>
 </body>

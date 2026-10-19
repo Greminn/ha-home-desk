@@ -1014,12 +1014,12 @@ export class TicketDetail extends LitElement {
       if (box) this._fitTitle(box);
     });
     this._resizer.observe(this);
-    window.addEventListener("keydown", this._hotkey);
+    window.addEventListener("keydown", this._hotkey, true); // capture: nothing else on the page can swallow it first
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
-    window.removeEventListener("keydown", this._hotkey);
+    window.removeEventListener("keydown", this._hotkey, true);
     this._resizer?.disconnect();
   }
 
@@ -1130,7 +1130,7 @@ export class TicketDetail extends LitElement {
   }
 
   private _hotkey = (e: KeyboardEvent) => {
-    if (e.key.toLowerCase() !== "r" || e.ctrlKey || e.metaKey || e.altKey || e.repeat || !this.ticket) return;
+    if ((e.key.toLowerCase() !== "r" && e.code !== "KeyR") || e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.isComposing || !this.ticket) return;
     const from = e.composedPath()[0] as HTMLElement | undefined;
     if (from && (from.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(from.tagName))) return; // typing somewhere
     e.preventDefault();
