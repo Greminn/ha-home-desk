@@ -350,13 +350,22 @@ export class TicketDetail extends LitElement {
         display: grid;
         grid-template-columns: clamp(340px, 36%, 560px) minmax(0, 1fr);
       }
+      /*
+       * The left panel is laid out like the standard view: the details sit on the header's colour, with a line under
+       * them, and the description below is on the softer tint of the thread. The description scrolls; the details stay put.
+       */
       .side {
         min-width: 0;
         min-height: 0;
-        overflow-y: auto;
-        padding: 16px 18px 28px;
+        display: flex;
+        flex-direction: column;
         border-right: 1px solid var(--st-divider);
-        /* The same colour as the header bar and the open ticket's row in the list. */
+        background: var(--st-selected-soft, var(--st-surface));
+      }
+      .side-head {
+        flex: none;
+        padding: 16px 18px 12px;
+        border-bottom: 1px solid var(--st-divider);
         background: var(--st-selected, var(--st-hover));
       }
       .side .sub {
@@ -367,7 +376,10 @@ export class TicketDetail extends LitElement {
         flex: 1 1 100%;
       }
       .side-wrap {
-        margin-top: 16px;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 16px 18px 28px;
       }
       /* In the side panel the description just sits there, whole: it isn't pinned or squeezed. */
       .desc-sticky.plain {
@@ -1678,7 +1690,7 @@ ${t.related?.length
       return html`
         <div class="top">${headRow}</div>
         <div class="wide-body">
-          <aside class="side">${subBlock}<div class="side-wrap">${descBlock}${resolutionBlock}${relatedBlock}</div></aside>
+          <aside class="side"><div class="side-head">${subBlock}</div><div class="side-wrap">${descBlock}${resolutionBlock}${relatedBlock}</div></aside>
           <section class="main">
             <div class="scroll"><div class="wrap">${timelineBlock}</div></div>
             ${dock}
