@@ -14,15 +14,13 @@ export interface TabInfo {
   unread: boolean;
   /** An AI agent is working on it right now. */
   working: boolean;
-  /** Kept open. Otherwise it is the preview chip, which the next ticket you look at replaces. */
-  pinned: boolean;
 }
 
 /**
  * The bar across the top of the page, over the ticket list and the open ticket: New Ticket at the left, always with
  * its words, the tickets you have open as chips in the middle, and the search box at the right, a quarter of the bar
  * wide (all the room it can have on a narrow screen). It only reports what was asked for (search text, a new ticket, a
- * chip picked, closed or kept); the panel decides what happens.
+ * chip picked or closed); the panel decides what happens.
  */
 @safeCustomElement("st-top-bar")
 export class TopBar extends LitElement {
@@ -64,8 +62,7 @@ export class TopBar extends LitElement {
       }
       /*
        * The open tickets: outlined pills like the status and priority pills, 32px tall. The ticket you are on is tinted with
-       * the accent, as the selected row is. A chip in italics is the preview one: the next ticket you look at replaces it,
-       * until you comment, change something or double-click it to keep it.
+       * the accent, as the selected row is.
        */
       .tabs {
         flex: 1 1 0;
@@ -122,9 +119,6 @@ export class TopBar extends LitElement {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-      }
-      .tab.preview .ttl {
-        font-style: italic;
       }
       .tab .flag {
         --mdc-icon-size: 14px;
@@ -238,9 +232,9 @@ export class TopBar extends LitElement {
       </button>
       <div class="tabs" role="tablist" aria-label="Open tickets">
         ${this.tabs.map(
-          (t) => html`<div class="tab ${t.id === this.activeId ? "active" : ""} ${t.pinned ? "" : "preview"}" role="tab" tabindex="0"
-            aria-selected=${t.id === this.activeId} title=${`#${t.id} ${t.title}${t.pinned ? "" : " (preview: the next ticket you look at replaces this. Double-click to keep it.)"}`}
-            @click=${() => this._fire("tab-select", t.id)} @dblclick=${() => this._fire("tab-pin", t.id)}
+          (t) => html`<div class="tab ${t.id === this.activeId ? "active" : ""}" role="tab" tabindex="0"
+            aria-selected=${t.id === this.activeId} title=${`#${t.id} ${t.title}`}
+            @click=${() => this._fire("tab-select", t.id)}
             @auxclick=${(e: MouseEvent) => e.button === 1 && (e.preventDefault(), this._fire("tab-close", t.id))}
             @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), this._fire("tab-select", t.id))}>
             <ha-icon class="st" .icon=${STATE_ICON[t.status]} style="color: ${STATE_COLOR[t.status]}"></ha-icon>

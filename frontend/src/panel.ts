@@ -33,6 +33,8 @@ const ADD_NEW = "___add_new___";
 const NO_CATEGORY = "___none___";
 
 const SEARCH_DEBOUNCE_MS = 250;
+/** The most tickets kept open as chips in the top bar. */
+const MAX_TABS = 8;
 const POLL_MS = 20_000;
 const COMPACT_QUERY = "(max-width: 870px)";
 
@@ -49,8 +51,8 @@ export class HomeDeskPanel extends LitElement {
   @state() private _matchIds: Set<number> | null = null;
   @state() private _selected: Ticket | null = null;
   @state() private _selectedId: number | null = null;
-  /** The tickets open as chips in the top bar. A chip that is not pinned is the preview one, replaced by the next ticket looked at. */
-  @state() private _tabs: { id: number; pinned: boolean }[] = [];
+  /** The tickets open as chips in the top bar. */
+  @state() private _tabs: { id: number }[] = [];
   /** The ticket fills the page (the list is hidden): the full width view. */
   @state() private _wide = false;
   @state() private _view = "inbox";
@@ -214,8 +216,8 @@ export class HomeDeskPanel extends LitElement {
 
   private _restoreState() {
     try {
-      const saved = JSON.parse(localStorage.getItem("home-desk-tabs") ?? "[]") as { id: number; pinned: boolean }[];
-      if (Array.isArray(saved)) this._tabs = saved.filter((t) => Number.isInteger(t?.id)).map((t) => ({ id: t.id, pinned: !!t.pinned }));
+      const saved = JSON.parse(localStorage.getItem("home-desk-tabs") ?? "[]") as { id: number }[];
+      if (Array.isArray(saved)) this._tabs = saved.filter((t) => Number.isInteger(t?.id)).map((t) => ({ id: t.id }));
     } catch {
       // No saved chips.
     }
@@ -236,17 +238,15 @@ export class HomeDeskPanel extends LitElement {
     }
   }
 
-  /** A ticket you look at gets a chip: the preview one is replaced, so stepping through the list doesn't leave a chip behind each time. */
+  /** A ticket you open gets a chip and keeps it until you close it. With more than MAX_TABS the oldest chip you are not on goes. */
   private _touchTab(id: number) {
     if (this._tabs.some((t) => t.id === id)) return;
-    const preview = this._tabs.findIndex((t) => !t.pinned);
-    this._tabs = preview >= 0 ? this._tabs.map((t, i) => (i === preview ? { id, pinned: false } : t)) : [...this._tabs, { id, pinned: false }];
-    this._saveTabs();
-  }
-
-  private _pinTab(id: number) {
-    if (!this._tabs.some((t) => t.id === id && !t.pinned)) return;
-    this._tabs = this._tabs.map((t) => (t.id === id ? { ...t, pinned: true } : t));
+    let tabs = [...this._tabs, { id }];
+    while (tabs.length > MAX_TABS) {
+      const drop = tabs.findIndex((t) => t.id !== id);
+      tabs = tabs.filter((_, i) => i !== drop);
+    }
+    this._tabs = tabs;
     this._saveTabs();
   }
 
@@ -267,7 +267,7 @@ export class HomeDeskPanel extends LitElement {
     return this._tabs.flatMap((tab) => {
       const t = byId.get(tab.id);
       if (!t || t.merged_into) return [];
-      return [{ id: t.id, title: t.title, status: t.status, priority: t.priority, unread: !!t.unread, working: !!t.agent_state, pinned: tab.pinned }];
+      return [{ id: t.id, title: t.title, status: t.status, priority: t.priority, unread: !!t.unread, working: !!t.agent_state }];
     });
   }
 
@@ -395,7 +395,6 @@ export class HomeDeskPanel extends LitElement {
     if (!this._client) return;
     try {
       this._selected = await fn(this._client);
-      if (this._selectedId !== null) this._pinTab(this._selectedId); // you did something to it: keep its chip
       this._error = "";
       void this._refresh();
     } catch (err) {
@@ -707,7 +706,6 @@ export class HomeDeskPanel extends LitElement {
         <st-top-bar .q=${this._q} .tabs=${this._tabInfos} .activeId=${this._selectedId}
           @tab-select=${(e: CustomEvent<number>) => void this._open(e.detail)}
           @tab-close=${(e: CustomEvent<number>) => this._closeTab(e.detail)}
-          @tab-pin=${(e: CustomEvent<number>) => this._pinTab(e.detail)}
           @search=${(e: CustomEvent<string>) => this._search(e.detail)}
           @new-ticket=${() => (this._creating = true)}></st-top-bar>
         <div class="list-pane">
