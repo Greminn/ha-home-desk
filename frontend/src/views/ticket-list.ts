@@ -8,6 +8,7 @@ import type { Category, Label, Status, TicketSummary } from "../types";
 import {
   PRIORITY_LABEL,
   STATE_ICON,
+  stateIcon,
   STATUS_LABEL,
   activityVerb,
   actorLabel,
@@ -155,6 +156,10 @@ export class TicketList extends LitElement {
       }
       .s-resolved .state {
         color: var(--purple-color, #926bc7);
+      }
+      /* Queued for an AI agent: its spark, in the accent colour, whatever the ticket's status. */
+      .queued .state {
+        color: var(--st-accent);
       }
       .body {
         min-width: 0;
@@ -316,7 +321,7 @@ export class TicketList extends LitElement {
       const done = t.status === "resolved" || t.status === "closed";
       return html`
         <button
-          class="row s-${t.status} ${done ? "done" : ""} ${t.id === this.selectedId ? "selected" : ""} ${this.checked.has(t.id) ? "checked" : ""} ${this.ticking ? "ticking" : ""} ${t.unread ? "unread" : ""}"
+          class="row s-${t.status} ${t.assignee && isAgent(t.assignee) && !done ? "queued" : ""} ${done ? "done" : ""} ${t.id === this.selectedId ? "selected" : ""} ${this.checked.has(t.id) ? "checked" : ""} ${this.ticking ? "ticking" : ""} ${t.unread ? "unread" : ""}"
           @click=${(e: MouseEvent) => this._rowClick(t.id, e)}
           @pointerdown=${(e: PointerEvent) => e.pointerType === "touch" && this._pressStart(t.id)}
           @pointerup=${() => this._pressEnd()}
@@ -329,10 +334,10 @@ export class TicketList extends LitElement {
                   e.stopPropagation();
                   this._toggle(t.id, e.shiftKey);
                 }}>
-                <ha-icon class="state" .icon=${STATE_ICON[t.status]} aria-label=${STATUS_LABEL[t.status]}></ha-icon>
+                <ha-icon class="state" .icon=${stateIcon(t.status, t.assignee)} aria-label=${STATUS_LABEL[t.status]}></ha-icon>
                 <ha-icon class="box" .icon=${this.checked.has(t.id) ? "mdi:checkbox-marked" : "mdi:checkbox-blank-outline"}></ha-icon>
               </span>`
-            : html`<ha-icon class="state" .icon=${STATE_ICON[t.status]} role="img" aria-label=${STATUS_LABEL[t.status]}></ha-icon>`}
+            : html`<ha-icon class="state" .icon=${stateIcon(t.status, t.assignee)} role="img" aria-label=${STATUS_LABEL[t.status]}></ha-icon>`}
           <div class="body">
             <div class="title">${t.title}</div>
             <div class="meta">

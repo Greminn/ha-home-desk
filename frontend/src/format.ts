@@ -18,6 +18,12 @@ export const STATE_ICON: Record<Status, string> = {
   closed: "mdi:close-circle-outline",
 };
 
+/** The icon for a ticket's state: a ticket queued for an AI agent shows the agent's spark in place of its status circle. */
+export function stateIcon(status: Status, assignee?: string | null): string {
+  const open = status !== "resolved" && status !== "closed";
+  return open && assignee && isAgent(assignee) ? "mdi:star-four-points" : STATE_ICON[status];
+}
+
 /** State colours: new is green, in progress blue, resolved purple, closed grey. */
 export const STATE_COLOR: Record<Status, string> = {
   new: "var(--success-color, #43a047)",

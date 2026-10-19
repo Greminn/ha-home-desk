@@ -21,14 +21,14 @@ const isQueued = (t: TicketSummary) => isAgent(t.assignee ?? "");
 
 /**
  * Every ticket is in exactly one tab, the first that fits, so the tabs never overlap and their counts add up:
- * Completed, then Queued for AI (the agent has it), then Enhancements (ideas don't bury problems), then Inbox
+ * Completed, then Queued for AI (the agent has it), then Enhancements (ideas not started yet, so they don't bury problems), then Inbox
  * (status New: raised and not yet looked at, or reopened by Home Assistant or an AI agent, which sends it back to New), then Working
  * (everything else open, including a ticket an AI agent has answered, which its reply hands back to you).
  */
 export function bucket(t: TicketSummary): "completed" | "queued" | "enhancements" | "inbox" | "working" {
   if (!isActive(t)) return "completed";
   if (isQueued(t)) return "queued";
-  if (isEnhancement(t)) return "enhancements";
+  if (isEnhancement(t) && t.status === "new") return "enhancements"; // once started it is Working like any other ticket
   if (t.status === "new") return "inbox";
   return "working";
 }
@@ -64,6 +64,32 @@ export interface ListFilters {
   label: string;
   /** A requester's name, as stored. */
   person: string;
+}
+
+/** Whether a loaded ticket plainly matches what is typed (its number, title, labels or category), for answering the drop down at once. */
+export function matchesQuickly(t: TicketSummary, q: string): boolean {
+  const n = ticketNumber(q);
+  if (n !== null && t.id === n) return true;
+  const hay = `#${t.id} ${t.title} ${t.labels.join(" ")}`.toLowerCase();
+  return q
+    .toLowerCase()
+    .split(/\s+/)
+    .every((w) => hay.includes(w));
+}
+
+/** The drop down's order: the ticket with that number, then titles that begin or contain the words, then the rest; open ones before closed. */
+export function rankHits(q: string, tickets: TicketSummary[]): TicketSummary[] {
+  const n = ticketNumber(q);
+  const needle = q.toLowerCase();
+  const score = (t: TicketSummary): number => {
+    if (n !== null && t.id === n) return 0;
+    const title = t.title.toLowerCase();
+    if (title.startsWith(needle)) return 1;
+    if (title.includes(needle)) return 2;
+    return 3;
+  };
+  const done = (t: TicketSummary) => (t.status === "resolved" || t.status === "closed" ? 1 : 0);
+  return [...tickets].sort((a, b) => score(a) - score(b) || done(a) - done(b)).slice(0, 12);
 }
 
 /** A search for just a ticket's number ("244" or "#244"): the number, else null. */

@@ -6,9 +6,9 @@ import { panelStyles } from "./panel-styles";
 import { HaClient } from "./ha-client";
 import type { NewTicket } from "./ha-client";
 import type { Category, HomeAssistant, HomeDeskSettings, Label, Ticket, TicketPatch, TicketSummary } from "./types";
-import { AI_ASSIGNEE, STATUS_LABEL, actorName } from "./format";
+import { AI_ASSIGNEE, STATUS_LABEL, actorName, isAgent } from "./format";
 import type { Person } from "./format";
-import { VIEWS, filterTickets, type ListFilters } from "./list-model";
+import { VIEWS, filterTickets, matchesQuickly, rankHits, type ListFilters } from "./list-model";
 import "./views/ticket-list";
 import "./views/ticket-detail";
 import "./views/new-ticket-dialog";
@@ -48,11 +48,12 @@ export class HomeDeskPanel extends LitElement {
   @property({ attribute: false }) route: { prefix: string; path: string } | undefined = undefined;
 
   @state() private _tickets: TicketSummary[] = [];
-  @state() private _matchIds: Set<number> | null = null;
+  /** What the search box's drop down lists: tickets from every tab that match what is typed. */
+  @state() private _hits: TicketSummary[] = [];
   @state() private _selected: Ticket | null = null;
   @state() private _selectedId: number | null = null;
-  /** The tickets open as chips in the top bar. */
-  @state() private _tabs: { id: number }[] = [];
+  /** The tickets open as chips in the top bar, each remembering whether you had it in the full width view. */
+  @state() private _tabs: { id: number; wide: boolean }[] = [];
   /** The ticket fills the page (the list is hidden): the full width view. */
   @state() private _wide = false;
   @state() private _view = "inbox";
@@ -216,8 +217,8 @@ export class HomeDeskPanel extends LitElement {
 
   private _restoreState() {
     try {
-      const saved = JSON.parse(localStorage.getItem("home-desk-tabs") ?? "[]") as { id: number }[];
-      if (Array.isArray(saved)) this._tabs = saved.filter((t) => Number.isInteger(t?.id)).map((t) => ({ id: t.id }));
+      const saved = JSON.parse(localStorage.getItem("home-desk-tabs") ?? "[]") as { id: number; wide?: boolean }[];
+      if (Array.isArray(saved)) this._tabs = saved.filter((t) => Number.isInteger(t?.id)).map((t) => ({ id: t.id, wide: !!t.wide }));
     } catch {
       // No saved chips.
     }
@@ -241,13 +242,23 @@ export class HomeDeskPanel extends LitElement {
   /** A ticket you open gets a chip and keeps it until you close it. With more than MAX_TABS the oldest chip you are not on goes. */
   private _touchTab(id: number) {
     if (this._tabs.some((t) => t.id === id)) return;
-    let tabs = [...this._tabs, { id }];
+    let tabs = [...this._tabs, { id, wide: false }];
     while (tabs.length > MAX_TABS) {
       const drop = tabs.findIndex((t) => t.id !== id);
       tabs = tabs.filter((_, i) => i !== drop);
     }
     this._tabs = tabs;
     this._saveTabs();
+  }
+
+  /** Go into or out of the full width view; the open ticket's chip remembers which. */
+  private _setWide(on: boolean) {
+    this._wide = on;
+    const id = this._selectedId;
+    if (id !== null && this._tabs.some((t) => t.id === id && t.wide !== on)) {
+      this._tabs = this._tabs.map((t) => (t.id === id ? { ...t, wide: on } : t));
+      this._saveTabs();
+    }
   }
 
   private _closeTab(id: number) {
@@ -267,7 +278,7 @@ export class HomeDeskPanel extends LitElement {
     return this._tabs.flatMap((tab) => {
       const t = byId.get(tab.id);
       if (!t || t.merged_into) return [];
-      return [{ id: t.id, title: t.title, status: t.status, priority: t.priority, unread: !!t.unread, working: !!t.agent_state }];
+      return [{ id: t.id, title: t.title, status: t.status, priority: t.priority, unread: !!t.unread, queued: !!t.assignee && isAgent(t.assignee), working: !!t.agent_state }];
     });
   }
 
@@ -383,7 +394,13 @@ export class HomeDeskPanel extends LitElement {
   private async _runSearch() {
     if (!this._client) return;
     const q = this._q.trim();
-    this._matchIds = q ? new Set((await this._client.list(q)).map((t) => t.id)) : null;
+    if (!q) {
+      this._hits = [];
+      return;
+    }
+    const found = (await this._client.list(q)).filter((t) => !t.merged_into);
+    if (q === this._q.trim()) this._hits = rankHits(q, found); // not if you have typed on since
+
   }
 
   private _message(err: unknown): string {
@@ -406,7 +423,8 @@ export class HomeDeskPanel extends LitElement {
 
   private _search(q: string) {
     this._q = q;
-    if (q.trim()) this._wide = false; // the results are in the list, which the full width view hides
+    // The drop down answers at once from the tickets already loaded; the server's fuller search (descriptions, comments) follows.
+    this._hits = q.trim() ? rankHits(q.trim(), this._tickets.filter((t) => !t.merged_into && matchesQuickly(t, q.trim()))) : [];
     window.clearTimeout(this._searchTimer);
     this._searchTimer = window.setTimeout(() => void this._runSearch(), SEARCH_DEBOUNCE_MS);
   }
@@ -417,6 +435,7 @@ export class HomeDeskPanel extends LitElement {
     this._page = "";
     this._selectedId = id;
     this._touchTab(id);
+    this._wide = this._tabs.find((t) => t.id === id)?.wide ?? false; // back to the view this ticket was last in
     if (navigate) this._navigate(`${this._prefix}/${id}`);
     await this._loadSelected(id);
   }
@@ -631,7 +650,7 @@ export class HomeDeskPanel extends LitElement {
   }
 
   private get _filtered(): TicketSummary[] {
-    return filterTickets(this._tickets, this._filters, this._matchIds, this._q);
+    return filterTickets(this._tickets, this._filters, null);
   }
 
   /** What "Queue for AI Agent" stores: any AI the person runs themselves, so no particular name. */
@@ -677,7 +696,7 @@ export class HomeDeskPanel extends LitElement {
         @page-change=${(e: CustomEvent<Page>) => (this._page = e.detail)}
         @view-change=${(e: CustomEvent<string>) => {
           this._page = "";
-          this._wide = false; // a tab means the list: back out of the full width view
+          this._setWide(false); // a tab means the list: back out of the full width view
           this._setView(e.detail);
         }}
         @go-home=${() => {
@@ -703,7 +722,12 @@ export class HomeDeskPanel extends LitElement {
             ? html`<st-settings .client=${this._client} .hass=${this.hass}
                 @settings-changed=${(e: CustomEvent<HomeDeskSettings>) => (this._settings = e.detail)}></st-settings>`
             : html`<main class=${`${selecting ? "has-selection" : ""} ${this._wide && selecting && !this._compact ? "wide" : ""}`}>
-        <st-top-bar .q=${this._q} .tabs=${this._tabInfos} .activeId=${this._selectedId}
+        <st-top-bar .q=${this._q} .tabs=${this._tabInfos} .activeId=${this._selectedId} .results=${this._hits}
+          @open-result=${(e: CustomEvent<number>) => {
+            this._q = "";
+            this._hits = [];
+            void this._open(e.detail);
+          }}
           @tab-select=${(e: CustomEvent<number>) => void this._open(e.detail)}
           @tab-close=${(e: CustomEvent<number>) => this._closeTab(e.detail)}
           @search=${(e: CustomEvent<string>) => this._search(e.detail)}
@@ -741,7 +765,8 @@ export class HomeDeskPanel extends LitElement {
           .isAdmin=${this._admin}
           .narrow=${this._compact}
           .wide=${this._wide}
-          @toggle-wide=${() => (this._wide = !this._wide)}
+          @toggle-wide=${() => this._setWide(!this._wide)}
+          @close-active=${() => this._selectedId !== null && this._closeTab(this._selectedId)}
           .language=${lang}
           .navPos=${this._navPos}
           @nav-ticket=${(e: CustomEvent<number>) => this._step(e.detail)}

@@ -8,7 +8,7 @@ import "./ticket-attachments";
 import "./ticket-things";
 import type { HaClient } from "../ha-client";
 import { sharedStyles } from "../styles";
-import { BLOCKED, PRIORITIES } from "../types";
+import { BLOCKED, ENHANCEMENT, PRIORITIES } from "../types";
 import type { Category, HomeAssistant, Priority, ProposedAction, Status, Label, Ticket, TicketEvent, TicketPatch } from "../types";
 import {
   PRIORITY_LABEL,
@@ -1275,9 +1275,15 @@ export class TicketDetail extends LitElement {
     const key = e.key.toLowerCase();
     const reply = key === "r" || e.code === "KeyR";
     const full = key === "f" || e.code === "KeyF";
-    if ((!reply && !full) || e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.isComposing || !this.ticket) return;
+    const close = key === "x" || e.code === "KeyX";
+    if ((!reply && !full && !close) || e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.isComposing || !this.ticket) return;
     const from = e.composedPath()[0] as HTMLElement | undefined;
     if (from && (from.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(from.tagName))) return; // typing somewhere
+    if (close) {
+      e.preventDefault();
+      this._fire("close-active");
+      return;
+    }
     if (full) {
       if (this.narrow) return; // a phone already shows the ticket full screen
       e.preventDefault();
@@ -1367,6 +1373,16 @@ export class TicketDetail extends LitElement {
     this._agentToggle = null;
     this._priorityTo = "";
     if (this._composerMode === "open") this._composerMode = "auto";
+  }
+
+  /** An Enhancement stays New while it only collects notes; this starts work on it, which moves it to Working. */
+  private _startWorking() {
+    const body = this._comment.trim();
+    if (body) {
+      this._fire("comment", { body, internal: false });
+      this._comment = "";
+    }
+    this._patch({ status: "in_progress" });
   }
 
   /**
@@ -1716,6 +1732,9 @@ ${t.related?.length
           : nothing}
       </div>
       <div class="acts">
+      ${this.isAdmin && !done && t.status === "new" && t.labels.includes(ENHANCEMENT)
+        ? html`<button title="Start work on this idea: it moves to Working. Anything typed above is posted as a comment first." @click=${() => this._startWorking()}><ha-icon icon="mdi:play-circle-outline"></ha-icon>Start Working</button>`
+        : nothing}
       ${this.isAdmin && !done
         ? html`<button title="Mark as resolved. Anything typed above is saved as the resolution." @click=${() => this._resolve()}><ha-icon icon="mdi:check-circle-outline"></ha-icon>Resolve</button>`
         : nothing}

@@ -404,14 +404,14 @@ export function createMock() {
       const { id: _i, type: _t, ticket_id, ...fields } = m;
       const t = get(ticket_id); const before = t.assignee; apply(t, state.user.name, fields);
       // The backend rule: the first thing done to a new ticket moves it to In progress.
-      if (t.status === "new" && !("status" in fields)) apply(t, "Home Desk", { status: "in_progress" });
+      if (t.status === "new" && !("status" in fields) && !t.labels.includes("enhancement")) apply(t, "Home Desk", { status: "in_progress" });
       fire(t, "updated", state.user.name);
       return t;
     },
     comment: (m) => {
       const t = get(m.ticket_id); const internal = !!m.internal && isAdmin();
       t.events.push({ id: t.events.length + 1, actor: state.user.name, kind: internal ? "note" : "comment", body: m.body, data: null, created_at: iso(0) });
-      if (t.status === "new") apply(t, "Home Desk", { status: "in_progress" });
+      if (t.status === "new" && !t.labels.includes("enhancement")) apply(t, "Home Desk", { status: "in_progress" });
       t.updated_at = iso(0); fire(t, internal ? "note" : "comment", state.user.name); return view(t);
     },
     close: (m) => {
@@ -549,7 +549,7 @@ export function createMock() {
       const t = (openId && db.tickets[openId]) || open[Math.floor(Math.random() * open.length)];
       if (!t) return;
       t.events.push({ id: t.events.length + 1, actor: "claude", kind: "comment", body: `Checked again at ${new Date().toLocaleTimeString()}: nothing has changed.`, data: null, created_at: iso(0) });
-      if (t.status === "new") apply(t, "claude", { status: "in_progress" });
+      if (t.status === "new" && !t.labels.includes("enhancement")) apply(t, "claude", { status: "in_progress" });
       // The agent hands the ticket back when it has replied.
       if (t.assignee && /claude|^ai:/i.test(t.assignee)) apply(t, "claude", { assignee: null });
       t.updated_at = iso(0);

@@ -20,6 +20,7 @@ from .const import (
     ACTIVE_STATUSES,
     AUTO_CLOSE_SECONDS,
     BLOCKED_LABEL_ID,
+    ENHANCEMENT_LABEL_ID,
     BUILTIN_CATEGORIES,
     BUILTIN_LABELS,
     DEFAULT_NOTIFY,
@@ -543,8 +544,11 @@ def _close_if_immediate(data: dict[str, Any], ticket: dict[str, Any]) -> None:
 
 
 def _progress(ticket: dict[str, Any], actor: str, ts: str) -> bool:
-    """The first thing done to a New ticket moves it to In Progress. Automatic sources don't count."""
-    if ticket["status"] != "new" or actor in SYSTEM_ACTORS:
+    """The first thing done to a New ticket moves it to In Progress. Automatic sources don't count.
+
+    An Enhancement (an idea for the future) is the exception: comments and changes are notes on it, and it stays New until
+    someone sets it to In Progress (the panel's Start Working button)."""
+    if ticket["status"] != "new" or actor in SYSTEM_ACTORS or ENHANCEMENT_LABEL_ID in ticket["labels"]:
         return False
     ticket["status"] = "in_progress"
     _event(ticket, "Home Desk", "status", None, {"field": "status", "from": "new", "to": "in_progress"}, ts)

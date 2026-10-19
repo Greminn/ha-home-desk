@@ -173,6 +173,17 @@ async def main():
     assert all(t["category"] is None and "home-assistant" not in t["labels"] for t in imported), "imports are uncategorised"
     print("import ok")
 
+    # ---- an Enhancement stays New while it is noted, and starts working only when told to
+    enh = await s.async_create_ticket(hass, title="Whisper mode at night", description="idea", requester="Simon", labels=["Enhancement"])
+    assert enh["status"] == "new" and "enhancement" in enh["labels"], enh["labels"]
+    enh = await s.async_add_comment(hass, enh["id"], actor="Simon", body="Could use the quiet hours schedule")
+    enh = await s.async_update_ticket(hass, enh["id"], actor="Simon", priority="high")
+    enh = await s.async_add_comment(hass, enh["id"], actor="ai:claude", body="Possible with the ESPHome volume control")
+    assert enh["status"] == "new", "notes and changes on an enhancement don't start it"
+    enh = await s.async_update_ticket(hass, enh["id"], actor="Simon", status="in_progress")
+    assert enh["status"] == "in_progress", "Start Working"
+    print("enhancement workflow ok")
+
     # ---- a ticket's life
     t = await s.async_create_ticket(hass, title="Hall light didn't come on", description="at 7am", requester="Qionne")
     assert t["status"] == "new" and t["events"][0]["kind"] == "created" and t["labels"] == [] and t["category"] is None
