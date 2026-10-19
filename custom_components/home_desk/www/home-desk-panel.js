@@ -1354,6 +1354,7 @@ function at(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
       </div></div>
 
       <div class="dock ${this._composerKeep?"keep":""} ${"closed"===this._composerMode?"shut":""}"
+        @mouseenter=${()=>"closed"===this._composerMode&&(this._composerMode="auto")}
         @mouseleave=${()=>"closed"===this._composerMode&&(this._composerMode="auto")}
         @focusin=${()=>"closed"===this._composerMode&&(this._composerMode="auto")}
         @keydown=${e=>"Escape"===e.key&&this._closeComposer()}>

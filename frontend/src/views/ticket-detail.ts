@@ -925,7 +925,7 @@ export class TicketDetail extends LitElement {
   @state() private _agentToggle: boolean | null = null;
   /**
    * How the comment box is shown: "auto" (a strip, opening on hover or focus and staying open with a draft), "open" (the R key
-   * pinned it open) or "closed" (Escape or R shut it, even over a draft, until the pointer leaves it or it is clicked into).
+   * pinned it open) or "closed" (Escape or R shut it, even over a draft, until the pointer comes onto it again (or leaves it, if it was already on it) or it is clicked into).
    */
   @state() private _composerMode: "auto" | "open" | "closed" = "auto";
   /** A priority picked in the comment box but not applied yet ("" = none picked). */
@@ -1562,6 +1562,7 @@ export class TicketDetail extends LitElement {
       </div></div>
 
       <div class="dock ${this._composerKeep ? "keep" : ""} ${this._composerMode === "closed" ? "shut" : ""}"
+        @mouseenter=${() => this._composerMode === "closed" && (this._composerMode = "auto")}
         @mouseleave=${() => this._composerMode === "closed" && (this._composerMode = "auto")}
         @focusin=${() => this._composerMode === "closed" && (this._composerMode = "auto")}
         @keydown=${(e: KeyboardEvent) => e.key === "Escape" && this._closeComposer()}>
