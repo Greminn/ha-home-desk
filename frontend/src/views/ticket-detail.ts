@@ -95,19 +95,42 @@ export class TicketDetail extends LitElement {
         min-height: 0;
         padding: 13px 16px 12px;
         resize: none;
+        transition: height 180ms ease;
       }
-      .dock .composer .bar {
-        display: none;
+      /* The buttons slide open under the text: the row grows from nothing (and is out of the tab order while it is shut). */
+      .dock .bar-wrap {
+        display: grid;
+        grid-template-rows: 0fr;
+        visibility: hidden;
+        transition:
+          grid-template-rows 180ms ease,
+          visibility 0s linear 180ms;
+      }
+      .dock .bar-clip {
+        min-height: 0;
+        overflow: hidden;
+      }
+      .dock .dock-in {
+        transition: box-shadow 180ms ease;
       }
       .dock:is(.keep, :not(.shut):hover, :not(.shut):focus-within) .dock-in {
         box-shadow: 0 -6px 16px -6px rgba(0, 0, 0, 0.4);
       }
       .dock:is(.keep, :not(.shut):hover, :not(.shut):focus-within) .composer textarea {
-        height: auto;
+        height: 72px;
         resize: vertical;
       }
-      .dock:is(.keep, :not(.shut):hover, :not(.shut):focus-within) .composer .bar {
-        display: flex;
+      .dock:is(.keep, :not(.shut):hover, :not(.shut):focus-within) .bar-wrap {
+        grid-template-rows: 1fr;
+        visibility: visible;
+        transition-delay: 0s;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .dock .composer textarea,
+        .dock .bar-wrap,
+        .dock .dock-in {
+          transition: none;
+        }
       }
       /* An open ticket sits on the same colour as its row in the list, so the two read as one thing. */
       :host([open]) {
@@ -1519,7 +1542,7 @@ export class TicketDetail extends LitElement {
         <div class="dock-in"><div class="card composer">
           <textarea rows="2" placeholder="Add a comment (press C)" .value=${this._comment}
             @input=${(e: Event) => (this._comment = (e.target as HTMLTextAreaElement).value)}></textarea>
-          <div class="bar">
+          <div class="bar-wrap"><div class="bar-clip"><div class="bar">
             ${this.isAdmin ? this._aiAction(t) : nothing}
             <div class="opts">
               ${this.isAdmin
@@ -1535,7 +1558,7 @@ export class TicketDetail extends LitElement {
               : nothing}
             <button class="primary" ?disabled=${!this._canSubmit(t)} @click=${this._submitComment}>${this._agentApplies(t) && this._agentOn(t) ? html`<ha-icon icon="mdi:creation"></ha-icon>` : nothing}${this._submitLabel(t)}</button>
             </div>
-          </div>
+          </div></div></div>
         </div></div>
       </div>
     `;
