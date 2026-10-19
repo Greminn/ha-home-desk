@@ -52,13 +52,11 @@ export const panelStyles = css`
         border-right: 1px solid var(--st-divider);
         background: var(--st-surface);
       }
-      /* The full width view: the ticket gets the whole page, with no search bar or list. */
+      /* The full width view: the ticket gets the whole page under the New Ticket and search bar; the list is hidden. */
       main.wide {
         grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: minmax(0, 1fr);
       }
-      main.wide .list-pane,
-      main.wide st-top-bar {
+      main.wide .list-pane {
         display: none;
       }
       /* Narrow: one pane at a time. */

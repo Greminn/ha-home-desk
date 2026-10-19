@@ -354,6 +354,7 @@ export class HomeDeskPanel extends LitElement {
 
   private _search(q: string) {
     this._q = q;
+    if (q.trim()) this._wide = false; // the results are in the list, which the full width view hides
     window.clearTimeout(this._searchTimer);
     this._searchTimer = window.setTimeout(() => void this._runSearch(), SEARCH_DEBOUNCE_MS);
   }
