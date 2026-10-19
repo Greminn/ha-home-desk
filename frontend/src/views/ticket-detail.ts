@@ -454,7 +454,7 @@ export class TicketDetail extends LitElement {
         flex-direction: column;
         gap: 13px; /* the number, category, status and labels row sits a little lower under the meta line */
         /* A little closer to the title, and more room above the line under the header. */
-        margin: 10px 0 8px;
+        margin: 10px 0 4px;
         font-size: var(--st-fs-body);
         color: var(--st-fg-secondary);
       }
