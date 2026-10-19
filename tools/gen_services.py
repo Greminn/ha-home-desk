@@ -106,6 +106,7 @@ SERVICES = {
         "ticket_id": TID,
         "body": ("Comment", "The comment, in markdown.", LONG, True, None),
         "internal": ("Internal note", "True makes a private note that the requester can't see.", BOOL, False, None),
+        "keep_assigned": ("Keep assigned", "True leaves the ticket queued for the AI agent after this comment instead of handing it back to the manager, for evidence on a ticket the agent is meant to keep watching. Default false: an agent's comment hands the ticket back.", BOOL, False, None),
         "actor": ACTOR}),
     "close_ticket": ("Close ticket", "Resolve or close a ticket with resolution notes (the cause and the fix). Only close when you are confident; otherwise comment and leave it open.", {
         "ticket_id": TID,

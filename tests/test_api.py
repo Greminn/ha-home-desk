@@ -383,6 +383,14 @@ async def main():
     assert hass.bus.events[-1][1]["kind"] == "assigned"
     reply = await svc("add_comment", ticket_id=a["id"], body="Checked: it is the router.", actor="claude")
     assert reply["assignee"] is None
+    # keep_assigned: an agent adds evidence (a note, or a comment) to a ticket it is watching without it leaving its queue
+    await svc("update_ticket", ticket_id=a["id"], assignee="ai:AI", actor="Simon")
+    kept = await svc("add_comment", ticket_id=a["id"], body="Still fine at 08:00.", internal=True, keep_assigned=True, actor="claude")
+    assert kept["assignee"] == "ai:AI", "keep_assigned leaves the ticket queued"
+    kept = await svc("add_comment", ticket_id=a["id"], body="A public update too.", keep_assigned=True, actor="claude")
+    assert kept["assignee"] == "ai:AI"
+    handed = await svc("add_comment", ticket_id=a["id"], body="Done, over to you.", actor="claude")
+    assert handed["assignee"] is None, "without it the comment hands the ticket back, as before"
     # an agent must name its actor, otherwise it is attributed to Home Assistant (no user on an automation call)
     assert (await svc("add_comment", ticket_id=a["id"], body="from an automation"))["events"][-1]["actor"] == "Home Assistant"
     # the old tag names still work

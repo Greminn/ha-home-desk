@@ -131,6 +131,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             actor=await _actor(hass, call),
             body=call.data["body"],
             internal=call.data.get("internal", False),
+            hand_back=not call.data.get("keep_assigned", False),  # an agent's comment normally hands the ticket back; this keeps it queued
         )
 
     async def close(call: ServiceCall) -> dict[str, Any]:
@@ -306,6 +307,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         **_ID,
         vol.Required("body"): cv.string,
         vol.Optional("internal"): cv.boolean,
+        vol.Optional("keep_assigned"): cv.boolean,
         **_ACTOR,
     }), supports_response=both)
     s(DOMAIN, "close_ticket", _wrap(close), vol.Schema({

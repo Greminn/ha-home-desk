@@ -328,6 +328,10 @@ add_comment:
       name: "Internal note"
       description: "True makes a private note that the requester can't see."
       selector: {"boolean": {}}
+    keep_assigned:
+      name: "Keep assigned"
+      description: "True leaves the ticket queued for the AI agent after this comment instead of handing it back to the manager, for evidence on a ticket the agent is meant to keep watching. Default false: an agent's comment hands the ticket back."
+      selector: {"boolean": {}}
     actor:
       name: "Actor"
       description: "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."

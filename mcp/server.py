@@ -158,10 +158,12 @@ def update_ticket(
 
 
 @mcp.tool()
-def add_comment(ticket_id: int, body: str, internal: bool = False) -> dict[str, Any]:
+def add_comment(ticket_id: int, body: str, internal: bool = False, keep_assigned: bool = False) -> dict[str, Any]:
     """Comment on a ticket (markdown). internal=True makes a private note the requester can't see.
-    Use comments for findings, what you checked and what you changed."""
-    return _brief(_call("add_comment", {"ticket_id": ticket_id, "body": body, "internal": internal, "actor": ACTOR}))
+    Use comments for findings, what you checked and what you changed. A comment from you hands a ticket
+    assigned to you (ai:AI) back to the manager; pass keep_assigned=True to add evidence to a ticket you are
+    meant to keep watching without it dropping out of your queue."""
+    return _brief(_call("add_comment", {"ticket_id": ticket_id, "body": body, "internal": internal, "keep_assigned": keep_assigned, "actor": ACTOR}))
 
 
 @mcp.tool()

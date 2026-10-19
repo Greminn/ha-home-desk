@@ -30,6 +30,9 @@ assert body == {"ticket_id": 7, "resolution": "Restarted Z2M", "status": "resolv
 import json as _j
 assert m.mcp._tool_manager.get_tool("get_guide") is not None
 m.list_tickets(query="zigbee"); assert calls[-1][2]["query"] == "zigbee" and "label" not in calls[-1][2]
+m.add_comment(5, "evidence", internal=True, keep_assigned=True)
+assert calls[-1][2] == {"ticket_id": 5, "body": "evidence", "internal": True, "keep_assigned": True, "actor": "ai:claude"}, calls[-1][2]
+m.add_comment(5, "answer"); assert calls[-1][2]["keep_assigned"] is False
 m.update_ticket(3, add_labels=["x"]); assert calls[-1][2] == {"ticket_id": 3, "add_labels": ["x"], "actor": "ai:claude"}
 assert m.get_ticket(1)["big"]  # reads return everything
 try:
