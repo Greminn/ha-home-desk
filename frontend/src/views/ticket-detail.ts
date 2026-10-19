@@ -688,9 +688,50 @@ export class TicketDetail extends LitElement {
         flex-wrap: wrap;
         gap: 6px;
       }
-      /* The AI Action menu: the same height as the priority pills beside it. */
-      st-dropdown.ai-action {
-        --st-h-bar: 32px;
+      /* AI Action: one pill, a label and a segment for each thing it can do, the same height as the priority pills beside it. */
+      .ai-action {
+        display: inline-flex;
+        align-items: stretch;
+        height: 32px;
+        border: 1px solid var(--st-outline);
+        border-radius: var(--st-r-pill);
+        overflow: hidden;
+        color: var(--st-fg-secondary);
+        font-size: var(--st-fs-body);
+      }
+      .ai-action .lead {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0 10px 0 6px;
+        white-space: nowrap;
+      }
+      .ai-action .lead ha-icon {
+        --mdc-icon-size: 20px;
+      }
+      .ai-action button {
+        height: auto;
+        padding: 0 12px;
+        gap: 4px;
+        border-radius: 0;
+        border-left: 1px solid var(--st-outline);
+        color: var(--st-fg);
+        font-weight: 400;
+      }
+      .ai-action button:hover {
+        background: var(--st-hover);
+      }
+      .ai-action button ha-icon {
+        --mdc-icon-size: 16px;
+      }
+      /* Queue is a choice that waits for the main button: accent while picked, a dashed edge while it is being taken off. */
+      .ai-action button.on {
+        color: var(--st-accent);
+        background: color-mix(in srgb, var(--st-accent) 14%, transparent);
+      }
+      .ai-action button.change:not(.on) {
+        color: var(--st-fg-secondary);
+        text-decoration: line-through;
       }
       /* Handing a ticket to the AI Agent matters, so its button also carries the agent's spark icon. */
       .composer button.primary {
@@ -968,25 +1009,27 @@ export class TicketDetail extends LitElement {
   }
 
   /**
-   * One "AI Action" menu in place of separate buttons: Queue (tags the ticket for an AI you run yourself, applied with the
-   * main button, free) and Review (asks the AI chosen in Settings at once and uses your AI plan, so the panel confirms).
-   * Run AI Agent Now will join it when it exists. Clicking only opens the menu, so a stray click spends nothing.
+   * One "AI Action" control with every choice a click away: Queue (tags the ticket for an AI you run yourself; applied with
+   * the main button, free) and Review (asks the AI chosen in Settings at once; the panel confirms, because it uses your AI
+   * plan). Run AI Agent Now will be a third segment when it exists.
    */
   private _aiAction(t: Ticket) {
     const on = this._agentOn(t);
     const now = this._withAgent(t);
-    const options = [{ id: "queue", label: on ? "Remove from AI Agent Queue" : "Queue for AI Agent" }];
-    if (this.canAsk && !t.agent_state) options.push({ id: "review", label: "Review with AI" });
-    const state = now && !on ? ": Remove" : on ? ": Queue" : "";
-    const pick = (e: CustomEvent<string>) => {
-      if (e.detail === "queue") this._agentToggle = !on;
-      else if (e.detail === "review") {
-        this._fire("ask-ai", { body: this._comment.trim(), done: () => { this._comment = ""; this._agentToggle = null; } });
-      }
-    };
-    return html`<st-dropdown class="ai-action" up plain ?active=${on !== now || on} icon="mdi:creation" label="AI Action"
-      placeholder=${`AI Action${state}`} .options=${options} value="" @change=${pick}
-      title="Queue the ticket for an AI you run yourself (nothing is sent anywhere), or have the AI chosen in Settings review it (it can't change anything and uses your AI plan)."></st-dropdown>`;
+    const review = this.canAsk && !t.agent_state;
+    const queueTip = now
+      ? on ? "With an AI agent you run yourself. Click to take it off the queue." : "It will be taken off the AI agent queue. Click to keep it."
+      : on ? "Will be queued for an AI agent. Click to switch off."
+        : "Queue this ticket for an AI agent you run yourself (your Claude CLI, Gemini Antigravity or anything else). Nothing is sent anywhere.";
+    return html`<div class="ai-action" role="group" aria-label="AI Action">
+      <span class="lead"><ha-icon icon="mdi:creation"></ha-icon>AI Action</span>
+      <button class="${on ? "on" : ""} ${on !== now ? "change" : ""}" aria-pressed=${on ? "true" : "false"} title=${queueTip}
+        @click=${() => (this._agentToggle = !on)}>${on && !now ? html`<ha-icon icon="mdi:check"></ha-icon>` : nothing}Queue</button>
+      ${review
+        ? html`<button title="Have the AI chosen in Settings review this ticket: what it thinks is going on and what to try. It can't change anything and it uses your AI plan."
+            @click=${() => this._fire("ask-ai", { body: this._comment.trim(), done: () => { this._comment = ""; this._agentToggle = null; } })}>Review</button>`
+        : nothing}
+    </div>`;
   }
 
   /**

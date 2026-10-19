@@ -290,7 +290,7 @@ export class HomeDeskPanel extends LitElement {
     if (!ticket || !this._client) return;
     const name = this._agentLabel;
     this._askCost(
-      `Review ticket #${ticket.id} with ${name}? The ticket${detail.body ? ", with your comment," : ""} is sent to the AI chosen in Settings through Home Assistant, which uses your AI plan and may cost money. It says what it thinks is going on and what to try, and may propose changes for you to apply. It can't change anything itself, and Assign to AI Agent is left as it is. You can stop it from the ticket while it works.`,
+      `Review ticket #${ticket.id} with ${name}? The ticket${detail.body ? ", with your comment," : ""} is sent to the AI chosen in Settings through Home Assistant, which uses your AI plan and may cost money. It says what it thinks is going on and what to try, and may propose changes for you to apply. It can't change anything itself, and Queue for AI Agent is left as it is. You can stop it from the ticket while it works.`,
       async () => {
         const client = this._client!;
         if (detail.body) await client.comment(ticket.id, detail.body, false);

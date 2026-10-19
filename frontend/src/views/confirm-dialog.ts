@@ -24,7 +24,7 @@ export class ConfirmDialog extends LitElement {
         background: rgba(0, 0, 0, 0.32);
       }
       .dialog {
-        width: min(320px, 100%);
+        width: min(480px, 100%);
         box-sizing: border-box;
         padding: 24px;
         border-radius: var(--ha-border-radius-4xl, 28px);
