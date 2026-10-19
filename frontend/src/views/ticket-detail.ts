@@ -145,7 +145,7 @@ export class TicketDetail extends LitElement {
       .wrap {
         --wrap-top: 16px;
         min-width: 0;
-        padding: var(--wrap-top) 18px 12px;
+        padding: var(--wrap-top) 18px 28px; /* room under the last comment, above the comment box */
       }
       /*
        * A description of more than a couple of lines is pinned at the top as you scroll, and shrinks at the same rate as you
