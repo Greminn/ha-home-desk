@@ -89,11 +89,22 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 
 **Not built:** push notifications (settings stored, nothing sent), "Your requests" for household users, an Assist voice sentence, device watchers (offline devices, batteries), agent permissions, auto-starting an AI agent, reporting.
 
+## 7. Next steps, in order
 
-Small items first, after the usage reset:
 
-1. ~~Skip "restart required" repairs~~ and ~~treat an ignored repair as resolved~~: done 2026-10-19 (unreleased changelog).
-2. ~~Document every service's parameters in the agent guide~~: done 2026-10-19. Dropped: a distinct `ai:AI Review` actor for the in-HA reviewer (decided unnecessary now the guide says where the agent's queue is; review comments already carry `data.review`).
+**State of play**
+
+**Next, in order**
+1. **Check the deploy**: restart done? #226 still resolved, no tickets from HACS `restart_required_*`, the new tabs and chips look right on the real install, no Home Desk errors in the log (Home Assistant's log can't be read from here).
+3. **Decide the MCP servers** (parked 2026-10-20). Leaning: the **Home Desk bridge** (`mcp/server.py`) plus **Home Assistant's built-in MCP Server (Assist API)**. The Assist endpoint works with a non-admin token, only reaches entities exposed to Assist, and can **control** them (not read-only), so the review allow-list is just `GetLiveContext` and the change allow-list adds only the specific control tools you accept. It gives no history, logs, traces or config, so reviews may be shallow; add the community `ha-mcp` with a read-only allow-list later if so. Never put the `ha-mcp` URL or a token in the repository. Next action: draft `mcp.json` and the `extra_tools_review` and `extra_tools_change` lists.
+
+**Ideas parked**
+- Tab chips: previous/next could swap the chip in place instead of adding one each (stepping through a list piles up chips); a "titles only on hover" mode with more than five chips; a setting for the limit of eight.
+- A hotkey to jump between open chips (and one for the search box).
+- The Home tiles "Urgent / High" and "Unread" open the Completed tab on its Open or Everything scope, which is odd: an "All" tab, or real filters, would be cleaner.
+- Enhancements: a way to say an idea is "not now" without resolving it; showing note counts on the Enhancements tab.
+- The Review prompt: an edited prompt keeps the old "Assign to AI Agent" wording until it is reset (the default says Queue for AI Agent).
+- Document the hotkeys and the new top bar in the README (the Settings card has the keys).
 
 ## 8. Gotchas
 
