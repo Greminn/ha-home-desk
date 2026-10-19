@@ -22,8 +22,8 @@ export const VIEWS: View[] = [
   // New work that hasn't been started. Ideas have their own tab so they don't bury problems.
   { id: "active", icon: "mdi:inbox-outline", label: "Inbox", count: true, match: (t) => t.status === "new" && !isHistory(t) && !isEnhancement(t) },
   { id: "progress", icon: "mdi:progress-wrench", label: "In Progress", count: true, match: (t) => (t.status === "in_progress" || t.status === "open") && !isHistory(t) },
-  // What the AI Agent has been handed, whatever stage it is at.
-  { id: "agent", icon: "mdi:star-four-points-outline", label: "Assigned to AI", count: true, match: (t) => isActive(t) && isAgent(t.assignee ?? "") },
+  // What has been queued for an AI agent, whatever stage it is at.
+  { id: "agent", icon: "mdi:star-four-points-outline", label: "Queued for AI", count: true, match: (t) => isActive(t) && isAgent(t.assignee ?? "") },
   { id: "enhancements", icon: "mdi:lightbulb-outline", label: "Enhancements", count: true, match: (t) => isActive(t) && isEnhancement(t) },
   { id: "all", icon: "mdi:format-list-bulleted", label: "All", match: () => true },
 ];

@@ -267,7 +267,7 @@ export class HomePage extends LitElement {
           <div class="tiles">
             ${this._tile("mdi:inbox-outline", "Inbox", view("active"), { view: "active", cls: "hot" })}
             ${this._tile("mdi:progress-wrench", "In Progress", view("progress"), { view: "progress" })}
-            ${this._tile("mdi:star-four-points-outline", "Assigned to AI", view("agent"), { view: "agent" })}
+            ${this._tile("mdi:star-four-points-outline", "Queued for AI", view("agent"), { view: "agent" })}
             ${this._tile("mdi:alert-outline", "Urgent / High", urgent.length, { view: "progress", cls: "warn" })}
             ${this._tile("mdi:email-open-outline", "Unread", unread.length, { view: "all", cls: "hot" })}
             ${this._tile("mdi:calendar-week", "This week", opened, { sub: `opened · ${resolved} resolved` })}

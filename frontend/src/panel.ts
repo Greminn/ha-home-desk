@@ -285,6 +285,20 @@ export class HomeDeskPanel extends LitElement {
     this._confirmCost = { text, run };
   }
 
+  /** Run AI Agent Now: only the preview's mock answers so far, as the runner isn't built (see docs/agent-runs.md). */
+  private _runNow(detail: { body: string; done: () => void }) {
+    const ticket = this._selected;
+    if (!ticket) return;
+    this._askCost(
+      `Run the AI Agent on ticket #${ticket.id} now? It reads the ticket${detail.body ? ", with your comment," : ""} and works on it read-only, then says what it found and what it would change. Nothing is changed until you press Proceed. It uses your AI plan.`,
+      async () => {
+        if (detail.body) await this._client?.comment(ticket.id, detail.body, false);
+        detail.done();
+        await this._act((c) => c.runAgentNow(ticket.id));
+      },
+    );
+  }
+
   private _askNow(detail: { body: string; done: () => void }) {
     const ticket = this._selected;
     if (!ticket || !this._client) return;
@@ -689,6 +703,9 @@ export class HomeDeskPanel extends LitElement {
           @open-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
           .hass=${this.hass}
           .canAsk=${this._canAsk}
+          .canRun=${!!this._settings?.agent_runner}
+          @run-agent=${(e: CustomEvent<{ body: string; done: () => void }>) => this._runNow(e.detail)}
+          @proceed=${(e: CustomEvent<{ eventId: number; action: "approve" | "dismiss" }>) => this._selected && void this._act((c) => c.proceed(this._selected!.id, e.detail.eventId, e.detail.action))}
           @proposal=${(e: CustomEvent<{ eventId: number; action: "apply" | "dismiss" }>) => this._selected && void this._act((c) => c.proposal(this._selected!.id, e.detail.eventId, e.detail.action))}
           @ask-ai=${(e: CustomEvent<{ body: string; done: () => void }>) => this._askNow(e.detail)}
           @patch-ticket=${(e: CustomEvent<TicketPatch>) => this._selected && void this._act((c) => c.update(this._selected!.id, e.detail))}

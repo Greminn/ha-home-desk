@@ -348,7 +348,7 @@ export class TicketList extends LitElement {
                   ? html`<span>Updated ${relativeTime(t.updated_at, this.language)} by <ha-icon icon=${metaIcon(t.updated_by)}></ha-icon> ${actorName(t.updated_by)}</span>`
                   : nothing}
               ${t.assignee && isAgent(t.assignee)
-                ? html`<span><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> With AI Agent</span>`
+                ? html`<span><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> Queued for AI Agent</span>`
                 : nothing}
               ${t.labels.includes(BLOCKED) ? html`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>` : nothing}
               ${t.comment_count

@@ -21,6 +21,7 @@ import {
   actorName,
   assigneeName,
   reviewLabel,
+  runLabel,
   metaIcon,
   fullTime,
   relativeTime,
@@ -559,6 +560,10 @@ export class TicketDetail extends LitElement {
       .proposal .p-sub {
         color: var(--st-fg-secondary);
       }
+      .proposal .p-note {
+        margin-top: 6px;
+        color: var(--st-fg-secondary);
+      }
       .proposal .p-acts {
         display: flex;
         gap: 8px;
@@ -724,14 +729,41 @@ export class TicketDetail extends LitElement {
       .ai-action button ha-icon {
         --mdc-icon-size: 16px;
       }
-      /* Queue is a choice that waits for the main button: accent while picked, a dashed edge while it is being taken off. */
-      .ai-action button.on {
+      .prio-dots {
+        display: inline-flex;
+        gap: 6px;
+      }
+      /* Queue for AI Agent, beside the priority icons. With the agent now: a quiet fill. Picked to queue on send: accent. Picked to take off: dashed. */
+      .queue-chip {
+        height: 32px;
+        padding: 0 12px 0 4px;
+        gap: 6px;
+        border: 1px solid var(--st-outline);
+        border-radius: var(--st-r-pill);
+        background: transparent;
+        color: var(--st-fg-secondary);
+        font-size: var(--st-fs-body);
+        font-weight: 400;
+      }
+      .queue-chip ha-icon {
+        --mdc-icon-size: 24px;
+      }
+      .queue-chip:hover {
+        color: var(--st-fg);
+        border-color: var(--st-field-outline-hover);
+      }
+      .queue-chip.current {
+        color: var(--st-fg);
+        background: color-mix(in srgb, var(--st-fg) 10%, transparent);
+      }
+      .queue-chip.picked {
         color: var(--st-accent);
+        border-color: var(--st-accent);
         background: color-mix(in srgb, var(--st-accent) 14%, transparent);
       }
-      .ai-action button.change:not(.on) {
+      .queue-chip.dropping {
         color: var(--st-fg-secondary);
-        text-decoration: line-through;
+        border-style: dashed;
       }
       /* Handing a ticket to the AI Agent matters, so its button also carries the agent's spark icon. */
       .composer button.primary {
@@ -759,6 +791,9 @@ export class TicketDetail extends LitElement {
         container-type: inline-size;
       }
       @container (max-width: 860px) {
+        .composer .verb {
+          display: none;
+        }
         .composer .prio-group {
           border-right: 0;
           padding-right: 0;
@@ -805,6 +840,8 @@ export class TicketDetail extends LitElement {
   /** The built-in AI agent can be asked to work on a ticket now (an AI Task agent is chosen in Settings), and its name. */
   @property({ attribute: false }) hass!: HomeAssistant;
   @property({ type: Boolean }) canAsk = false;
+  /** Run AI Agent Now is set up, so the AI Action control offers Run. */
+  @property({ type: Boolean }) canRun = false;
   @property({ attribute: false }) labelMap: Map<string, Label> = new Map();
   @property({ attribute: false }) people: Map<string, Person> = new Map();
   @property({ attribute: false }) categoryMap: Map<string, Category> = new Map();
@@ -819,8 +856,8 @@ export class TicketDetail extends LitElement {
   /** Collapsing moves the content and can trigger scroll events of its own; ignore them for a moment. */
   private _descSettle = 0;
   /**
-   * The "Queue for AI Agent" choice in the AI Action menu: null while untouched (so it follows the default), then
-   * true or false once the admin clicks it. Nothing is sent until the main button is pressed.
+   * The "Queue for AI Agent" choice beside the priority icons: null while untouched (so it follows the ticket), then true or
+   * false once the admin clicks it. Like a priority, nothing is sent until the main button is pressed.
    */
   @state() private _agentToggle: boolean | null = null;
   /** A priority picked in the comment box but not applied yet ("" = none picked). */
@@ -832,11 +869,15 @@ export class TicketDetail extends LitElement {
       this.toggleAttribute("open", !!this.ticket);
       const prev = changed.get("ticket") as Ticket | null | undefined;
       const had = prev?.events.length ?? 0;
+      if (this.ticket && (this.ticket.status === "resolved" || this.ticket.status === "closed")) {
+        this._priorityTo = ""; // no priority to set, and nothing to queue, on a finished ticket
+        this._agentToggle = null;
+      }
       if (prev?.id !== this.ticket?.id) {
         this._scrollTo = "top";
         this._descCollapsed = false;
-        this._agentToggle = null;
         this._priorityTo = "";
+        this._agentToggle = null;
         this._expanded = false;
         this._comment = "";
       } else if (this.ticket?.agent_state && !prev?.agent_state) {
@@ -971,7 +1012,7 @@ export class TicketDetail extends LitElement {
   private _priorityPills(t: Ticket) {
     const shown = this._shownPriority(t);
     const icon = { high: "mdi:alert-outline", urgent: "mdi:alert" } as const;
-    return html`<div class="assign prio-group" role="group" aria-label="Priority">
+    return html`<span class="prio-dots" role="group" aria-label="Priority">
       ${(["high", "urgent"] as const).map((p) => {
         const on = shown === p;
         return html`<button class="prio-dot ${p} ${on ? "on" : ""}"
@@ -979,7 +1020,7 @@ export class TicketDetail extends LitElement {
           title=${on ? `Priority is ${PRIORITY_LABEL[p]}. Click to clear.` : `Set priority to ${PRIORITY_LABEL[p]}`}
           @click=${() => this._togglePriority(t, p)}><ha-icon .icon=${icon[p]}></ha-icon></button>`;
       })}
-    </div>`;
+    </span>`;
   }
 
   /** Is the ticket with the AI agent right now? */
@@ -987,55 +1028,62 @@ export class TicketDetail extends LitElement {
     return !!t.assignee && isAgent(t.assignee);
   }
 
-  /** After the agent has commented, the admin's reply goes back to it by default (it can be switched off). */
-  private _agentDefault(t: Ticket): boolean {
-    if (this._withAgent(t) || t.status === "resolved" || t.status === "closed") return false;
-    const last = [...t.events].reverse().find((e) => e.kind === "comment" || e.kind === "note");
-    return !!last && isAgent(last.actor);
-  }
-
   /** Will the ticket be with the agent once the main button is pressed? */
   private _agentOn(t: Ticket): boolean {
-    return this._agentToggle ?? (this._withAgent(t) || this._agentDefault(t));
+    return this._agentToggle ?? this._withAgent(t);
   }
 
-  /** Pressing the main button hands over (or takes back) only when asked to, or along with a comment. */
+  /** Pressing the main button queues (or takes off the queue) only if that was picked. */
   private _agentApplies(t: Ticket): boolean {
-    return this._agentOn(t) !== this._withAgent(t) && (this._agentToggle !== null || !!this._comment.trim());
+    return this._agentOn(t) !== this._withAgent(t);
   }
 
   private _canSubmit(t: Ticket): boolean {
     return !!this._comment.trim() || this._agentApplies(t) || !!this._priorityTo;
   }
 
-  /**
-   * One "AI Action" control with every choice a click away: Queue (tags the ticket for an AI you run yourself; applied with
-   * the main button, free) and Review (asks the AI chosen in Settings at once; the panel confirms, because it uses your AI
-   * plan). Run AI Agent Now will be a third segment when it exists.
-   */
-  private _aiAction(t: Ticket) {
+  /** "Queue for AI Agent" sits with the priority icons: a choice that is applied with the main button. Free; nothing is sent anywhere. */
+  private _queueChip(t: Ticket) {
     const on = this._agentOn(t);
     const now = this._withAgent(t);
-    const review = this.canAsk && !t.agent_state;
-    const queueTip = now
-      ? on ? "With an AI agent you run yourself. Click to take it off the queue." : "It will be taken off the AI agent queue. Click to keep it."
+    const title = now
+      ? on ? "Queued for an AI agent you run yourself. Click to take it off the queue." : "It will be taken off the AI agent queue. Click to keep it."
       : on ? "Will be queued for an AI agent. Click to switch off."
         : "Queue this ticket for an AI agent you run yourself (your Claude CLI, Gemini Antigravity or anything else). Nothing is sent anywhere.";
+    return html`<button class="queue-chip ${now && on ? "current" : ""} ${on && !now ? "picked" : ""} ${now && !on ? "dropping" : ""}"
+      aria-pressed=${on ? "true" : "false"} aria-label="Queue for AI Agent" title=${title}
+      @click=${() => (this._agentToggle = !on)}><ha-icon icon="mdi:creation"></ha-icon><span>Queue<span class="verb"> for AI Agent</span></span></button>`;
+  }
+
+  /**
+   * "AI Action" is for doing something now, one click each, with whatever is in the comment box posted first as the
+   * instruction: Run (starts the agent on the Network LXC, once it is set up) and Review (asks the AI chosen in Settings;
+   * the panel confirms, because it uses your AI plan).
+   */
+  private _aiAction(t: Ticket) {
+    // A resolved or closed ticket isn't open for work: Run waits for Reopen. Review can still ask what happened.
+    const worked = t.status !== "resolved" && t.status !== "closed";
+    const run = worked && this.canRun && !t.agent_state;
+    const review = this.canAsk && !t.agent_state;
+    if (!run && !review) return nothing;
+    const done = () => { this._comment = ""; };
     return html`<div class="ai-action" role="group" aria-label="AI Action">
       <span class="lead"><ha-icon icon="mdi:creation"></ha-icon>AI Action</span>
-      <button class="${on ? "on" : ""} ${on !== now ? "change" : ""}" aria-pressed=${on ? "true" : "false"} title=${queueTip}
-        @click=${() => (this._agentToggle = !on)}>${on && !now ? html`<ha-icon icon="mdi:check"></ha-icon>` : nothing}Queue</button>
+      ${run
+        ? html`<button title="Start the AI agent on the Network LXC on this ticket now. It reads it and says what it found and what it would change; nothing changes until you press Proceed. It uses your AI plan."
+            @click=${() => this._fire("run-agent", { body: this._comment.trim(), done })}>Run</button>`
+        : nothing}
       ${review
         ? html`<button title="Have the AI chosen in Settings review this ticket: what it thinks is going on and what to try. It can't change anything and it uses your AI plan."
-            @click=${() => this._fire("ask-ai", { body: this._comment.trim(), done: () => { this._comment = ""; this._agentToggle = null; } })}>Review</button>`
+            @click=${() => this._fire("ask-ai", { body: this._comment.trim(), done })}>Review</button>`
         : nothing}
     </div>`;
   }
 
   /**
-   * What the main button does. With a comment typed it is "Comment", plus "and Queue for AI Agent" when the
-   * hand-over goes with it; a priority change shows on its own icon, so it adds no words. With nothing typed it
-   * names the one thing it will do, or "Update" for both.
+   * What the main button does. With a comment typed it is "Comment", plus "and Queue for AI Agent" when that was picked;
+   * a priority change shows on its own icon, so it adds no words. With nothing typed it names the one thing it will do,
+   * or "Update" for both.
    */
   private _submitLabel(t: Ticket) {
     const agent = this._agentApplies(t);
@@ -1200,7 +1248,7 @@ export class TicketDetail extends LitElement {
     return html`<div class="ev working" role="status">
       ${this._avatar(who)}
       <div>
-        <div class="who"><b>${reviewLabel(who)}</b> · <span class="when">now</span></div>
+        <div class="who"><b>${state.kind === "run" ? runLabel(who) : reviewLabel(who)}</b> · <span class="when">now</span></div>
         <div class="bubble">
           <ha-icon icon="mdi:star-four-points"></ha-icon>
           <span class="what">working on this${state.note ? html` <span class="note">· ${state.note}</span>` : nothing}</span>
@@ -1244,6 +1292,24 @@ export class TicketDetail extends LitElement {
     </div>`;
   }
 
+  /** The go-ahead on an AI Agent's Run reply: nothing is changed until Proceed is pressed, by a person in the panel. */
+  private _proceed(e: TicketEvent) {
+    const p = e.data?.proceed;
+    if (!p || !this.ticket) return nothing;
+    const newest = [...this.ticket.events].reverse().find((x) => x.data?.proceed)?.id === e.id;
+    const open = p.state === "pending" && newest && this.isAdmin;
+    const fire = (action: "approve" | "dismiss") => this._fire("proceed", { eventId: e.id, action });
+    return html`<div class="proposal">
+      <div class="p-head"><ha-icon icon="mdi:star-four-points"></ha-icon>Waiting for your go-ahead</div>
+      ${open
+        ? html`<div class="p-note">Nothing has been changed. Proceed lets the AI Agent do what it describes above, and only that.</div>
+            <div class="p-acts"><button class="primary" @click=${() => fire("approve")}>Proceed</button><button @click=${() => fire("dismiss")}>Dismiss</button></div>`
+        : html`<div class="p-state"><ha-icon .icon=${p.state === "approved" ? "mdi:check" : "mdi:close"}></ha-icon>${
+            p.state === "approved" ? `Approved by ${actorName(p.by ?? "")}` : p.state === "dismissed" ? `Dismissed by ${actorName(p.by ?? "")}` : "Replaced by a newer reply"
+          }</div>`}
+    </div>`;
+  }
+
   private _eventTemplate(e: TicketEvent) {
     const fresh = this._isNew(e);
     // With history on, every entry shows its exact date and time; otherwise comments say "25 minutes ago".
@@ -1256,9 +1322,9 @@ export class TicketDetail extends LitElement {
         <div class="ev ${fresh ? "new" : ""}">
           ${this._avatar(e.actor)}
           <div>
-            <div class="who"><b title=${e.data?.review || e.data?.hints ? "A review by the AI chosen in Settings, based only on what Home Desk sent it. It has not checked your home." : ""}>${e.data?.review || e.data?.hints ? reviewLabel(e.actor) : actorLabel(e.actor)}</b> · <span class="when">${when}</span>${fresh ? html`<span class="new-tag">New</span>` : nothing}${e.kind === "note" ? html`<span class="label dense">internal note</span>` : nothing}${(e.data as { merged_from?: number } | null)?.merged_from ? html`<span class="label dense" title="Copied here when a ticket was merged">from #${(e.data as { merged_from: number }).merged_from}</span>` : nothing}</div>
+            <div class="who"><b title=${e.data?.review || e.data?.hints ? "A review by the AI chosen in Settings, based only on what Home Desk sent it. It has not checked your home." : ""}>${e.data?.review || e.data?.hints ? reviewLabel(e.actor) : e.data?.run ? runLabel(e.actor) : actorLabel(e.actor)}</b> · <span class="when">${when}</span>${fresh ? html`<span class="new-tag">New</span>` : nothing}${e.kind === "note" ? html`<span class="label dense">internal note</span>` : nothing}${(e.data as { merged_from?: number } | null)?.merged_from ? html`<span class="label dense" title="Copied here when a ticket was merged">from #${(e.data as { merged_from: number }).merged_from}</span>` : nothing}</div>
             <div class="bubble md ${e.kind === "note" ? "note" : ""}">${unsafeHTML(renderMarkdown(e.body ?? ""))}</div>
-            ${this._proposal(e)}
+            ${this._proposal(e)}${this._proceed(e)}
           </div>
         </div>`;
     }
@@ -1310,7 +1376,7 @@ export class TicketDetail extends LitElement {
           <div class="meta-line">
             <span>Opened ${relativeTime(t.created_at, this.language)} by <ha-icon icon=${metaIcon(t.requester)}></ha-icon> ${actorName(t.requester)}</span>
             ${t.updated_by ? html`<span>Updated ${relativeTime(t.updated_at, this.language)} by <ha-icon icon=${metaIcon(t.updated_by)}></ha-icon> ${actorName(t.updated_by)}</span>` : nothing}
-            ${t.assignee && isAgent(t.assignee) ? html`<span title="Assigned to an AI agent you run yourself (your own CLI or desktop app)"><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> With AI Agent</span>` : nothing}
+            ${t.assignee && isAgent(t.assignee) ? html`<span title="Assigned to an AI agent you run yourself (your own CLI or desktop app)"><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> Queued for AI Agent</span>` : nothing}
             ${t.labels.includes(BLOCKED) ? html`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>` : nothing}
             ${t.comment_count ? html`<span><ha-icon icon="mdi:comment-outline"></ha-icon> ${t.comment_count}</span>` : nothing}
           </div>
@@ -1380,7 +1446,7 @@ export class TicketDetail extends LitElement {
             <div class="opts">
               ${this.isAdmin
                 ? html`${this._aiAction(t)}
-                    ${this._priorityPills(t)}`
+                    ${done ? nothing : html`<div class="assign prio-group" role="group" aria-label="Queue and priority">${this._queueChip(t)}${this._priorityPills(t)}</div>`}`
                 : nothing}
             </div>
             <div class="acts">

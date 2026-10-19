@@ -98,7 +98,7 @@ export interface TicketSummary {
   /** Set on a ticket that was folded into another: that ticket's number. */
   merged_into?: number | null;
   /** Set while the built-in AI agent is working on the ticket. */
-  agent_state?: { state: "working"; agent: string; since: string; note?: string } | null;
+  agent_state?: { state: "working"; agent: string; since: string; note?: string; kind?: "review" | "run" } | null;
   /** Who last changed it (null until anything has happened since it was raised); `updated_at` says when. */
   updated_by?: string | null;
   /** True when someone else changed the ticket since you last looked at it. */
@@ -147,7 +147,7 @@ export interface TicketEvent {
     | "merge"
     | "attachment";
   body: string | null;
-  data: (Record<string, unknown> & { proposal?: Proposal; review?: boolean; hints?: boolean }) | null;
+  data: (Record<string, unknown> & { proposal?: Proposal; review?: boolean; hints?: boolean; run?: boolean; proceed?: Proceed }) | null;
   created_at: string;
 }
 
@@ -189,12 +189,21 @@ export interface TicketPatch {
   resolution?: string | null;
 }
 
+/** Waiting on the person's go-ahead before the AI Agent changes anything: set on the agent's Run reply. */
+export interface Proceed {
+  state: "pending" | "approved" | "dismissed";
+  by?: string;
+  at?: string;
+}
+
 /** Home Desk's options. Notifications are each manager's own; the rest are shared. */
 export interface HomeDeskSettings {
   /** How long a resolved ticket stays Resolved before it is closed: "immediately", "1h", "6h", "1d", "3d", "7d", "14d", "30d" or "never". */
   auto_close: string;
   /** The entity id of the AI agent tickets can be assigned to (an AI Task or conversation agent). */
   agent: string;
+  /** Run AI Agent Now is set up (the runner on the Network LXC). Not stored by the backend yet: only the preview sets it. */
+  agent_runner?: boolean;
   /** Raise a ticket for each Home Assistant Repair. */
   repairs: boolean;
   /** The speech-to-text engine (an stt entity id) for voice messages; empty to use the Assist default. */

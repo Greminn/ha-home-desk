@@ -128,6 +128,16 @@ export class HaClient {
     return this.send("agent_run", { ticket_id: ticketId });
   }
 
+  /** Run AI Agent Now: the agent on the Network LXC works the ticket read-only, then says what it would change. Not built yet (preview only). */
+  runAgentNow(ticketId: number): Promise<Ticket> {
+    return this.send("agent_run_now", { ticket_id: ticketId });
+  }
+
+  /** Approve (Proceed) or dismiss what the AI Agent said it would do. Not built yet (preview only). */
+  proceed(ticketId: number, eventId: number, action: "approve" | "dismiss"): Promise<Ticket> {
+    return this.send("proceed", { ticket_id: ticketId, event_id: eventId, do: action });
+  }
+
   /** Devices, entities and areas a ticket is probably about, guessed from the words in it. */
   async suggest(ticketId: number): Promise<Suggestion[]> {
     return (await this.send<{ suggestions: Suggestion[] }>("suggest", { ticket_id: ticketId })).suggestions;
