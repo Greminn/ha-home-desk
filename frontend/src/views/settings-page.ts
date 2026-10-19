@@ -25,6 +25,17 @@ const AUTO_CLOSE = [
  * line of help on the left and its control on the right. Changes are saved as soon as they are made.
  * Notifications are each manager's own; everything else is shared.
  */
+/** The keyboard shortcuts: the keys, what they do, and a line of detail. Keep in step with the key handlers in ticket-detail.ts and top-bar.ts. */
+const SHORTCUTS: [string[], string, string][] = [
+  [["R"], "Reply", "Opens the comment box and puts the cursor in it. With the cursor outside the box it closes it again."],
+  [["Esc"], "Close the box or the search", "In the comment box it closes it and keeps what you typed. In the search box it clears the search."],
+  [["F"], "Full width view", "Gives the open ticket the whole page, with the details and history on the left and the comments on the right. Press it again to leave."],
+  [["X"], "Close the ticket", "Closes the open ticket and its chip in the top bar, and shows the next open ticket, or the list."],
+  [["↑", "↓"], "Choose a search result", "In the search box, moves through the matching tickets."],
+  [["Enter"], "Open the search result", "In the search box, opens the highlighted ticket."],
+  [["Middle click"], "Close a ticket chip", "On any chip in the top bar."],
+];
+
 @safeCustomElement("st-settings")
 export class SettingsPage extends LitElement {
   static override styles = [
@@ -82,6 +93,24 @@ export class SettingsPage extends LitElement {
       }
       .srow .name {
         font-size: var(--st-fs-body);
+      }
+      /* The keyboard shortcuts: each key as a small outlined cap, with what it does beside it. */
+      .keys .keycol {
+        flex: none;
+        display: flex;
+        gap: 6px;
+        width: 120px;
+      }
+      kbd {
+        min-width: 22px;
+        padding: 2px 8px;
+        border: 1px solid var(--st-outline);
+        border-bottom-width: 2px;
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--st-fg) 6%, transparent);
+        font-family: inherit;
+        font-size: var(--st-fs-small);
+        text-align: center;
       }
       .srow .desc {
         margin-top: 2px;
@@ -419,6 +448,16 @@ export class SettingsPage extends LitElement {
               </label>`,
             )
           : html`<div class="note">Home Assistant has no notify services yet. Install the Companion app on a phone to get one.</div>`}
+      </div>
+      <div class="card keys">
+        <h2>Keyboard Shortcuts</h2>
+        <p class="help">They work anywhere in Home Desk except while you are typing in a box.</p>
+        ${SHORTCUTS.map(
+          ([keys, name, desc]) => html`<div class="srow">
+            <div class="keycol">${keys.map((k) => html`<kbd>${k}</kbd>`)}</div>
+            <div class="text"><div class="name">${name}</div>${desc ? html`<div class="desc">${desc}</div>` : nothing}</div>
+          </div>`,
+        )}
       </div>
       ${this._confirmTest
         ? html`<st-confirm-dialog heading="Use your AI plan?" confirmLabel="Yes, test it"
