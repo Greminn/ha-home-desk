@@ -64,9 +64,9 @@ export class TicketDetail extends LitElement {
         background: var(--st-selected-soft, var(--st-surface));
       }
       /*
-       * The comment box is a slim strip until it is wanted: pointing at it, clicking into it, or the C key opens it,
+       * The comment box is a slim strip until it is wanted: pointing at it, clicking into it, or the R key opens it,
        * and it stays open while it holds a draft. It opens upward over the thread (the dock keeps the strip's height), so
-       * the conversation doesn't jump about. Escape or C closes it again.
+       * the conversation doesn't jump about. Escape (or R, with the cursor outside the box) closes it again.
        */
       .dock {
         position: relative;
@@ -916,8 +916,8 @@ export class TicketDetail extends LitElement {
    */
   @state() private _agentToggle: boolean | null = null;
   /**
-   * How the comment box is shown: "auto" (a strip, opening on hover or focus and staying open with a draft), "open" (the C key
-   * pinned it open) or "closed" (Escape or C shut it, even over a draft, until the pointer leaves it or it is clicked into).
+   * How the comment box is shown: "auto" (a strip, opening on hover or focus and staying open with a draft), "open" (the R key
+   * pinned it open) or "closed" (Escape or R shut it, even over a draft, until the pointer leaves it or it is clicked into).
    */
   @state() private _composerMode: "auto" | "open" | "closed" = "auto";
   /** A priority picked in the comment box but not applied yet ("" = none picked). */
@@ -1101,7 +1101,7 @@ export class TicketDetail extends LitElement {
     return this._agentOn(t) !== this._withAgent(t);
   }
 
-  /** Open whatever the pointer is doing: pinned by the C key, or holding something not sent yet. */
+  /** Open whatever the pointer is doing: pinned by the R key, or holding something not sent yet. */
   private get _composerKeep(): boolean {
     const draft = !!this._comment.trim() || !!this._priorityTo || this._agentToggle !== null;
     return this._composerMode === "open" || (this._composerMode === "auto" && draft);
@@ -1112,7 +1112,10 @@ export class TicketDetail extends LitElement {
     ((this.renderRoot as ShadowRoot).activeElement as HTMLElement | null)?.blur();
   }
 
-  /** The C key opens the comment box and puts the cursor in it, or closes it if it is open. */
+  /**
+   * The R key (for reply; Home Assistant uses C, E, D, M and A itself) opens the comment box and puts the cursor in it, or closes
+   * it if it is open and the cursor is not in it. With the cursor in the box an R is just a letter, so Escape closes it from there.
+   */
   private _toggleComposer() {
     const dock = this.renderRoot.querySelector<HTMLElement>(".dock");
     if (!dock) return;
@@ -1127,7 +1130,7 @@ export class TicketDetail extends LitElement {
   }
 
   private _hotkey = (e: KeyboardEvent) => {
-    if (e.key.toLowerCase() !== "c" || e.ctrlKey || e.metaKey || e.altKey || e.repeat || !this.ticket) return;
+    if (e.key.toLowerCase() !== "r" || e.ctrlKey || e.metaKey || e.altKey || e.repeat || !this.ticket) return;
     const from = e.composedPath()[0] as HTMLElement | undefined;
     if (from && (from.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(from.tagName))) return; // typing somewhere
     e.preventDefault();
@@ -1540,7 +1543,7 @@ export class TicketDetail extends LitElement {
         @focusin=${() => this._composerMode === "closed" && (this._composerMode = "auto")}
         @keydown=${(e: KeyboardEvent) => e.key === "Escape" && this._closeComposer()}>
         <div class="dock-in"><div class="card composer">
-          <textarea rows="2" placeholder="Add a comment (press C)" .value=${this._comment}
+          <textarea rows="2" placeholder="Add a comment" .value=${this._comment}
             @input=${(e: Event) => (this._comment = (e.target as HTMLTextAreaElement).value)}></textarea>
           <div class="bar-wrap"><div class="bar-clip"><div class="bar">
             ${this.isAdmin ? this._aiAction(t) : nothing}
