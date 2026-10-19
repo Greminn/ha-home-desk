@@ -38,7 +38,7 @@ const LONG_DESCRIPTION = 1800;
 /** The height of the pinned description once it is folded to one line. */
 const DESC_ONE_LINE = 56;
 /** The room kept between the squeezed description and the Comments heading below it. */
-const DESC_GAP = 24;
+const DESC_GAP = 16;
 
 @safeCustomElement("st-ticket-detail")
 export class TicketDetail extends LitElement {
