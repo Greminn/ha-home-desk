@@ -48,6 +48,8 @@ export class HomeDeskPanel extends LitElement {
   @state() private _matchIds: Set<number> | null = null;
   @state() private _selected: Ticket | null = null;
   @state() private _selectedId: number | null = null;
+  /** The ticket fills the page (the list is hidden): the full width view. */
+  @state() private _wide = false;
   @state() private _view = "inbox";
   @state() private _q = "";
   @state() private _priority = "";
@@ -645,7 +647,7 @@ export class HomeDeskPanel extends LitElement {
           : this._page === "settings" && this._client
             ? html`<st-settings .client=${this._client} .hass=${this.hass}
                 @settings-changed=${(e: CustomEvent<HomeDeskSettings>) => (this._settings = e.detail)}></st-settings>`
-            : html`<main class=${selecting ? "has-selection" : ""}>
+            : html`<main class=${`${selecting ? "has-selection" : ""} ${this._wide && selecting && !this._compact ? "wide" : ""}`}>
         <st-top-bar .q=${this._q} @search=${(e: CustomEvent<string>) => this._search(e.detail)}
           @new-ticket=${() => (this._creating = true)}></st-top-bar>
         <div class="list-pane">
@@ -680,6 +682,8 @@ export class HomeDeskPanel extends LitElement {
           .client=${this._client}
           .isAdmin=${this._admin}
           .narrow=${this._compact}
+          .wide=${this._wide}
+          @toggle-wide=${() => (this._wide = !this._wide)}
           .language=${lang}
           .navPos=${this._navPos}
           @nav-ticket=${(e: CustomEvent<number>) => this._step(e.detail)}

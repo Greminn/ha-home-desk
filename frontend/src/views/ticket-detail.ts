@@ -314,9 +314,72 @@ export class TicketDetail extends LitElement {
       .hist.prev {
         right: 132px;
       }
+      /* With the full width button at the far right, the others each move over one place. */
+      .head.has-wide {
+        padding-right: 88px;
+      }
+      .head.admin.has-wide {
+        padding-right: 220px;
+      }
+      .head.has-wide .hist {
+        right: 44px;
+      }
+      .head.has-wide .hist.merge {
+        right: 88px;
+      }
+      .head.has-wide .hist.next {
+        right: 132px;
+      }
+      .head.has-wide .hist.prev {
+        right: 176px;
+      }
+      .head.has-wide .hist.wide-toggle {
+        right: 0;
+      }
       .hist[disabled] {
         opacity: 0.35;
         cursor: default;
+      }
+      /*
+       * The full width view: the header runs across the top, the details and description sit in a panel on the left (it
+       * scrolls on its own), and the right is only the comments, with the comment box docked under them.
+       */
+      :host([wide]) .wide-body {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: clamp(340px, 36%, 560px) minmax(0, 1fr);
+      }
+      .side {
+        min-width: 0;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 16px 18px 28px;
+        border-right: 1px solid var(--st-divider);
+        background: var(--st-selected-soft, var(--st-surface));
+      }
+      .side .sub {
+        margin-top: 0;
+      }
+      .side-wrap {
+        margin-top: 16px;
+      }
+      /* In the side panel the description just sits there, whole: it isn't pinned or squeezed. */
+      .desc-sticky.plain {
+        position: static;
+        margin-top: 0;
+        padding-top: 0;
+        overflow: visible;
+        z-index: auto;
+      }
+      .main {
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .main .scroll {
+        flex: 1;
       }
       .hist[aria-pressed="true"] {
         color: var(--st-accent);
@@ -905,6 +968,8 @@ export class TicketDetail extends LitElement {
   /** The built-in AI agent can be asked to work on a ticket now (an AI Task agent is chosen in Settings), and its name. */
   @property({ attribute: false }) hass!: HomeAssistant;
   @property({ type: Boolean }) canAsk = false;
+  /** The full width view: the ticket fills the page, details and description on the left and the comments on the right. */
+  @property({ type: Boolean, reflect: true }) wide = false;
   /** Run AI Agent Now is set up, so the AI Action control offers Run. */
   @property({ type: Boolean }) canRun = false;
   @property({ attribute: false }) labelMap: Map<string, Label> = new Map();
@@ -933,6 +998,7 @@ export class TicketDetail extends LitElement {
   @state() private _comment = "";
 
   override willUpdate(changed: Map<string, unknown>) {
+    if (changed.has("wide")) this._descCollapsed = false; // the side panel shows the description whole
     if (changed.has("ticket")) {
       this.toggleAttribute("open", !!this.ticket);
       const prev = changed.get("ticket") as Ticket | null | undefined;
@@ -964,6 +1030,7 @@ export class TicketDetail extends LitElement {
    * back below it, so the page keeps its length and the comments move at the speed of the scroll, right under its bottom edge.
    */
   private _onScroll(e: Event) {
+    if (this.wide) return;
     this._shrinkDescription((e.currentTarget as HTMLElement).scrollTop);
   }
 
@@ -1153,9 +1220,18 @@ export class TicketDetail extends LitElement {
   }
 
   private _hotkey = (e: KeyboardEvent) => {
-    if ((e.key.toLowerCase() !== "r" && e.code !== "KeyR") || e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.isComposing || !this.ticket) return;
+    const key = e.key.toLowerCase();
+    const reply = key === "r" || e.code === "KeyR";
+    const full = key === "f" || e.code === "KeyF";
+    if ((!reply && !full) || e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.isComposing || !this.ticket) return;
     const from = e.composedPath()[0] as HTMLElement | undefined;
     if (from && (from.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(from.tagName))) return; // typing somewhere
+    if (full) {
+      if (this.narrow) return; // a phone already shows the ticket full screen
+      e.preventDefault();
+      this._fire("toggle-wide");
+      return;
+    }
     e.preventDefault();
     this._toggleComposer();
   };
@@ -1469,125 +1545,147 @@ export class TicketDetail extends LitElement {
     }
     const long = t.description.length > LONG_DESCRIPTION;
     const done = t.status === "resolved" || t.status === "closed";
+    // The full width view (not offered on a phone, where the ticket already has the whole screen).
+    const canWide = !this.narrow;
+    const headRow = html`
+<div class="head ${this.isAdmin ? "admin" : ""} ${canWide ? "has-wide" : ""}">
+  ${this.narrow
+    ? html`<button class="icon back" title="Back" aria-label="Back" @click=${() => this._fire("back")}><ha-icon icon="mdi:arrow-left"></ha-icon></button>`
+    : nothing}
+  ${this.isAdmin
+    ? html`<textarea class="title-edit" rows="1" aria-label="Title" spellcheck="false" .value=${t.title}
+        @input=${(e: Event) => this._fitTitle(e.target as HTMLTextAreaElement)}
+        @keydown=${this._titleKey}
+        @blur=${(e: Event) => this._saveTitle(e.target as HTMLTextAreaElement)}></textarea>`
+    : html`<h1>${t.title}</h1>`}
+  ${this.isAdmin
+    ? html`<button class="icon hist prev" title="Previous ticket" aria-label="Previous ticket" ?disabled=${!this.navPos || this.navPos.index <= 0}
+        @click=${() => this._fire("nav-ticket", -1)}><ha-icon icon="mdi:chevron-left"></ha-icon></button>
+      <button class="icon hist next" title=${this.navPos ? `Next ticket (${this.navPos.index + 1} of ${this.navPos.total})` : "Next ticket"} aria-label="Next ticket"
+        ?disabled=${!this.navPos || this.navPos.index >= this.navPos.total - 1}
+        @click=${() => this._fire("nav-ticket", 1)}><ha-icon icon="mdi:chevron-right"></ha-icon></button>
+      <button class="icon hist merge" title="Merge into another ticket" aria-label="Merge into another ticket"
+        @click=${(e: Event) => this._fire("pick-merge", { rect: (e.currentTarget as HTMLElement).getBoundingClientRect() })}>
+        <ha-icon icon="mdi:call-merge"></ha-icon></button>`
+    : nothing}
+  <button class="icon hist" aria-pressed=${this._showHistory ? "true" : "false"}
+    title=${this._showHistory ? "Hide history" : "Show history"} aria-label="Show history"
+    @click=${() => (this._showHistory = !this._showHistory)}><ha-icon icon="mdi:history"></ha-icon></button>
+${canWide
+  ? html`<button class="icon hist wide-toggle" title=${this.wide ? "Exit full width view" : "Full width view"} aria-label=${this.wide ? "Exit full width view" : "Full width view"}
+      @click=${() => this._fire("toggle-wide")}><ha-icon icon=${this.wide ? "mdi:arrow-collapse-horizontal" : "mdi:arrow-expand-horizontal"}></ha-icon></button>`
+  : nothing}
+</div>`;
+    const subBlock = html`
+<div class="sub">
+  <div class="meta-line">
+    <span>Opened ${relativeTime(t.created_at, this.language)} by <ha-icon icon=${metaIcon(t.requester)}></ha-icon> ${actorName(t.requester)}</span>
+    ${t.updated_by ? html`<span>Updated ${relativeTime(t.updated_at, this.language)} by <ha-icon icon=${metaIcon(t.updated_by)}></ha-icon> ${actorName(t.updated_by)}</span>` : nothing}
+    ${t.assignee && isAgent(t.assignee) ? html`<span title="Assigned to an AI agent you run yourself (your own CLI or desktop app)"><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> Queued for AI Agent</span>` : nothing}
+    ${t.labels.includes(BLOCKED) ? html`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>` : nothing}
+    ${t.comment_count ? html`<span><ha-icon icon="mdi:comment-outline"></ha-icon> ${t.comment_count}</span>` : nothing}
+  </div>
+  <!-- Second line: the category, status and priority, then the labels (which wrap on to their own line if they don't fit). -->
+  <div class="tag-line">
+    <button class="num ${this._copied ? "copied" : ""}" title=${this._copied ? "Copied" : "Copy the ticket number"} aria-label="Ticket ${t.id}: copy the number"
+      @click=${() => void this._copyNumber(t.id)}>${this._copied ? html`<ha-icon icon="mdi:check"></ha-icon>Copied` : html`#${t.id}`}</button>
+    <st-ticket-tags show="category" .ticket=${t} .categoryMap=${this.categoryMap} .labelMap=${this.labelMap} .isAdmin=${this.isAdmin}></st-ticket-tags>
+    <span class="status" style="--state: ${STATE_COLOR[t.status]}"><ha-icon .icon=${STATE_ICON[t.status]}></ha-icon>${STATUS_LABEL[t.status]}</span>
+    ${t.priority === "urgent" || t.priority === "high"
+      ? html`<span class="prio ${t.priority}"><ha-icon .icon=${t.priority === "urgent" ? "mdi:alert" : "mdi:alert-outline"}></ha-icon>${PRIORITY_LABEL[t.priority]}</span>`
+      : nothing}
+    <!-- The labels are one block: when they don't fit beside the category they drop to a line of their own. -->
+    <st-ticket-tags show="labels" .ticket=${t} .categoryMap=${this.categoryMap} .labelMap=${this.labelMap} .isAdmin=${this.isAdmin} .maxBadges=${12} coloured expanded>
+      ${this.isAdmin ? this._addLabelControl(t) : nothing}
+    </st-ticket-tags>
+  </div>
+</div>`;
+    const descBlock = html`
+${t.description || t.attachments?.length
+  ? html`<div class="desc-sticky ${this.wide ? "plain" : this._descCollapsed ? "one" : ""}"
+      role=${this._descCollapsed ? "button" : nothing} tabindex=${this._descCollapsed ? 0 : nothing}
+      aria-label=${this._descCollapsed ? "Show the full description" : nothing}
+      @click=${this._expandDescription}
+      @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && this._descCollapsed && (e.preventDefault(), this._expandDescription())}>
+      <div class="card desc">
+        ${t.description ? html`<div class="md ${long && !this._expanded ? "clamp" : ""}">${unsafeHTML(renderMarkdown(t.description))}</div>` : nothing}
+        ${t.attachments?.length && this.client
+          ? html`<st-ticket-attachments class="attached" .client=${this.client} .ticketId=${t.id} .items=${t.attachments}></st-ticket-attachments>`
+          : nothing}
+        ${long ? html`<button class="more" @click=${() => (this._expanded = !this._expanded)}>${this._expanded ? "Show Less" : "Show All"}</button>` : nothing}
+        <st-ticket-things class="about" .hass=${this.hass} .client=${this.client} .ticketId=${t.id} .editable=${this.isAdmin}
+          .entities=${t.entities} .devices=${t.devices ?? []} .areas=${t.areas ?? []} 
+          @change=${(e: CustomEvent<{ entities: string[]; devices: string[]; areas: string[] }>) => this._patch(e.detail)}></st-ticket-things>
+      </div>
+      <ha-icon class="pin-hint" icon="mdi:chevron-up"></ha-icon>
+    </div>`
+  : nothing}`;
+    const resolutionBlock = html`
+${t.resolution
+  ? html`<div class="card resolution"><h3>Resolution</h3><div class="md">${unsafeHTML(renderMarkdown(t.resolution))}</div></div>`
+  : nothing}`;
+    const relatedBlock = html`
+${t.related?.length
+  ? html`<div class="chips"><span class="sect">Related</span>${t.related.map((r) => html`<span class="chip link" title=${r.title} @click=${() => this._fire("open-ticket", r.id)}>#${r.id} ${r.title.length > 40 ? r.title.slice(0, 40) + "…" : r.title}</span>`)}</div>`
+  : nothing}`;
+    const timelineBlock = html`
+<div class="timeline" aria-live="polite" aria-relevant="additions">
+  <h2>${this._showHistory ? "Activity" : "Comments"}</h2>
+  ${t.events
+    .filter((e) => this._showHistory || e.kind === "comment" || e.kind === "note")
+    .map((e) => this._eventTemplate(e))}
+  ${t.agent_state ? this._workingComment(t) : nothing}
+  ${!this._showHistory && !t.agent_state && !t.events.some((e) => e.kind === "comment" || e.kind === "note")
+    ? html`<div class="none">No comments yet</div>`
+    : nothing}
+</div>`;
+    const dock = html`
+<div class="dock ${this._composerKeep ? "keep" : ""} ${this._composerMode === "closed" ? "shut" : ""}"
+  @mouseenter=${() => this._composerMode === "closed" && (this._composerMode = "auto")}
+  @mouseleave=${() => this._composerMode === "closed" && (this._composerMode = "auto")}
+  @focusin=${() => this._composerMode === "closed" && (this._composerMode = "auto")}
+  @keydown=${(e: KeyboardEvent) => e.key === "Escape" && this._closeComposer()}>
+  <div class="dock-in"><div class="card composer">
+    <textarea rows="2" placeholder="Add a comment" .value=${this._comment}
+      @input=${(e: Event) => (this._comment = (e.target as HTMLTextAreaElement).value)}></textarea>
+    <div class="bar-wrap"><div class="bar-clip"><div class="bar">
+      ${this.isAdmin ? this._aiAction(t) : nothing}
+      <div class="opts">
+        ${this.isAdmin
+          ? html`${done ? nothing : html`<div class="assign prio-group" role="group" aria-label="Queue and priority">${this._queueChip(t)}${this._priorityPills(t)}</div>`}`
+          : nothing}
+      </div>
+      <div class="acts">
+      ${this.isAdmin && !done
+        ? html`<button title="Mark as resolved. Anything typed above is saved as the resolution." @click=${() => this._resolve()}><ha-icon icon="mdi:check-circle-outline"></ha-icon>Resolve</button>`
+        : nothing}
+      ${this.isAdmin && done
+        ? html`<button title="Move this ticket back to In Progress. Anything typed above is posted as a comment first." @click=${() => (this._comment.trim() ? this._commentAndReopen() : this._patch({ status: "in_progress" }))}><ha-icon icon="mdi:restore"></ha-icon>Reopen</button>`
+        : nothing}
+      <button class="primary" ?disabled=${!this._canSubmit(t)} @click=${this._submitComment}>${this._agentApplies(t) && this._agentOn(t) ? html`<ha-icon icon="mdi:creation"></ha-icon>` : nothing}${this._submitLabel(t)}</button>
+      </div>
+    </div></div></div>
+  </div></div>
+</div>`;
+    if (this.wide && canWide) {
+      // The header across the top; the details and description on the left; only the comments (and the comment box) on the right.
+      return html`
+        <div class="top">${headRow}</div>
+        <div class="wide-body">
+          <aside class="side">${subBlock}<div class="side-wrap">${descBlock}${resolutionBlock}${relatedBlock}</div></aside>
+          <section class="main">
+            <div class="scroll"><div class="wrap">${timelineBlock}</div></div>
+            ${dock}
+          </section>
+        </div>
+      `;
+    }
     return html`
-      <div class="top">
-        <div class="head ${this.isAdmin ? "admin" : ""}">
-          ${this.narrow
-            ? html`<button class="icon back" title="Back" aria-label="Back" @click=${() => this._fire("back")}><ha-icon icon="mdi:arrow-left"></ha-icon></button>`
-            : nothing}
-          ${this.isAdmin
-            ? html`<textarea class="title-edit" rows="1" aria-label="Title" spellcheck="false" .value=${t.title}
-                @input=${(e: Event) => this._fitTitle(e.target as HTMLTextAreaElement)}
-                @keydown=${this._titleKey}
-                @blur=${(e: Event) => this._saveTitle(e.target as HTMLTextAreaElement)}></textarea>`
-            : html`<h1>${t.title}</h1>`}
-          ${this.isAdmin
-            ? html`<button class="icon hist prev" title="Previous ticket" aria-label="Previous ticket" ?disabled=${!this.navPos || this.navPos.index <= 0}
-                @click=${() => this._fire("nav-ticket", -1)}><ha-icon icon="mdi:chevron-left"></ha-icon></button>
-              <button class="icon hist next" title=${this.navPos ? `Next ticket (${this.navPos.index + 1} of ${this.navPos.total})` : "Next ticket"} aria-label="Next ticket"
-                ?disabled=${!this.navPos || this.navPos.index >= this.navPos.total - 1}
-                @click=${() => this._fire("nav-ticket", 1)}><ha-icon icon="mdi:chevron-right"></ha-icon></button>
-              <button class="icon hist merge" title="Merge into another ticket" aria-label="Merge into another ticket"
-                @click=${(e: Event) => this._fire("pick-merge", { rect: (e.currentTarget as HTMLElement).getBoundingClientRect() })}>
-                <ha-icon icon="mdi:call-merge"></ha-icon></button>`
-            : nothing}
-          <button class="icon hist" aria-pressed=${this._showHistory ? "true" : "false"}
-            title=${this._showHistory ? "Hide history" : "Show history"} aria-label="Show history"
-            @click=${() => (this._showHistory = !this._showHistory)}><ha-icon icon="mdi:history"></ha-icon></button>
-        </div>
-        <div class="sub">
-          <div class="meta-line">
-            <span>Opened ${relativeTime(t.created_at, this.language)} by <ha-icon icon=${metaIcon(t.requester)}></ha-icon> ${actorName(t.requester)}</span>
-            ${t.updated_by ? html`<span>Updated ${relativeTime(t.updated_at, this.language)} by <ha-icon icon=${metaIcon(t.updated_by)}></ha-icon> ${actorName(t.updated_by)}</span>` : nothing}
-            ${t.assignee && isAgent(t.assignee) ? html`<span title="Assigned to an AI agent you run yourself (your own CLI or desktop app)"><ha-icon icon=${metaIcon(t.assignee)}></ha-icon> Queued for AI Agent</span>` : nothing}
-            ${t.labels.includes(BLOCKED) ? html`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>` : nothing}
-            ${t.comment_count ? html`<span><ha-icon icon="mdi:comment-outline"></ha-icon> ${t.comment_count}</span>` : nothing}
-          </div>
-          <!-- Second line: the category, status and priority, then the labels (which wrap on to their own line if they don't fit). -->
-          <div class="tag-line">
-            <button class="num ${this._copied ? "copied" : ""}" title=${this._copied ? "Copied" : "Copy the ticket number"} aria-label="Ticket ${t.id}: copy the number"
-              @click=${() => void this._copyNumber(t.id)}>${this._copied ? html`<ha-icon icon="mdi:check"></ha-icon>Copied` : html`#${t.id}`}</button>
-            <st-ticket-tags show="category" .ticket=${t} .categoryMap=${this.categoryMap} .labelMap=${this.labelMap} .isAdmin=${this.isAdmin}></st-ticket-tags>
-            <span class="status" style="--state: ${STATE_COLOR[t.status]}"><ha-icon .icon=${STATE_ICON[t.status]}></ha-icon>${STATUS_LABEL[t.status]}</span>
-            ${t.priority === "urgent" || t.priority === "high"
-              ? html`<span class="prio ${t.priority}"><ha-icon .icon=${t.priority === "urgent" ? "mdi:alert" : "mdi:alert-outline"}></ha-icon>${PRIORITY_LABEL[t.priority]}</span>`
-              : nothing}
-            <!-- The labels are one block: when they don't fit beside the category they drop to a line of their own. -->
-            <st-ticket-tags show="labels" .ticket=${t} .categoryMap=${this.categoryMap} .labelMap=${this.labelMap} .isAdmin=${this.isAdmin} .maxBadges=${12} coloured expanded>
-              ${this.isAdmin ? this._addLabelControl(t) : nothing}
-            </st-ticket-tags>
-          </div>
-        </div>
-      </div>
+      <div class="top">${headRow}${subBlock}</div>
       <div class="scroll" @scroll=${this._onScroll}>
-        <div class="wrap">
-        ${t.description || t.attachments?.length
-          ? html`<div class="desc-sticky ${this._descCollapsed ? "one" : ""}"
-              role=${this._descCollapsed ? "button" : nothing} tabindex=${this._descCollapsed ? 0 : nothing}
-              aria-label=${this._descCollapsed ? "Show the full description" : nothing}
-              @click=${this._expandDescription}
-              @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && this._descCollapsed && (e.preventDefault(), this._expandDescription())}>
-              <div class="card desc">
-                ${t.description ? html`<div class="md ${long && !this._expanded ? "clamp" : ""}">${unsafeHTML(renderMarkdown(t.description))}</div>` : nothing}
-                ${t.attachments?.length && this.client
-                  ? html`<st-ticket-attachments class="attached" .client=${this.client} .ticketId=${t.id} .items=${t.attachments}></st-ticket-attachments>`
-                  : nothing}
-                ${long ? html`<button class="more" @click=${() => (this._expanded = !this._expanded)}>${this._expanded ? "Show Less" : "Show All"}</button>` : nothing}
-                <st-ticket-things class="about" .hass=${this.hass} .client=${this.client} .ticketId=${t.id} .editable=${this.isAdmin}
-                  .entities=${t.entities} .devices=${t.devices ?? []} .areas=${t.areas ?? []} 
-                  @change=${(e: CustomEvent<{ entities: string[]; devices: string[]; areas: string[] }>) => this._patch(e.detail)}></st-ticket-things>
-              </div>
-              <ha-icon class="pin-hint" icon="mdi:chevron-up"></ha-icon>
-            </div>`
-          : nothing}
-
-        ${t.resolution
-          ? html`<div class="card resolution"><h3>Resolution</h3><div class="md">${unsafeHTML(renderMarkdown(t.resolution))}</div></div>`
-          : nothing}
-
-        ${t.related?.length
-          ? html`<div class="chips"><span class="sect">Related</span>${t.related.map((r) => html`<span class="chip link" title=${r.title} @click=${() => this._fire("open-ticket", r.id)}>#${r.id} ${r.title.length > 40 ? r.title.slice(0, 40) + "…" : r.title}</span>`)}</div>`
-          : nothing}
-
-        <div class="timeline" aria-live="polite" aria-relevant="additions">
-          <h2>${this._showHistory ? "Activity" : "Comments"}</h2>
-          ${t.events
-            .filter((e) => this._showHistory || e.kind === "comment" || e.kind === "note")
-            .map((e) => this._eventTemplate(e))}
-          ${t.agent_state ? this._workingComment(t) : nothing}
-          ${!this._showHistory && !t.agent_state && !t.events.some((e) => e.kind === "comment" || e.kind === "note")
-            ? html`<div class="none">No comments yet</div>`
-            : nothing}
-        </div>
-      </div></div>
-
-      <div class="dock ${this._composerKeep ? "keep" : ""} ${this._composerMode === "closed" ? "shut" : ""}"
-        @mouseenter=${() => this._composerMode === "closed" && (this._composerMode = "auto")}
-        @mouseleave=${() => this._composerMode === "closed" && (this._composerMode = "auto")}
-        @focusin=${() => this._composerMode === "closed" && (this._composerMode = "auto")}
-        @keydown=${(e: KeyboardEvent) => e.key === "Escape" && this._closeComposer()}>
-        <div class="dock-in"><div class="card composer">
-          <textarea rows="2" placeholder="Add a comment" .value=${this._comment}
-            @input=${(e: Event) => (this._comment = (e.target as HTMLTextAreaElement).value)}></textarea>
-          <div class="bar-wrap"><div class="bar-clip"><div class="bar">
-            ${this.isAdmin ? this._aiAction(t) : nothing}
-            <div class="opts">
-              ${this.isAdmin
-                ? html`${done ? nothing : html`<div class="assign prio-group" role="group" aria-label="Queue and priority">${this._queueChip(t)}${this._priorityPills(t)}</div>`}`
-                : nothing}
-            </div>
-            <div class="acts">
-            ${this.isAdmin && !done
-              ? html`<button title="Mark as resolved. Anything typed above is saved as the resolution." @click=${() => this._resolve()}><ha-icon icon="mdi:check-circle-outline"></ha-icon>Resolve</button>`
-              : nothing}
-            ${this.isAdmin && done
-              ? html`<button title="Move this ticket back to In Progress. Anything typed above is posted as a comment first." @click=${() => (this._comment.trim() ? this._commentAndReopen() : this._patch({ status: "in_progress" }))}><ha-icon icon="mdi:restore"></ha-icon>Reopen</button>`
-              : nothing}
-            <button class="primary" ?disabled=${!this._canSubmit(t)} @click=${this._submitComment}>${this._agentApplies(t) && this._agentOn(t) ? html`<ha-icon icon="mdi:creation"></ha-icon>` : nothing}${this._submitLabel(t)}</button>
-            </div>
-          </div></div></div>
-        </div></div>
+        <div class="wrap">${descBlock}${resolutionBlock}${relatedBlock}${timelineBlock}</div>
       </div>
+      ${dock}
     `;
   }
 }
