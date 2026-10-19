@@ -18,19 +18,18 @@ const isActive = (t: TicketSummary) => ACTIVE.includes(t.status) && !isHistory(t
 const isClosed = (t: TicketSummary) => (t.status === "resolved" || t.status === "closed") && !isHistory(t);
 const isEnhancement = (t: TicketSummary) => t.labels.includes(ENHANCEMENT);
 const isQueued = (t: TicketSummary) => isAgent(t.assignee ?? "");
-/** The AI Agent has replied and it is the person's turn (its reply hands the ticket back, so it is no longer queued). */
-const agentReplied = (t: TicketSummary) => isAgent(t.updated_by ?? "") && !t.agent_state;
 
 /**
  * Every ticket is in exactly one tab, the first that fits, so the tabs never overlap and their counts add up:
  * Completed, then Queued for AI (the agent has it), then Enhancements (ideas don't bury problems), then Inbox
- * (new, or reopened by Home Assistant or an AI agent, which sends it back to New; or the agent has just replied), then Working.
+ * (status New: raised and not yet looked at, or reopened by Home Assistant or an AI agent, which sends it back to New), then Working
+ * (everything else open, including a ticket an AI agent has answered, which its reply hands back to you).
  */
 export function bucket(t: TicketSummary): "completed" | "queued" | "enhancements" | "inbox" | "working" {
   if (!isActive(t)) return "completed";
   if (isQueued(t)) return "queued";
   if (isEnhancement(t)) return "enhancements";
-  if (t.status === "new" || agentReplied(t)) return "inbox";
+  if (t.status === "new") return "inbox";
   return "working";
 }
 
