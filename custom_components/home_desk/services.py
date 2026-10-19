@@ -16,15 +16,17 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import HomeAssistantError, Unauthorized
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.service import async_register_admin_service
 
 from .changelog import changelog_since
 from .const import DOMAIN, LABEL_COLORS, LEGACY_TYPE_LABELS, PRIORITIES, STATUS_ALIASES, STATUSES
 from .storage import (
     TicketError,
     async_add_comment,
+    async_claim_run,
+    async_finish_run,
+    async_get_settings,
     async_close_ticket,
     async_create_category,
     async_create_label,
@@ -60,8 +62,22 @@ _LEGACY = {
 }
 
 
+async def _is_agent_user(hass: HomeAssistant, call: ServiceCall) -> bool:
+    """Is this call from the Home Assistant user set up as the AI Agent's own (a non-administrator with a few services)?"""
+    user_id = call.context.user_id
+    if not user_id:
+        return False
+    user = await hass.auth.async_get_user(user_id)
+    if user is None or user.is_admin:
+        return False
+    return user_id == (await async_get_settings(hass)).get("agent_user")
+
+
 async def _actor(hass: HomeAssistant, call: ServiceCall) -> str:
     if call.data.get("actor"):
+        # The agent user always acts as an AI, whatever name it passes, so its comments are never taken for a person's.
+        if await _is_agent_user(hass, call) and not call.data["actor"].lower().startswith("ai:"):
+            return f"ai:{call.data['actor']}"
         return call.data["actor"]
     if call.context.user_id and (user := await hass.auth.async_get_user(call.context.user_id)):
         return user.name or "Home Assistant"
@@ -114,6 +130,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             label=d.get("label"),
             category=d.get("category"),
             include_history=d.get("include_history", False),
+            run_state=d.get("run_state"),
             limit=d.get("limit", 100),
         )
 
@@ -132,6 +149,16 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             body=call.data["body"],
             internal=call.data.get("internal", False),
             hand_back=not call.data.get("keep_assigned", False),  # an agent's comment normally hands the ticket back; this keeps it queued
+        )
+
+    async def claim_run(call: ServiceCall) -> dict[str, Any]:
+        actor = await _actor(hass, call)
+        return await async_claim_run(hass, call.data["ticket_id"], agent=actor.removeprefix("ai:"))
+
+    async def finish_run(call: ServiceCall) -> dict[str, Any]:
+        actor = await _actor(hass, call)
+        return await async_finish_run(
+            hass, call.data["ticket_id"], agent=actor.removeprefix("ai:"), state=call.data["state"], body=call.data["body"],
         )
 
     async def close(call: ServiceCall) -> dict[str, Any]:
@@ -247,11 +274,29 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     # could call these services and see internal notes or other people's tickets, which the panel does not allow.
     open_register = hass.services.async_register
 
+    # The AI Agent's own Home Assistant user (Settings) is not an administrator. It may use only these: read, comment, triage,
+    # create, link, close, and the two calls that run it. Merging, labels and categories, and import stay with administrators.
+    agent_services = {
+        "get_ticket", "list_tickets", "get_stats", "list_labels", "list_categories", "create_ticket", "update_ticket",
+        "add_comment", "close_ticket", "link_tickets", "claim_run", "finish_run",
+    }
+
     def s(domain, name, handler, schema, supports_response=SupportsResponse.NONE):
         if name in ("get_guide", "get_changelog"):
             open_register(domain, name, handler, schema, supports_response=supports_response)
-        else:
-            async_register_admin_service(hass, domain, name, handler, schema, supports_response=supports_response)
+            return
+
+        async def checked(call: ServiceCall):
+            user_id = call.context.user_id
+            if user_id is not None:  # an automation or script has no user and is trusted, as before
+                user = await hass.auth.async_get_user(user_id)
+                if user is None or not user.is_active:
+                    raise Unauthorized(context=call.context)
+                if not user.is_admin and not (name in agent_services and await _is_agent_user(hass, call)):
+                    raise Unauthorized(context=call.context, permission="admin")
+            return await handler(call)
+
+        open_register(domain, name, checked, schema, supports_response=supports_response)
     s(DOMAIN, "get_guide", _wrap(get_guide), vol.Schema({}), supports_response=SupportsResponse.ONLY)
     s(DOMAIN, "get_changelog", _wrap(get_changelog), vol.Schema({vol.Optional("since"): cv.string}), supports_response=SupportsResponse.ONLY)
     both = SupportsResponse.OPTIONAL
@@ -279,6 +324,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Optional("label"): cv.string,
         vol.Optional("category"): cv.string,
         vol.Optional("include_history"): cv.boolean,
+        vol.Optional("run_state"): cv.string,
         vol.Optional("type"): vol.In(list(LEGACY_TYPE_LABELS)),
         vol.Optional("tag"): cv.string,
         vol.Optional("limit"): vol.All(vol.Coerce(int), vol.Range(min=1, max=1000)),
@@ -308,6 +354,13 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Required("body"): cv.string,
         vol.Optional("internal"): cv.boolean,
         vol.Optional("keep_assigned"): cv.boolean,
+        **_ACTOR,
+    }), supports_response=both)
+    s(DOMAIN, "claim_run", _wrap(claim_run), vol.Schema({**_ID, **_ACTOR}), supports_response=both)
+    s(DOMAIN, "finish_run", _wrap(finish_run), vol.Schema({
+        **_ID,
+        vol.Required("state"): vol.In(["proposed", "done", "failed"]),
+        vol.Required("body"): cv.string,
         **_ACTOR,
     }), supports_response=both)
     s(DOMAIN, "close_ticket", _wrap(close), vol.Schema({

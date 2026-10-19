@@ -211,6 +211,10 @@
           "name": "Include history",
           "description": "Include tickets labelled History (records of past work). Default false."
         },
+        "run_state": {
+          "name": "Run state",
+          "description": "Only tickets whose AI Agent run is in this state, or a comma-separated list: requested, running, proposed, approved, done, failed, stopped, dismissed. The runner polls for `requested` and `approved`."
+        },
         "limit": {
           "name": "Limit",
           "description": "Maximum tickets to return (default 100)."
@@ -362,6 +366,42 @@
         "keep_assigned": {
           "name": "Keep assigned",
           "description": "True leaves the ticket queued for the AI agent after this comment instead of handing it back to the manager, for evidence on a ticket the agent is meant to keep watching. Default false: an agent's comment hands the ticket back."
+        },
+        "actor": {
+          "name": "Actor",
+          "description": "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+        }
+      }
+    },
+    "claim_run": {
+      "name": "Claim run",
+      "description": "The runner takes a run that a person asked for (Run AI Agent Now, a read-only review) or approved (Proceed, the change). Only one runner can take it; a second call fails. Pass `actor` with the runner's name.",
+      "fields": {
+        "ticket_id": {
+          "name": "Ticket ID",
+          "description": "The ticket's number."
+        },
+        "actor": {
+          "name": "Actor",
+          "description": "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+        }
+      }
+    },
+    "finish_run": {
+      "name": "Finish run",
+      "description": "The runner reports back on a claimed run, as a comment from the agent. `proposed`: what it found and what it would change, which waits for a person to press Proceed. `done`: the approved change was made. `failed`: why it could not. Fails if the run was stopped.",
+      "fields": {
+        "ticket_id": {
+          "name": "Ticket ID",
+          "description": "The ticket's number."
+        },
+        "state": {
+          "name": "State",
+          "description": "proposed, done or failed."
+        },
+        "body": {
+          "name": "Comment",
+          "description": "What it found and would change, what it did, or why it failed, in markdown."
         },
         "actor": {
           "name": "Actor",

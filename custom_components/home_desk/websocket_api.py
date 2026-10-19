@@ -18,7 +18,10 @@ from .agent import async_run_now, async_stop_turn, async_test_agent
 from .suggest import async_guess
 from .storage import (
     async_apply_proposal,
+    async_decide_run,
     async_dismiss_proposal,
+    async_request_run,
+    async_stop_run,
     TicketError,
     async_add_comment,
     async_close_ticket,
@@ -433,6 +436,8 @@ async def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConne
         vol.Required("type"): "home_desk/settings_save",
         vol.Optional("auto_close"): vol.In(list(AUTO_CLOSE_SECONDS)),
         vol.Optional("agent"): str,
+        vol.Optional("agent_runner"): bool,
+        vol.Optional("agent_user"): str,
         vol.Optional("repairs"): bool,
         vol.Optional("stt"): str,
         vol.Optional("transcribe"): bool,
@@ -527,8 +532,52 @@ async def ws_agent_stop(hass: HomeAssistant, connection: websocket_api.ActiveCon
     except TicketError as err:
         _fail(connection, msg, "not_found", str(err))
         return
-    await async_stop_turn(hass, msg["ticket_id"], _actor(connection))
+    if not await async_stop_run(hass, msg["ticket_id"], actor=_actor(connection)):
+        await async_stop_turn(hass, msg["ticket_id"], _actor(connection))  # a Review with AI in progress
     connection.send_result(msg["id"], {"stopped": msg["ticket_id"]})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "home_desk/agent_run_now", vol.Required("ticket_id"): int})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_agent_run_now(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Run AI Agent Now: ask the runner to work this ticket, read-only first. Nothing happens unless the runner is set up."""
+    if not (await async_get_settings(hass)).get("agent_runner"):
+        _fail(connection, msg, "invalid", "Run AI Agent Now is not switched on in Settings")
+        return
+    try:
+        ticket = await async_request_run(hass, msg["ticket_id"], actor=_actor(connection))
+    except TicketError as err:
+        _fail(connection, msg, "invalid", str(err))
+        return
+    connection.send_result(msg["id"], ticket)
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "home_desk/proceed", vol.Required("ticket_id"): int, vol.Required("event_id"): int, vol.Required("do"): vol.In(["approve", "dismiss"])}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_proceed(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Proceed (or Dismiss) on the AI Agent's findings: only a person pressing it in the panel lets the runner change anything."""
+    try:
+        ticket = await async_decide_run(hass, msg["ticket_id"], msg["event_id"], actor=_actor(connection), do=msg["do"])
+    except TicketError as err:
+        _fail(connection, msg, "invalid", str(err))
+        return
+    connection.send_result(msg["id"], ticket)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "home_desk/users"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_users(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """The Home Assistant users that can be the AI Agent's own user (not administrators: the runner has no business being one)."""
+    users = await hass.auth.async_get_users()
+    connection.send_result(
+        msg["id"],
+        {"users": [{"id": u.id, "name": u.name or "User", "is_admin": u.is_admin} for u in users if u.is_active and not u.system_generated]},
+    )
 
 
 @websocket_api.websocket_command({vol.Required("type"): "home_desk/agent_test"})
@@ -554,5 +603,6 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_labels, ws_label_create, ws_label_update, ws_label_delete,
         ws_categories, ws_category_create, ws_category_update, ws_category_delete,
         ws_settings, ws_settings_save, ws_proposal, ws_agent_run, ws_agent_stop, ws_agent_test, ws_suggest,
+        ws_agent_run_now, ws_proceed, ws_users,
     ):
         websocket_api.async_register_command(hass, command)

@@ -85,6 +85,7 @@ AUTO_CLOSE_SECONDS = {
 DEFAULT_SETTINGS = {
     "auto_close": "7d", "agent": "", "repairs": True, "stt": "", "transcribe": True,
     "agent_states": True, "agent_config": True, "agent_related": True, "agent_daily_cap": 30, "agent_prompt": "",
+    "agent_runner": False, "agent_user": "",  # Run AI Agent Now is offered; the Home Assistant user the runner signs in as
 }
 MAX_PROMPT = 6000
 AGENT_TIMEOUT = 150  # seconds a turn may take before it is given up on

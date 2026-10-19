@@ -72,6 +72,7 @@ SERVICES = {
         "label": ("Label", "Only tickets with this label (name or id), e.g. Bug, Enhancement or Blocked.", TEXT, False, None),
         "category": ("Category", "Only tickets in this category (name or id), or `none` for tickets with no category yet.", TEXT, False, None),
         "include_history": ("Include history", "Include tickets labelled History (records of past work). Default false.", BOOL, False, None),
+        "run_state": ("Run state", "Only tickets whose AI Agent run is in this state, or a comma-separated list: requested, running, proposed, approved, done, failed, stopped, dismissed. The runner polls for `requested` and `approved`.", TEXT, False, "requested,approved"),
         "limit": ("Limit", "Maximum tickets to return (default 100).", {"number": {"min": 1, "max": 1000, "mode": "box"}}, False, None)}),
     "get_ticket": ("Get ticket", "Return one ticket in full: description, resolution, labels, entities, timeline of comments and changes, and related tickets.", {"ticket_id": TID}),
     "create_ticket": ("Create ticket", "Create a ticket and return it. Search first (list_tickets with a query) to avoid duplicates. AI agents: call get_guide first and pass `actor` with your own name.", {
@@ -107,6 +108,14 @@ SERVICES = {
         "body": ("Comment", "The comment, in markdown.", LONG, True, None),
         "internal": ("Internal note", "True makes a private note that the requester can't see.", BOOL, False, None),
         "keep_assigned": ("Keep assigned", "True leaves the ticket queued for the AI agent after this comment instead of handing it back to the manager, for evidence on a ticket the agent is meant to keep watching. Default false: an agent's comment hands the ticket back.", BOOL, False, None),
+        "actor": ACTOR}),
+    "claim_run": ("Claim run", "The runner takes a run that a person asked for (Run AI Agent Now, a read-only review) or approved (Proceed, the change). Only one runner can take it; a second call fails. Pass `actor` with the runner's name.", {
+        "ticket_id": TID,
+        "actor": ACTOR}),
+    "finish_run": ("Finish run", "The runner reports back on a claimed run, as a comment from the agent. `proposed`: what it found and what it would change, which waits for a person to press Proceed. `done`: the approved change was made. `failed`: why it could not. Fails if the run was stopped.", {
+        "ticket_id": TID,
+        "state": ("State", "proposed, done or failed.", sel(["proposed", "done", "failed"]), True, "proposed"),
+        "body": ("Comment", "What it found and would change, what it did, or why it failed, in markdown.", LONG, True, None),
         "actor": ACTOR}),
     "close_ticket": ("Close ticket", "Resolve or close a ticket with resolution notes (the cause and the fix). Only close when you are confident; otherwise comment and leave it open.", {
         "ticket_id": TID,

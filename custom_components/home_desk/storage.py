@@ -630,6 +630,7 @@ async def async_list_tickets(
     label: str | None = None,
     category: str | None = None,
     include_history: bool = True,
+    run_state: str | None = None,
     limit: int = 500,
     offset: int = 0,
     viewer: dict[str, Any] | None = None,
@@ -681,6 +682,8 @@ async def async_list_tickets(
         if category_id and t.get("category") != category_id:
             continue
         if not include_history and HISTORY_LABEL_ID in t["labels"]:
+            continue
+        if run_state and _run_state(t) not in run_state.split(","):
             continue
         if exact_id is not None:
             if t["id"] != exact_id:
@@ -837,6 +840,144 @@ async def async_set_agent_state(hass: HomeAssistant, ticket_id: int, state: dict
         await _save(hass, data)
     _fire(hass, ticket, "agent", "Home Desk")
     return ticket
+
+
+# ---------------------------------------------------------------- AI Agent runs (Run AI Agent Now)
+#
+# A person presses Run AI Agent Now: the ticket gets an "agent_run" in state "requested". The runner on the Network LXC claims it
+# ("running", a read-only review), then says what it found and what it would change ("proposed", the findings are a comment with a
+# go-ahead waiting on it). A person presses Proceed ("approved"), the runner claims it again ("running", the change) and
+# finishes ("done"). "failed", "stopped" and "dismissed" end a run too. While a run is wanted or going the ticket shows an
+# "agent_state" (the working indicator, with Stop).
+
+RUN_OPEN = ("requested", "running", "approved")  # a run is wanted or in progress
+_RUN_WAITING = {
+    "requested": "Waiting for the AI Agent to pick it up",
+    "approved": "Waiting for the AI Agent to carry out the approved change",
+}
+
+
+def _run_state(ticket: dict[str, Any]) -> str:
+    return (ticket.get("agent_run") or {}).get("state") or ""
+
+
+async def async_request_run(hass: HomeAssistant, ticket_id: int, *, actor: str) -> dict[str, Any]:
+    """Ask the AI Agent on the runner to work a ticket (read-only first). One run at a time per ticket."""
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _get(data, ticket_id)
+        if ticket["status"] in ("resolved", "closed"):
+            raise TicketError("Reopen the ticket before asking the AI Agent to run")
+        if _run_state(ticket) in RUN_OPEN:
+            raise TicketError("The AI Agent already has a run on this ticket")
+        ts = _now()
+        ticket["agent_run"] = {"state": "requested", "requested_by": actor, "requested_at": ts}
+        ticket["agent_state"] = {"state": "working", "agent": "AI Agent", "since": ts, "note": _RUN_WAITING["requested"], "kind": "run"}
+        _event(ticket, actor, "comment", "Asked the AI Agent to run.", {"run_request": True}, ts)
+        ticket["updated_at"] = ts
+        await _save(hass, data)
+    _fire(hass, ticket, "agent", actor)
+    return ticket
+
+
+async def async_claim_run(hass: HomeAssistant, ticket_id: int, *, agent: str) -> dict[str, Any]:
+    """The runner takes a requested run (a read-only review) or an approved one (the change). Only one runner can have it."""
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _get(data, ticket_id)
+        run = ticket.get("agent_run") or {}
+        if run.get("state") == "running":
+            raise TicketError(f"#{ticket_id} is already being worked")
+        if run.get("state") not in ("requested", "approved"):
+            raise TicketError(f"No run is waiting on #{ticket_id}")
+        ts = _now()
+        mode = "change" if run["state"] == "approved" else "review"
+        run.update(state="running", mode=mode, claimed_by=agent, claimed_at=ts)
+        ticket["agent_state"] = {
+            "state": "working", "agent": agent, "since": ts, "kind": "run",
+            "note": "Reading the ticket (read-only)" if mode == "review" else "Carrying out the approved change",
+        }
+        ticket["updated_at"] = ts
+        await _save(hass, data)
+    _fire(hass, ticket, "agent", f"ai:{agent}")
+    return ticket
+
+
+async def async_finish_run(hass: HomeAssistant, ticket_id: int, *, agent: str, state: str, body: str) -> dict[str, Any]:
+    """The runner reports back: its findings and what it would change ("proposed", waiting for Proceed), the change done
+    ("done"), or why it could not ("failed"). Its words are a comment from the agent, which hands the ticket back."""
+    if state not in ("proposed", "done", "failed"):
+        raise TicketError("A run finishes as proposed, done or failed")
+    body = (body or "").strip()
+    if not body:
+        raise TicketError("Say what you found or did")
+    _limit(body, MAX_TEXT, "The comment")
+    actor = agent if agent.lower().startswith("ai:") else f"ai:{agent}"
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _get(data, ticket_id)
+        run = ticket.get("agent_run") or {}
+        if run.get("state") != "running":
+            raise TicketError("This run was stopped or is not running, so there is nothing to finish")
+        ts = _now()
+        event_data: dict[str, Any] = {"run": True}
+        if state == "proposed":
+            event_data["proceed"] = {"state": "pending"}
+        ev = _event(ticket, actor, "comment", body, event_data, ts)
+        run.update(state=state, finished_at=ts, event=ev["id"])
+        ticket.pop("agent_state", None)
+        ticket["updated_at"] = ts
+        _progress(ticket, actor, ts)
+        _hand_back(ticket, actor, ts)
+        await _save(hass, data)
+    _fire(hass, ticket, "comment", actor)
+    return ticket
+
+
+async def async_decide_run(hass: HomeAssistant, ticket_id: int, event_id: int, *, actor: str, do: str) -> dict[str, Any]:
+    """A person presses Proceed (the runner may now carry out what it described) or Dismiss on the agent's findings."""
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _get(data, ticket_id)
+        ev = next((e for e in ticket["events"] if e["id"] == event_id), None)
+        proceed = ((ev or {}).get("data") or {}).get("proceed")
+        if not proceed:
+            raise TicketError("That comment has nothing waiting for a go-ahead")
+        if proceed["state"] != "pending":
+            raise TicketError(f"That was already {proceed['state']}")
+        newest = [e for e in ticket["events"] if ((e.get("data") or {}).get("proceed"))][-1]
+        if newest is not ev:
+            raise TicketError("A newer reply replaces this one")
+        ts = _now()
+        approve = do == "approve"
+        proceed.update(state="approved" if approve else "dismissed", by=actor, at=ts)
+        run = ticket.setdefault("agent_run", {})
+        if approve:
+            run.update(state="approved", approved_by=actor, approved_at=ts)
+            ticket["agent_state"] = {"state": "working", "agent": "AI Agent", "since": ts, "note": _RUN_WAITING["approved"], "kind": "run"}
+        else:
+            run.update(state="dismissed")
+        ticket["updated_at"] = ts
+        await _save(hass, data)
+    _fire(hass, ticket, "proposal", actor)
+    return ticket
+
+
+async def async_stop_run(hass: HomeAssistant, ticket_id: int, *, actor: str) -> bool:
+    """Stop a run that is wanted or going: the runner finds out when it tries to finish. Returns whether there was one."""
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _get(data, ticket_id)
+        if _run_state(ticket) not in RUN_OPEN:
+            return False
+        ts = _now()
+        ticket["agent_run"].update(state="stopped", finished_at=ts)
+        ticket.pop("agent_state", None)
+        _event(ticket, "Home Desk", "comment", f"Stopped by {actor}.", None, ts)
+        ticket["updated_at"] = ts
+        await _save(hass, data)
+    _fire(hass, ticket, "agent", actor)
+    return True
 
 
 async def async_add_comment(
@@ -1592,6 +1733,10 @@ async def async_save_settings(
         patch["repairs"] = bool(patch["repairs"])
     if "transcribe" in patch:
         patch["transcribe"] = bool(patch["transcribe"])
+    if "agent_runner" in patch:
+        patch["agent_runner"] = bool(patch["agent_runner"])
+    if "agent_user" in patch:
+        patch["agent_user"] = _limit(str(patch["agent_user"]).strip(), 64, "The agent user")
     for key in ("agent_states", "agent_config", "agent_related"):
         if key in patch:
             patch[key] = bool(patch[key])

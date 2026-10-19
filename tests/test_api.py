@@ -82,6 +82,11 @@ class HomeAssistantError(Exception):
     pass
 
 
+class Unauthorized(Exception):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Unauthorized")
+
+
 class ServiceCall:
     def __init__(self, data, user_id=None):
         self.data = data
@@ -119,7 +124,7 @@ async_response = lambda fn: fn  # noqa: E731 - the real one schedules a task; he
 
 stub("homeassistant")
 stub("homeassistant.core", HomeAssistant=FakeHass, ServiceCall=ServiceCall, SupportsResponse=SupportsResponse, Event=object, callback=lambda f: f)
-stub("homeassistant.exceptions", HomeAssistantError=HomeAssistantError)
+stub("homeassistant.exceptions", HomeAssistantError=HomeAssistantError, Unauthorized=Unauthorized)
 stub("homeassistant.helpers.storage", Store=FakeStore)
 stub("homeassistant.util")
 stub("homeassistant.util.dt", utcnow=lambda: None, DEFAULT_TIME_ZONE=None)
@@ -193,7 +198,7 @@ async def main():
     wsapi.async_register_commands(hass)
     # The decorators wrap each handler, so they are matched to names by registration order (see async_register_commands).
     names = ["list", "get", "mark_read", "stats", "create", "update", "comment", "close", "link", "merge", "labels", "label_create", "label_update",
-             "label_delete", "categories", "category_create", "category_update", "category_delete", "settings", "settings_save", "proposal", "agent_run", "agent_stop", "agent_test", "suggest"]
+             "label_delete", "categories", "category_create", "category_update", "category_delete", "settings", "settings_save", "proposal", "agent_run", "agent_stop", "agent_test", "suggest", "agent_run_now", "proceed", "users"]
     assert len(REGISTERED) == len(names), (len(REGISTERED), "commands registered")
     HANDLERS.update(dict(zip(names, REGISTERED)))
 
@@ -301,10 +306,29 @@ async def main():
     hass = FakeHass()
     ADMIN_SERVICES.clear()
     await services.async_setup_services(hass)
-    assert set(hass.services.open) == {"get_guide", "get_changelog"}, set(hass.services.open)
+    ADMIN_SERVICES.update({k: v for k, v in hass.services.open.items() if k not in ("get_guide", "get_changelog")})
+    assert {"get_guide", "get_changelog"} <= set(hass.services.open)
     for name in ("create_ticket", "get_ticket", "list_tickets", "update_ticket", "add_comment", "close_ticket", "link_tickets",
                  "merge_tickets", "list_labels", "create_label", "update_label", "delete_label", "list_categories", "create_category", "update_category", "delete_category", "get_stats", "import_file"):
         assert name in ADMIN_SERVICES, f"{name} must need an administrator"
+    # everything but the guide and the changelog refuses an ordinary (non-administrator) user, whoever asks
+    ns = types.SimpleNamespace
+    hass.users = {
+        "u-admin": ns(id="u-admin", is_admin=True, is_active=True, name="Simon"),
+        "u-house": ns(id="u-house", is_admin=False, is_active=True, name="Qionne"),
+        "u-agent": ns(id="u-agent", is_admin=False, is_active=True, name="Claude Agent"),
+    }
+    for name, (handler, _schema) in ADMIN_SERVICES.items():
+        try:
+            await handler(ServiceCall({"ticket_id": 1}, user_id="u-house"))
+            raise SystemExit(f"{name} let a household user in")
+        except Unauthorized:
+            pass
+        try:
+            await handler(ServiceCall({"ticket_id": 1}, user_id="u-agent"))
+            raise SystemExit(f"{name} let a user in who is not set up as the AI Agent")
+        except Unauthorized:
+            pass
     print("service permissions ok")
 
     def svc(_service, **data):
@@ -403,6 +427,70 @@ async def main():
             raise SystemExit(f"service schema accepted {bad}")
         except vol.Invalid:
             pass
+    # ---- Run AI Agent Now, end to end: request, claim, findings, Proceed, the change
+    await s.async_save_settings(hass, {"agent_runner": False})
+    rt = await svc("create_ticket", title="Hall light flickers", actor="Simon")
+    off = await call(hass, "agent_run_now", ADMIN(), ticket_id=rt["id"])
+    assert off.error and "not switched on" in off.error[1], "Run AI Agent Now needs switching on in Settings"
+    await s.async_save_settings(hass, {"agent_runner": True, "agent_user": "u-agent"})
+    house = await call(hass, "agent_run_now", HOUSEHOLD(), ticket_id=rt["id"])
+    assert house.error and house.error[0] == "unauthorized"
+    req = (await call(hass, "agent_run_now", ADMIN(), ticket_id=rt["id"])).result
+    assert req["agent_run"]["state"] == "requested" and req["agent_state"]["kind"] == "run", req.get("agent_run")
+    again = await call(hass, "agent_run_now", ADMIN(), ticket_id=rt["id"])
+    assert again.error and "already" in again.error[1], "one run at a time"
+    # the runner finds it, as the agent user (not an administrator), and takes it
+    waiting = await ADMIN_SERVICES["list_tickets"][0](ServiceCall({"run_state": "requested"}, user_id="u-agent"))
+    assert [x["id"] for x in waiting["tickets"]] == [rt["id"]], waiting
+    claimed = await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))
+    assert claimed["agent_run"]["state"] == "running" and claimed["agent_run"]["mode"] == "review" and claimed["agent_run"]["claimed_by"] == "claude-ha"
+    try:
+        await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "other-runner"}, user_id="u-agent"))
+        raise SystemExit("two runners took one ticket")
+    except HomeAssistantError as err:
+        assert "already" in str(err)
+    # what the agent user may not do
+    for name, data in (("merge_tickets", {"ticket_id": rt["id"], "merge_ids": [1]}), ("create_label", {"name": "x"}), ("delete_category", {"category": "x"}), ("import_file", {"path": "/x"})):
+        try:
+            await ADMIN_SERVICES[name][0](ServiceCall(data, user_id="u-agent"))
+            raise SystemExit(f"the agent user could {name}")
+        except Unauthorized:
+            pass
+    # it names itself as an AI whatever it passes
+    note = await ADMIN_SERVICES["add_comment"][0](ServiceCall({"ticket_id": rt["id"], "body": "looking", "internal": True, "actor": "Simon"}, user_id="u-agent"))
+    assert [e for e in note["events"] if e["kind"] == "note"][-1]["actor"] == "ai:Simon", "the agent user can't pass for a person"
+    found = await ADMIN_SERVICES["finish_run"][0](ServiceCall({"ticket_id": rt["id"], "state": "proposed", "body": "The bulb driver is failing. I would replace it.", "actor": "claude-ha"}, user_id="u-agent"))
+    ev = [e for e in found["events"] if e["kind"] == "comment"][-1]
+    assert found["agent_run"]["state"] == "proposed" and "agent_state" not in found and ev["actor"] == "ai:claude-ha" and ev["data"]["proceed"] == {"state": "pending"}, ev
+    # only a person pressing Proceed (an administrator, in the panel) lets it change anything
+    deny = await call(hass, "proceed", HOUSEHOLD(), ticket_id=rt["id"], event_id=ev["id"], do="approve")
+    assert deny.error and deny.error[0] == "unauthorized"
+    ok = (await call(hass, "proceed", ADMIN(), ticket_id=rt["id"], event_id=ev["id"], do="approve")).result
+    assert ok["agent_run"]["state"] == "approved" and ok["agent_state"]["note"].startswith("Waiting for the AI Agent to carry out")
+    twice = await call(hass, "proceed", ADMIN(), ticket_id=rt["id"], event_id=ev["id"], do="approve")
+    assert twice.error and "already" in twice.error[1]
+    do = await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))
+    assert do["agent_run"]["mode"] == "change" and do["agent_state"]["note"] == "Carrying out the approved change"
+    # Stop while it works: the runner then can't finish
+    stopped = (await call(hass, "agent_stop", ADMIN(), ticket_id=rt["id"])).result
+    assert stopped == {"stopped": rt["id"]} and (await s.async_get_ticket(hass, rt["id"]))["agent_run"]["state"] == "stopped"
+    try:
+        await ADMIN_SERVICES["finish_run"][0](ServiceCall({"ticket_id": rt["id"], "state": "done", "body": "Replaced it.", "actor": "claude-ha"}, user_id="u-agent"))
+        raise SystemExit("a stopped run was finished")
+    except HomeAssistantError as err:
+        assert "stopped" in str(err)
+    # a second run can be asked for, dismissed, and then asked for again
+    await call(hass, "agent_run_now", ADMIN(), ticket_id=rt["id"])
+    await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))
+    f2 = await ADMIN_SERVICES["finish_run"][0](ServiceCall({"ticket_id": rt["id"], "state": "proposed", "body": "Nothing to do.", "actor": "claude-ha"}, user_id="u-agent"))
+    dis = (await call(hass, "proceed", ADMIN(), ticket_id=rt["id"], event_id=[e for e in f2["events"] if e["kind"] == "comment"][-1]["id"], do="dismiss")).result
+    assert dis["agent_run"]["state"] == "dismissed" and "agent_state" not in dis
+    await call(hass, "agent_run_now", ADMIN(), ticket_id=rt["id"])
+    await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))
+    f3 = await ADMIN_SERVICES["finish_run"][0](ServiceCall({"ticket_id": rt["id"], "state": "done", "body": "Done.", "actor": "claude-ha"}, user_id="u-agent"))
+    assert f3["agent_run"]["state"] == "done"
+    print("agent run ok")
+
     print("services ok")
     print("ALL OK")
 
