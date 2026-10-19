@@ -342,6 +342,22 @@ export class TicketDetail extends LitElement {
       .head.has-wide .hist.wide-toggle {
         right: 0;
       }
+      /* In the full width view there is no history button (the history is always listed in the left panel), so the others close up. */
+      .head.in-wide {
+        padding-right: 44px;
+      }
+      .head.admin.in-wide {
+        padding-right: 176px;
+      }
+      .head.in-wide .hist.merge {
+        right: 44px;
+      }
+      .head.in-wide .hist.next {
+        right: 88px;
+      }
+      .head.in-wide .hist.prev {
+        right: 132px;
+      }
       .hist[disabled] {
         opacity: 0.35;
         cursor: default;
@@ -1014,8 +1030,6 @@ export class TicketDetail extends LitElement {
   @state() private _expanded = false;
   /** Status changes and other system lines are tucked away; the history button brings them back. */
   @state() private _showHistory = false;
-  /** In the full width view the history sits under the description (the history button hides it). */
-  @state() private _wideHistory = true;
   /** A long description collapses to one line as soon as the ticket is scrolled, and opens again at the top. */
   @state() private _descCollapsed = false;
   /** The description's natural height, measured while it is not folded to one line. */
@@ -1585,14 +1599,13 @@ export class TicketDetail extends LitElement {
     // The full width view (not offered on a phone, where the ticket already has the whole screen).
     const canWide = !this.narrow;
     // In the full width view the changes are listed in the left panel, so the thread is only comments.
-    const historyOn = this.wide ? this._wideHistory : this._showHistory;
     const showAll = this._showHistory && !this.wide;
     const historyBlock = html`<div class="timeline history">
       <h2>History</h2>
       ${t.events.filter((e) => e.kind !== "comment" && e.kind !== "note").map((e) => this._eventTemplate(e))}
     </div>`;
     const headRow = html`
-<div class="head ${this.isAdmin ? "admin" : ""} ${canWide ? "has-wide" : ""}">
+<div class="head ${this.isAdmin ? "admin" : ""} ${canWide ? "has-wide" : ""} ${this.wide ? "in-wide" : ""}">
   ${this.narrow
     ? html`<button class="icon back" title="Back" aria-label="Back" @click=${() => this._fire("back")}><ha-icon icon="mdi:arrow-left"></ha-icon></button>`
     : nothing}
@@ -1612,9 +1625,11 @@ export class TicketDetail extends LitElement {
         @click=${(e: Event) => this._fire("pick-merge", { rect: (e.currentTarget as HTMLElement).getBoundingClientRect() })}>
         <ha-icon icon="mdi:call-merge"></ha-icon></button>`
     : nothing}
-  <button class="icon hist" aria-pressed=${historyOn ? "true" : "false"}
-    title=${historyOn ? "Hide history" : "Show history"} aria-label="Show history"
-    @click=${() => (this.wide ? (this._wideHistory = !this._wideHistory) : (this._showHistory = !this._showHistory))}><ha-icon icon="mdi:history"></ha-icon></button>
+  ${this.wide
+    ? nothing
+    : html`<button class="icon hist" aria-pressed=${this._showHistory ? "true" : "false"}
+        title=${this._showHistory ? "Hide history" : "Show history"} aria-label="Show history"
+        @click=${() => (this._showHistory = !this._showHistory)}><ha-icon icon="mdi:history"></ha-icon></button>`}
 ${canWide
   ? html`<button class="icon hist wide-toggle" title=${this.wide ? "Exit full width view" : "Full width view"} aria-label=${this.wide ? "Exit full width view" : "Full width view"}
       @click=${() => this._fire("toggle-wide")}><ha-icon icon=${this.wide ? "mdi:arrow-collapse-horizontal" : "mdi:arrow-expand-horizontal"}></ha-icon></button>`
@@ -1716,7 +1731,7 @@ ${t.related?.length
       return html`
         <div class="top">${headRow}</div>
         <div class="wide-body">
-          <aside class="side"><div class="side-head">${subBlock}</div><div class="side-wrap">${descBlock}${resolutionBlock}${relatedBlock}${this._wideHistory ? historyBlock : nothing}</div></aside>
+          <aside class="side"><div class="side-head">${subBlock}</div><div class="side-wrap">${descBlock}${resolutionBlock}${relatedBlock}${historyBlock}</div></aside>
           <section class="main">
             <div class="scroll"><div class="wrap">${timelineBlock}</div></div>
             ${dock}
