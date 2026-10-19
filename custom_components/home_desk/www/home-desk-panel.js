@@ -4140,7 +4140,7 @@ ${e.related?.length?B`<div class="chips"><span class="sect">Related</span>${e.re
       .tab {
         flex: 0 1 auto;
         min-width: 96px;
-        max-width: 220px;
+        max-width: 340px; /* roomy with one or two open, shrinking (to the minimum) as more are added */
         height: var(--st-h-bar);
         box-sizing: border-box;
         display: inline-flex;
