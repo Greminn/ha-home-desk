@@ -63,14 +63,48 @@ export class TicketDetail extends LitElement {
         /* The description and comments carry a lighter version of the ticket's tint (header and comment box keep the full one). */
         background: var(--st-selected-soft, var(--st-surface));
       }
+      /*
+       * The comment box is a slim strip until it is wanted: pointing at it, clicking into it, or the C key opens it,
+       * and it stays open while it holds a draft. It opens upward over the thread (the dock keeps the strip's height), so
+       * the conversation doesn't jump about. Escape or C closes it again.
+       */
       .dock {
+        position: relative;
+        z-index: 5;
         flex: none;
+        height: 68px;
+      }
+      .dock .dock-in {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        box-sizing: border-box;
         padding: 12px 18px 16px;
         border-top: 1px solid var(--st-divider);
+        background: var(--st-selected, var(--st-surface));
       }
       .dock .card.composer {
         margin: 0;
         padding: 0;
+      }
+      .dock .composer textarea {
+        height: 40px;
+        min-height: 0;
+        resize: none;
+      }
+      .dock .composer .bar {
+        display: none;
+      }
+      .dock:is(.keep, :not(.shut):hover, :not(.shut):focus-within) .dock-in {
+        box-shadow: 0 -6px 16px -6px rgba(0, 0, 0, 0.4);
+      }
+      .dock:is(.keep, :not(.shut):hover, :not(.shut):focus-within) .composer textarea {
+        height: auto;
+        resize: vertical;
+      }
+      .dock:is(.keep, :not(.shut):hover, :not(.shut):focus-within) .composer .bar {
+        display: flex;
       }
       /* An open ticket sits on the same colour as its row in the list, so the two read as one thing. */
       :host([open]) {
@@ -855,6 +889,11 @@ export class TicketDetail extends LitElement {
    * false once the admin clicks it. Like a priority, nothing is sent until the main button is pressed.
    */
   @state() private _agentToggle: boolean | null = null;
+  /**
+   * How the comment box is shown: "auto" (a strip, opening on hover or focus and staying open with a draft), "open" (the C key
+   * pinned it open) or "closed" (Escape or C shut it, even over a draft, until the pointer leaves it or it is clicked into).
+   */
+  @state() private _composerMode: "auto" | "open" | "closed" = "auto";
   /** A priority picked in the comment box but not applied yet ("" = none picked). */
   @state() private _priorityTo = "";
   @state() private _comment = "";
@@ -873,6 +912,7 @@ export class TicketDetail extends LitElement {
         this._descCollapsed = false;
         this._priorityTo = "";
         this._agentToggle = null;
+        this._composerMode = "auto";
         this._expanded = false;
         this._comment = "";
       } else if (this.ticket?.agent_state && !prev?.agent_state) {
@@ -948,10 +988,12 @@ export class TicketDetail extends LitElement {
       if (box) this._fitTitle(box);
     });
     this._resizer.observe(this);
+    window.addEventListener("keydown", this._hotkey);
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+    window.removeEventListener("keydown", this._hotkey);
     this._resizer?.disconnect();
   }
 
@@ -1033,6 +1075,39 @@ export class TicketDetail extends LitElement {
     return this._agentOn(t) !== this._withAgent(t);
   }
 
+  /** Open whatever the pointer is doing: pinned by the C key, or holding something not sent yet. */
+  private get _composerKeep(): boolean {
+    const draft = !!this._comment.trim() || !!this._priorityTo || this._agentToggle !== null;
+    return this._composerMode === "open" || (this._composerMode === "auto" && draft);
+  }
+
+  private _closeComposer() {
+    this._composerMode = "closed";
+    ((this.renderRoot as ShadowRoot).activeElement as HTMLElement | null)?.blur();
+  }
+
+  /** The C key opens the comment box and puts the cursor in it, or closes it if it is open. */
+  private _toggleComposer() {
+    const dock = this.renderRoot.querySelector<HTMLElement>(".dock");
+    if (!dock) return;
+    const shut = dock.classList.contains("shut");
+    const open = dock.classList.contains("keep") || (!shut && (dock.matches(":hover") || dock.matches(":focus-within")));
+    if (open) {
+      this._closeComposer();
+      return;
+    }
+    this._composerMode = "open";
+    void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus());
+  }
+
+  private _hotkey = (e: KeyboardEvent) => {
+    if (e.key.toLowerCase() !== "c" || e.ctrlKey || e.metaKey || e.altKey || e.repeat || !this.ticket) return;
+    const from = e.composedPath()[0] as HTMLElement | undefined;
+    if (from && (from.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(from.tagName))) return; // typing somewhere
+    e.preventDefault();
+    this._toggleComposer();
+  };
+
   private _canSubmit(t: Ticket): boolean {
     return !!this._comment.trim() || this._agentApplies(t) || !!this._priorityTo;
   }
@@ -1111,6 +1186,7 @@ export class TicketDetail extends LitElement {
     this._comment = "";
     this._agentToggle = null;
     this._priorityTo = "";
+    if (this._composerMode === "open") this._composerMode = "auto";
   }
 
   /**
@@ -1433,9 +1509,12 @@ export class TicketDetail extends LitElement {
         </div>
       </div></div>
 
-      <div class="dock">
-        <div class="card composer">
-          <textarea rows="2" placeholder="Add a comment" .value=${this._comment}
+      <div class="dock ${this._composerKeep ? "keep" : ""} ${this._composerMode === "closed" ? "shut" : ""}"
+        @mouseleave=${() => this._composerMode === "closed" && (this._composerMode = "auto")}
+        @focusin=${() => this._composerMode === "closed" && (this._composerMode = "auto")}
+        @keydown=${(e: KeyboardEvent) => e.key === "Escape" && this._closeComposer()}>
+        <div class="dock-in"><div class="card composer">
+          <textarea rows="2" placeholder="Add a comment (press C)" .value=${this._comment}
             @input=${(e: Event) => (this._comment = (e.target as HTMLTextAreaElement).value)}></textarea>
           <div class="bar">
             ${this.isAdmin ? this._aiAction(t) : nothing}
@@ -1454,7 +1533,7 @@ export class TicketDetail extends LitElement {
             <button class="primary" ?disabled=${!this._canSubmit(t)} @click=${this._submitComment}>${this._agentApplies(t) && this._agentOn(t) ? html`<ha-icon icon="mdi:creation"></ha-icon>` : nothing}${this._submitLabel(t)}</button>
             </div>
           </div>
-        </div>
+        </div></div>
       </div>
     `;
   }
