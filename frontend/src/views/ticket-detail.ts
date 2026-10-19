@@ -1090,7 +1090,12 @@ export class TicketDetail extends LitElement {
     const block = this.renderRoot.querySelector<HTMLElement>(".desc-sticky");
     if (!block) return;
     const full = this._descFull;
-    if (full <= DESC_ONE_LINE || scrollTop <= 0) {
+    // Squeezing only makes sense to bring a real thread into view. With no comments, or just a short one, there is nothing
+    // below to reveal, so the description is left whole and simply scrolls.
+    const scroller = this.renderRoot.querySelector<HTMLElement>(".scroll");
+    const thread = this.renderRoot.querySelector<HTMLElement>(".timeline");
+    const worthIt = !!scroller && !!thread && thread.offsetHeight >= scroller.clientHeight * 0.4;
+    if (!worthIt || full <= DESC_ONE_LINE || scrollTop <= 0) {
       block.style.height = "";
       block.style.marginBottom = "";
       block.classList.remove("shrunk");

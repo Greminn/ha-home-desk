@@ -117,7 +117,7 @@ function seed() {
   ];
   door.events.push({ id: door.events.length + 1, actor: "Qionne", kind: "attachment", body: null, data: { field: "attachments", to: "2 photos and a voice message" }, created_at: iso(12 * MIN) });
   // A ticket with a long description (paragraphs, lists, a quote and a code block) for the description's collapse and scrolling.
-  add({ title: "Upstairs heating keeps overriding manual changes", status: "in_progress", priority: "high", requester: "Simon", labels: ["bug", "home-assistant"], ago: 5 * DAY, updated: 3 * HOUR,
+  const heating = add({ title: "Upstairs heating keeps overriding manual changes", status: "in_progress", priority: "high", requester: "Simon", labels: ["bug", "home-assistant"], ago: 5 * DAY, updated: 3 * HOUR,
     description: [
       "The upstairs thermostat ignores manual changes. If I set it to 21°C from the dashboard or the wall dial, it goes back to the scheduled temperature within a few minutes, usually 17°C overnight and 20°C during the day. It has done this since the **2026.10** update, and it was fine before that.",
       "**What I have already tried**\n\n- Turned the schedule automation off and on again (no change)\n- Restarted Home Assistant twice\n- Removed and re-added the thermostat in the Zigbee integration\n- Changed the temperature from three places: the dashboard card, the voice assistant, and the physical dial on the wall\n- Checked the device's own schedule in the manufacturer's app: it is empty, so the device itself is not doing this",
@@ -140,6 +140,8 @@ function seed() {
       ["claude", "Checked: turning the dial changes `preset_mode` to `manual` within two seconds, and the wall app does the same. Both are reported to Home Assistant.", 6 * HOUR],
       ["claude", "The `Heating schedule` automation has no override condition (it was removed in the helper tidy-up on 12 Oct). Proposing to restore it; nothing changed yet.", 3 * HOUR],
     ]);
+  // The same long description with no comments at all: it should simply scroll, not be squeezed.
+  add({ title: "Downstairs heating does the same (long note, no comments)", status: "in_progress", priority: "normal", labels: ["bug", "home-assistant"], ago: 2 * DAY, description: heating.description });
   const categories = {};
   for (const [id, name, icon, builtin] of CATEGORIES) categories[id] = { id, name, icon, builtin };
   for (const t of Object.values(tickets)) {
