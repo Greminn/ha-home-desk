@@ -3759,7 +3759,7 @@ function at(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         color: var(--st-fg-secondary);
       }
     `],e([de()],so.prototype,"page",void 0),e([de()],so.prototype,"view",void 0),e([de({attribute:!1})],so.prototype,"tickets",void 0),e([de({type:Boolean})],so.prototype,"narrow",void 0),e([de({type:Boolean})],so.prototype,"admin",void 0),e([he()],so.prototype,"_menuOpen",void 0),so=e([pe("st-app-header")],so);let oo=class extends re{constructor(){super(...arguments),this.tickets=[],this.categories=[],this.labels=[],this.selectable=!1,this.selecting=!1,this.checkedCount=0}_fire(e,t){this.dispatchEvent(new CustomEvent(e,{detail:t,bubbles:!0,composed:!0}))}_change(e){return t=>this._fire("filters-change",{[e]:t.detail})}_merge(e){const t=e.currentTarget.getBoundingClientRect();this._fire("merge-selected",{rect:t})}render(){const e=this.filters;return this.checkedCount?B`<div class="toolbar selbar">
-        <button class="icon" title="Clear selection" aria-label="Clear selection" @click=${()=>this._fire("clear-selection")}>
+        <button class="icon clear" title="Clear selection" aria-label="Clear selection" @click=${()=>this._fire("clear-selection")}>
           <ha-icon icon="mdi:close"></ha-icon>
         </button>
         <span class="count">${this.checkedCount} selected</span>
@@ -3831,6 +3831,11 @@ function at(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
         color: var(--st-accent);
         border-color: var(--st-accent);
         background: color-mix(in srgb, var(--st-accent) 14%, var(--st-surface));
+      }
+      /* The X sits where the Select Tickets button was, so both line up with the row checkboxes below. */
+      .selbar .clear {
+        width: var(--st-h-bar);
+        height: var(--st-h-bar);
       }
       .selbar .count {
         flex: 1;

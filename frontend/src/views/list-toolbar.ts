@@ -58,6 +58,11 @@ export class ListToolbar extends LitElement {
         border-color: var(--st-accent);
         background: color-mix(in srgb, var(--st-accent) 14%, var(--st-surface));
       }
+      /* The X sits where the Select Tickets button was, so both line up with the row checkboxes below. */
+      .selbar .clear {
+        width: var(--st-h-bar);
+        height: var(--st-h-bar);
+      }
       .selbar .count {
         flex: 1;
         font-size: var(--st-fs-body);
@@ -115,7 +120,7 @@ export class ListToolbar extends LitElement {
     const f = this.filters;
     if (this.checkedCount) {
       return html`<div class="toolbar selbar">
-        <button class="icon" title="Clear selection" aria-label="Clear selection" @click=${() => this._fire("clear-selection")}>
+        <button class="icon clear" title="Clear selection" aria-label="Clear selection" @click=${() => this._fire("clear-selection")}>
           <ha-icon icon="mdi:close"></ha-icon>
         </button>
         <span class="count">${this.checkedCount} selected</span>
