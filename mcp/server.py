@@ -36,7 +36,9 @@ Priority = Literal["low", "normal", "high", "urgent"]
 mcp = FastMCP(
     "home-desk",
     instructions="Tools for the Home Desk issue tracker in Home Assistant. Call get_guide first: "
-    "it explains ticket fields, statuses and how to review, comment on and close tickets.",
+    "it explains ticket fields, statuses and how to review, comment on and close tickets. "
+    "Tickets handed to you are assigned to `ai:AI` (\"With AI Agent\"), whatever AI you are: "
+    "list them with list_tickets(assignee=\"ai:AI\") and also assignee=\"ai:Claude\" for older ones.",
 )
 
 
@@ -88,6 +90,7 @@ def list_tickets(
     limit: int = 50,
 ) -> dict[str, Any]:
     """List tickets (summaries, no body). status: a status, comma list, 'active' (default) or 'all'.
+    `assignee`: tickets handed to an AI agent (you) are "ai:AI" (older ones "ai:Claude"), not your own actor name; "unassigned" also works.
     `query` searches titles, descriptions, comments and resolutions. Label `needs-review` marks imported
     open items whose real state still needs checking. Filter by `label` (Bug, Enhancement, Blocked...);
     tickets labelled History are left out unless include_history=True. `category` filters by what part of
