@@ -1290,10 +1290,10 @@ function at(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
                 @keydown=${this._titleKey}
                 @blur=${e=>this._saveTitle(e.target)}></textarea>`:B`<h1>${e.title}</h1>`}
           ${this.isAdmin?B`<button class="icon hist prev" title="Previous ticket" aria-label="Previous ticket" ?disabled=${!this.navPos||this.navPos.index<=0}
-                @click=${()=>this._fire("nav-ticket",-1)}><ha-icon icon="mdi:chevron-up"></ha-icon></button>
+                @click=${()=>this._fire("nav-ticket",-1)}><ha-icon icon="mdi:chevron-left"></ha-icon></button>
               <button class="icon hist next" title=${this.navPos?`Next ticket (${this.navPos.index+1} of ${this.navPos.total})`:"Next ticket"} aria-label="Next ticket"
                 ?disabled=${!this.navPos||this.navPos.index>=this.navPos.total-1}
-                @click=${()=>this._fire("nav-ticket",1)}><ha-icon icon="mdi:chevron-down"></ha-icon></button>
+                @click=${()=>this._fire("nav-ticket",1)}><ha-icon icon="mdi:chevron-right"></ha-icon></button>
               <button class="icon hist merge" title="Merge into another ticket" aria-label="Merge into another ticket"
                 @click=${e=>this._fire("pick-merge",{rect:e.currentTarget.getBoundingClientRect()})}>
                 <ha-icon icon="mdi:call-merge"></ha-icon></button>`:F}

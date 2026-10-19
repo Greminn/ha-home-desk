@@ -1355,10 +1355,10 @@ export class TicketDetail extends LitElement {
             : html`<h1>${t.title}</h1>`}
           ${this.isAdmin
             ? html`<button class="icon hist prev" title="Previous ticket" aria-label="Previous ticket" ?disabled=${!this.navPos || this.navPos.index <= 0}
-                @click=${() => this._fire("nav-ticket", -1)}><ha-icon icon="mdi:chevron-up"></ha-icon></button>
+                @click=${() => this._fire("nav-ticket", -1)}><ha-icon icon="mdi:chevron-left"></ha-icon></button>
               <button class="icon hist next" title=${this.navPos ? `Next ticket (${this.navPos.index + 1} of ${this.navPos.total})` : "Next ticket"} aria-label="Next ticket"
                 ?disabled=${!this.navPos || this.navPos.index >= this.navPos.total - 1}
-                @click=${() => this._fire("nav-ticket", 1)}><ha-icon icon="mdi:chevron-down"></ha-icon></button>
+                @click=${() => this._fire("nav-ticket", 1)}><ha-icon icon="mdi:chevron-right"></ha-icon></button>
               <button class="icon hist merge" title="Merge into another ticket" aria-label="Merge into another ticket"
                 @click=${(e: Event) => this._fire("pick-merge", { rect: (e.currentTarget as HTMLElement).getBoundingClientRect() })}>
                 <ha-icon icon="mdi:call-merge"></ha-icon></button>`
