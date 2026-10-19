@@ -420,15 +420,21 @@ async def main():
     await s.async_update_ticket(hass2, t["id"], actor="simon", priority="low", status="in_progress")
     assert await sync(active=True, title="Hue bridge firmware is out of date", description="Update it.", priority="urgent") is None
     assert (await s.async_get_ticket(hass2, t["id"]))["priority"] == "low"
-    # ignored in HA -> Blocked while ignored
-    assert await sync(active=True, ignored=True, description="Update it.") == "updated"
-    assert "blocked" in (await s.async_get_ticket(hass2, t["id"]))["labels"]
-    assert await sync(active=True, ignored=False, description="Update it.") == "updated"
-    assert "blocked" not in (await s.async_get_ticket(hass2, t["id"]))["labels"]
-    # a manually-added Blocked label is left alone when un-ignored
-    await s.async_update_ticket(hass2, t["id"], actor="simon", add_labels=["blocked"])
-    assert await sync(active=True, ignored=False, description="Update it.") is None
-    assert "blocked" in (await s.async_get_ticket(hass2, t["id"]))["labels"]
+    # ignored in HA -> resolved as ignored (once), reopened when no longer ignored
+    assert await sync(active=True, ignored=True, description="Update it.") == "resolved"
+    t = await s.async_get_ticket(hass2, t["id"])
+    assert t["status"] == "resolved" and t["resolution"].startswith("Ignored in Home Assistant"), t["resolution"]
+    assert await sync(active=True, ignored=True, description="Update it.") is None, "still ignored: never reopened"
+    assert (await s.async_get_ticket(hass2, t["id"]))["status"] == "resolved"
+    assert await sync(active=True, ignored=False, description="Update it.") == "reopened"
+    t = await s.async_get_ticket(hass2, t["id"])
+    assert t["status"] == "in_progress" and "no longer ignored" in t["events"][-1]["body"], t["events"][-1]["body"]
+    # a person who reopens it while the repair is still ignored is not fought
+    assert await sync(active=True, ignored=True, description="Update it.") == "resolved"
+    await s.async_update_ticket(hass2, t["id"], actor="simon", status="in_progress")
+    assert await sync(active=True, ignored=True, description="Update it.") is None
+    assert (await s.async_get_ticket(hass2, t["id"]))["status"] == "in_progress"
+    assert await sync(active=True, ignored=False, description="Update it.") is None  # un-ignored while open: nothing to do
     # HA clears the repair -> resolved with a note; clearing again does nothing
     assert await s.async_open_repair_keys(hass2) == [("hue", "old_fw")]
     assert await sync(active=False) == "resolved"
@@ -450,10 +456,22 @@ async def main():
     await s.async_sync_repair(hass2, domain="old", issue_id="x", active=True, title="old: x")
     [tk.pop("repair_title", None) for tk in FakeStore.saved["tickets"].values()]
     assert await s.async_sync_repair(hass2, domain="old", issue_id="x", active=True, title="Nicer title") == "updated"
-    # an ignored repair that is new starts out Blocked
-    assert await s.async_sync_repair(hass2, domain="x", issue_id="y", active=True, ignored=True, title="t") == "created"
+    # an ignored repair that is new gets no ticket
+    assert await s.async_sync_repair(hass2, domain="x", issue_id="y", active=True, ignored=True, title="t") is None
+    assert not any(x["source_key"] == "repair:x:y" for x in (await s.async_list_tickets(hass2, status="all"))["tickets"])
+    assert await s.async_sync_repair(hass2, domain="x", issue_id="y", active=True, title="t") == "created"
     y = next(x for x in (await s.async_list_tickets(hass2, status="all"))["tickets"] if x["source_key"] == "repair:x:y")
-    assert "blocked" in y["labels"]
+    # one ticket for several repairs of a kind: ignored ones aren't listed, and it resolves when all that are left are ignored
+    grp = lambda i, **kw: s.async_sync_repair(hass2, domain="px", issue_id=i, group="px_down", title="Node down", member=i, **kw)
+    assert await grp("a", active=True, ignored=True) is None, "an ignored repair alone makes no ticket"
+    assert await grp("b", active=True) == "created"
+    assert await grp("a", active=True, ignored=True) is None
+    g = next(x for x in (await s.async_list_tickets(hass2, status="all"))["tickets"] if x["source_key"] == "repair:px:px_down")
+    assert "a" not in (await s.async_get_ticket(hass2, g["id"]))["description"], "ignored repairs are not listed as affected"
+    assert await grp("b", active=False) == "resolved"
+    assert (await s.async_get_ticket(hass2, g["id"]))["resolution"].startswith("Ignored in Home Assistant")
+    assert await grp("a", active=True, ignored=False) == "reopened"
+    assert (await s.async_get_ticket(hass2, g["id"]))["status"] == "in_progress"
     # with "close straight away", a repair that clears is closed as well as resolved
     await s.async_save_settings(hass2, {"auto_close": "immediately"})
     assert await s.async_sync_repair(hass2, domain="x", issue_id="y", active=False) == "resolved"
@@ -471,6 +489,8 @@ async def main():
         ("hue", "old_fw"): FakeIssue("hue", "old_fw", severity="error", translation_key="old_fw",
                                     translation_placeholders={"name": "Lounge"}, learn_more_url="https://example.com/hue", is_fixable=True),
         ("hacs", "noisy"): FakeIssue("hacs", "noisy"),
+        ("hacs_x", "restart_required_foo"): FakeIssue("hacs_x", "restart_required_foo"),  # "restart required" notices are not problems
+        ("other", "r1"): FakeIssue("other", "r1", translation_key="restart_required"),
         ("zha", "gone"): FakeIssue("zha", "gone", active=False),  # persistent but not currently reported
     }
     # an old repair ticket whose repair vanished while HA was off must be resolved on start
@@ -480,7 +500,7 @@ async def main():
     await s.async_sync_repair(hass3, domain="zha", issue_id="gone", active=True, title="zha gone")
     stop = await repairs.async_setup_repairs(hass3, {"repairs_ignored_domains": ["hacs"]})
     tix = {x["source_key"]: x for x in (await s.async_list_tickets(hass3, status="all"))["tickets"]}
-    assert set(tix) == {"repair:hue:old_fw", "repair:mqtt:stale", "repair:zha:gone"}, set(tix)  # hacs skipped
+    assert set(tix) == {"repair:hue:old_fw", "repair:mqtt:stale", "repair:zha:gone"}, set(tix)  # hacs skipped, and so are the restart-required notices
     assert tix["repair:zha:gone"]["status"] == "new", "an inactive record in the registry is not a cleared repair"
     hue = await s.async_get_ticket(hass3, tix["repair:hue:old_fw"]["id"])
     assert hue["title"] == "Bridge Lounge needs an update" and hue["priority"] == "high", hue["title"]

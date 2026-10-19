@@ -81,10 +81,8 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 
 Small items first, after the usage reset:
 
-1. **Skip "restart required" repairs.** The HACS ones have ids starting `restart_required_` (about 150 old stubs in the registry). Skip any repair whose id or translation key is `restart_required`.
-2. **Treat a repair ignored in Home Assistant as resolved.** #226's four persistent Proxmox repairs load as active at every start (all four are dismissed) and keep reopening it. Resolve as "Ignored in Home Assistant", never reopen while ignored, reopen if un-ignored. Replaces the Blocked label for that case.
-3. **A distinct actor for the in-HA reviewer** in the stored data (`ai:AI Review`, with the model name in `data.agent`), so agents reading raw comments can't confuse it with the CLI's `ai:claude`. The panel label stays "AI Review (Claude)".
-4. **Document every service's parameters in the agent guide** (the CLI called `link_tickets` with `related_id`; the parameters are `ticket_id` and `other_id`).
+1. ~~Skip "restart required" repairs~~ and ~~treat an ignored repair as resolved~~: done 2026-10-19 (unreleased changelog).
+2. ~~Document every service's parameters in the agent guide~~: done 2026-10-19. Dropped: a distinct `ai:AI Review` actor for the in-HA reviewer (decided unnecessary now the guide says where the agent's queue is; review comments already carry `data.review`).
 
 ## 8. Gotchas
 

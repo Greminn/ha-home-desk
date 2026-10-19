@@ -88,10 +88,17 @@ async def _enabled(hass: HomeAssistant) -> bool:
     return bool((await async_get_settings(hass)).get("repairs", True))
 
 
+def _is_restart_required(issue_id: str, translation_key: str | None = None) -> bool:
+    """"Restart required" notices (HACS raises one per updated integration, ids like restart_required_<name>) say nothing is wrong."""
+    return issue_id.startswith("restart_required") or translation_key == "restart_required"
+
+
 async def _sync(hass: HomeAssistant, domain: str, issue_id: str, ignored_domains: set[str], *, how: str = "") -> None:
-    if domain in ignored_domains or not await _enabled(hass):
+    if domain in ignored_domains or _is_restart_required(issue_id) or not await _enabled(hass):
         return
     issue = ir.async_get(hass).async_get_issue(domain, issue_id)
+    if issue is not None and _is_restart_required(issue_id, issue.translation_key):
+        return
     try:
         if issue is None or not issue.active:
             await async_sync_repair(hass, domain=domain, issue_id=issue_id, active=False, how=how)

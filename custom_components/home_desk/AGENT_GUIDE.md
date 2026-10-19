@@ -34,17 +34,20 @@ All take an optional `actor`. **Always pass `actor` with your own name** (e.g. `
 | `update_ticket` | `ticket_id` plus only the fields to change: `status`, `priority`, `assignee`, `title`, `description`, `labels`, `add_labels`, `remove_labels`, `category` (empty to clear), `entities`. Each change is logged. |
 | `add_comment` | `ticket_id`, `body` (markdown), `internal` (true = private note; requesters can't see it). |
 | `close_ticket` | `ticket_id`, `resolution` (required), `status` (`resolved` default, or `closed`). |
-| `link_tickets` | Mark two tickets as related. |
+| `link_tickets` | Mark two tickets as related: `ticket_id` and `other_id` (both required). |
+| `merge_tickets` | Fold duplicates into one: `ticket_id` is the ticket to keep, `merge_ids` a list of the others (e.g. `[12, 15]`). Can't be undone; see Merging duplicates. |
 | `list_labels` | Every label with id, name, colour, description and ticket count. |
 | `create_label` | `name` (and optional `color`, `description`, `icon`). Check `list_labels` first so you don't add a near-duplicate. |
-| `update_label` | Rename a label or change its colour, icon or description; tickets keep it. The built-in labels can't be changed. |
-| `delete_label` | Only a label no ticket uses; one in use is refused (ask the manager to delete it in the panel). The built-in labels can't be deleted. |
+| `update_label` | `label` (name or id, required), then any of `name` (new name), `color`, `description`, `icon`; tickets keep the label. The built-in labels can't be changed. |
+| `delete_label` | `label` (name or id). Only a label no ticket uses; one in use is refused (ask the manager to delete it in the panel). The built-in labels can't be deleted. |
 | `list_categories` | Every category with id, name, icon and ticket count. |
 | `create_category` | `name` (and an optional `icon`). Check `list_categories` first. A ticket's `category` must exist, so create it before using it. |
-| `update_category` | Rename a category or change its icon. Home Assistant can't be changed. |
-| `delete_category` | Only a category no ticket uses; one in use is refused (ask the manager to delete it in the panel). |
+| `update_category` | `category` (name or id, required), then `name` (new name) and/or `icon`. Home Assistant can't be changed. |
+| `delete_category` | `category` (name or id). Only a category no ticket uses; one in use is refused (ask the manager to delete it in the panel). |
 | `get_stats` | Counts by status, urgent, unassigned and with-AI-agent counts, active tickets with no category, and the labels and categories with their counts. |
-| `import_file` | Admin: bulk import from a JSON file inside the config directory. Not for routine use. |
+| `import_file` | Admin: `path` to a JSON file inside the config directory. Not for routine use. |
+| `get_guide` | This guide. No parameters. |
+| `get_changelog` | The installed version and what changed, with any **Action:** or **Breaking:** notes. `since` (the last version you reviewed) returns only newer releases; check after Home Desk is updated. |
 
 ## How to work tickets well
 

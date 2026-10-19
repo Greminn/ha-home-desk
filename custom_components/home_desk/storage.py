@@ -1126,9 +1126,27 @@ def _affected_text(members: list[dict[str, Any]]) -> str:
     return f"**Affected ({len(members)}):**\n" + "\n".join(f"- {m['name']}" for m in members)
 
 
+def _resolve_ignored(data: dict[str, Any], ticket: dict[str, Any]) -> str | None:
+    """Resolve a repair ticket because the repair is ignored in Home Assistant. Done once per ignoring: if a person reopens the
+    ticket while the repair is still ignored, it is left open. Returns "resolved" if it resolved the ticket."""
+    if ticket.get("repair_ignored"):
+        return None
+    ticket["repair_ignored"] = True
+    if ticket["status"] not in ACTIVE_STATUSES:
+        return None
+    resolution = "Ignored in Home Assistant: this repair was dismissed there, so nothing is waiting on it."
+    fields: dict[str, Any] = {"status": "resolved", "resolution": resolution}
+    if ticket.get("repair_blocked"):
+        fields["remove_labels"] = [BLOCKED_LABEL_ID]
+        ticket["repair_blocked"] = False
+    _apply_update(data, ticket, REPAIR_ACTOR, fields)
+    _event(ticket, REPAIR_ACTOR, "comment", f"**Resolution:** {resolution}")
+    return "resolved"
+
+
 def _group_fields(ticket: dict[str, Any]) -> dict[str, Any]:
-    """The title, description and Blocked label a ticket for several repairs should have right now."""
-    active = [m for m in ticket["repair_members"].values() if m["active"]]
+    """The title and description a ticket for several repairs should have right now. Ignored repairs aren't listed."""
+    active = [m for m in ticket["repair_members"].values() if m["active"] and not m["ignored"]]
     fields: dict[str, Any] = {}
     if not active:
         return fields
@@ -1143,11 +1161,7 @@ def _group_fields(ticket: dict[str, Any]) -> dict[str, Any]:
         text = f"{base}\n\n{_affected_text(active)}" if len(active) > 1 else base
         if text != ticket["description"]:
             fields["description"] = text
-    all_ignored = all(m["ignored"] for m in active)
-    if all_ignored and BLOCKED_LABEL_ID not in ticket["labels"]:
-        fields["add_labels"] = [BLOCKED_LABEL_ID]
-        ticket["repair_blocked"] = True
-    elif not all_ignored and ticket.get("repair_blocked"):
+    if ticket.get("repair_blocked"):  # older tickets: ignoring used to add Blocked
         fields["remove_labels"] = [BLOCKED_LABEL_ID]
         ticket["repair_blocked"] = False
     return fields
@@ -1177,12 +1191,17 @@ def _sync_member(
             _event(ticket, REPAIR_ACTOR, "comment", f"**Resolution:** {resolution}")
             return "resolved"
         _event(ticket, REPAIR_ACTOR, "comment", f"{cur['name']} has cleared. Still affected: {', '.join(m['name'] for m in still)}.")
+        if all(m["ignored"] for m in still):
+            return _resolve_ignored(data, ticket) or "updated"
         fields = _group_fields(ticket)
         if fields:
             _apply_update(data, ticket, REPAIR_ACTOR, fields)
         return "updated"
-    appeared = cur is None or not cur["active"]
+    appeared = (cur is None or not cur["active"] or cur["ignored"]) and not ignored
     members[mk] = _member(domain, issue_id, title, True, name=name, ignored=ignored)
+    if all(m["ignored"] for m in members.values() if m["active"]):
+        return _resolve_ignored(data, ticket)
+    unignored = ticket.pop("repair_ignored", None)
     was_closed = ticket["status"] in ("resolved", "closed")
     others = [m for k, m in members.items() if k != mk and m["active"]]
     fields = _group_fields(ticket)
@@ -1193,8 +1212,8 @@ def _sync_member(
         fields["priority"] = priority
     changed = _apply_update(data, ticket, REPAIR_ACTOR, fields) if fields else False
     if was_closed:
-        _event(ticket, REPAIR_ACTOR, "comment",
-               f"Home Assistant is reporting this repair again ({name}), so the ticket was reopened.")
+        why = f"{name} is no longer ignored in Home Assistant" if unignored else f"Home Assistant is reporting this repair again ({name})"
+        _event(ticket, REPAIR_ACTOR, "comment", f"{why}, so the ticket was reopened.")
         return "reopened"
     if appeared and others:
         _event(ticket, REPAIR_ACTOR, "comment", f"Also affected: {name}.")
@@ -1225,9 +1244,11 @@ async def async_sync_repair(
 
     One ticket per repair, found by its source key, so this is safe to call as often as
     you like. A new active repair opens a ticket; a repair that comes back after its ticket
-    was closed reopens it; a repair that clears resolves it; an ignored repair gets the
-    Blocked label while it is ignored. Returns what happened ("created", "reopened",
+    was closed reopens it; a repair that clears resolves it. Returns what happened ("created", "reopened",
     "updated", "resolved") or None if nothing changed.
+
+    A repair that is ignored in Home Assistant counts as resolved: an open ticket for it is resolved
+    ("Ignored in Home Assistant"), one is never opened for it, and it reopens if the repair is no longer ignored.
     """
     key = repair_key(domain, group or issue_id)
     kind: str | None = None
@@ -1236,6 +1257,7 @@ async def async_sync_repair(
         ticket = _find_by_source_key(data, key)
         if ticket is None and not group:
             ticket = _find_by_member(data, domain, issue_id)  # a clear: found through the group it joined
+        ignored_before = ticket.get("repair_ignored") if ticket else None
         if group:
             # Tickets made before grouping, one per repair: the first becomes the group's ticket and any
             # other open one for the same kind is merged into it.
@@ -1262,9 +1284,11 @@ async def async_sync_repair(
                 ticket["updated_at"] = _now()
                 await _save(hass, data)
                 _fire(hass, ticket, "closed" if kind == "resolved" else "updated", REPAIR_ACTOR)
+            elif ignored or ticket.get("repair_ignored") != ignored_before:
+                await _save(hass, data)  # the member list (or the ignored mark) changed even though nothing needs saying
             return kind
         if ticket is None:
-            if not active:
+            if not active or ignored:
                 return None
             ticket = _new_ticket(
                 data,
@@ -1278,9 +1302,6 @@ async def async_sync_repair(
                 source_key=key,
                 actor=REPAIR_ACTOR,
             )
-            if ignored:
-                _apply_update(data, ticket, REPAIR_ACTOR, {"add_labels": [BLOCKED_LABEL_ID]})
-                ticket["repair_blocked"] = True
             ticket["repair_title"] = ticket["title"]
             if group:
                 ticket["repair_members"] = {
@@ -1289,8 +1310,13 @@ async def async_sync_repair(
                 ticket["repair_base"] = description
                 ticket["repair_generic"] = generic_title or ticket["title"]
             kind = "created"
+        elif active and ignored:
+            kind = _resolve_ignored(data, ticket)
+            if not kind and ticket.get("repair_ignored") != ignored_before:
+                await _save(hass, data)
         elif active:
             changed = False
+            unignored = ticket.pop("repair_ignored", None)
             was_closed = ticket["status"] in ("resolved", "closed")
             fields: dict[str, Any] = {}
             # Keep the title in step with Home Assistant's text, unless a person has renamed the ticket.
@@ -1303,20 +1329,19 @@ async def async_sync_repair(
                 fields["status"] = "in_progress"
             if description and description != ticket["description"]:
                 fields["description"] = description
-            if ignored and BLOCKED_LABEL_ID not in ticket["labels"]:
-                fields["add_labels"] = [BLOCKED_LABEL_ID]
-                ticket["repair_blocked"] = True
-            elif not ignored and ticket.get("repair_blocked"):
+            if ticket.get("repair_blocked"):  # older tickets: ignoring used to add Blocked
                 fields["remove_labels"] = [BLOCKED_LABEL_ID]
                 ticket["repair_blocked"] = False
             if fields:
                 changed = _apply_update(data, ticket, REPAIR_ACTOR, fields)
             if was_closed:
-                _event(ticket, REPAIR_ACTOR, "comment",
-                       "Home Assistant is reporting this repair again, so the ticket was reopened.")
+                why = "The repair is no longer ignored in Home Assistant" if unignored else "Home Assistant is reporting this repair again"
+                _event(ticket, REPAIR_ACTOR, "comment", f"{why}, so the ticket was reopened.")
                 kind = "reopened"
             elif changed:
                 kind = "updated"
+            elif unignored:
+                await _save(hass, data)
         elif ticket["status"] in ACTIVE_STATUSES:
             resolution = f"Cleared by Home Assistant: this repair is no longer reported{how}."
             _apply_update(data, ticket, REPAIR_ACTOR, {"status": "resolved", "resolution": resolution})
