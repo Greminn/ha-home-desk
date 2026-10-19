@@ -203,7 +203,7 @@ const ACTIVITY_VERB: Record<string, string> = {
 /** What someone did, in words: "commented", "changed the status". */
 export const activityVerb = (kind: string): string => ACTIVITY_VERB[kind] ?? "updated it";
 
-/** What "Assign to AI Agent" stores: any AI the person runs themselves (their own CLI, a desktop app), so it names none. */
+/** What "Queue for AI Agent" stores: any AI the person runs themselves (their own CLI, a desktop app), so it names none. */
 export const AI_ASSIGNEE = "ai:AI";
 
 /** How an assignee reads: a person by name, any AI as just "AI". */

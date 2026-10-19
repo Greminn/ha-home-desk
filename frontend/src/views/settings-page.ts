@@ -330,7 +330,7 @@ export class SettingsPage extends LitElement {
         <div class="srow">
           <div class="text">
             <div class="name">AI for review</div>
-            <div class="desc">Which AI set up in Home Assistant answers <b>Review with AI</b> on a ticket: what it thinks is going on and what to try. It can't change anything. <b>Assign to AI Agent</b> is separate: that only assigns the ticket to an AI agent you run yourself (such as your Claude CLI or Gemini Antigravity) and sends nothing anywhere.</div>
+            <div class="desc">Which AI set up in Home Assistant answers <b>Review with AI</b> on a ticket: what it thinks is going on and what to try. It can't change anything. <b>Queue for AI Agent</b> is separate: that only marks the ticket for an AI agent you run yourself (such as your Claude CLI or Gemini Antigravity) and sends nothing anywhere.</div>
           </div>
           <st-dropdown plain field label="AI for review" .value=${s.agent} .options=${agents}
             @change=${(e: CustomEvent<string>) => void this._save({ agent: e.detail })}></st-dropdown>

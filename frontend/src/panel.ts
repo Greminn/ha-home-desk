@@ -567,7 +567,7 @@ export class HomeDeskPanel extends LitElement {
     return filterCount(this._filters);
   }
 
-  /** What "Assign to AI Agent" stores: any AI the person runs themselves, so no particular name. */
+  /** What "Queue for AI Agent" stores: any AI the person runs themselves, so no particular name. */
   private get _agentName(): string {
     return AI_ASSIGNEE;
   }

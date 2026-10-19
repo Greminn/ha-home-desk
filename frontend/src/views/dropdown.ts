@@ -65,6 +65,10 @@ export class Dropdown extends LitElement {
         flex: none;
         color: var(--st-fg-secondary);
       }
+      button.dd ha-icon.lead {
+        margin-left: -4px;
+        color: inherit;
+      }
       .backdrop {
         position: fixed;
         inset: 0;
@@ -118,6 +122,10 @@ export class Dropdown extends LitElement {
   @property() placeholder = "";
   /** A value picker (status, priority), not a filter: no highlight when something is chosen. */
   @property({ type: Boolean }) plain = false;
+  /** Drawn as active whatever the value (an action menu whose state is shown in its label). */
+  @property({ type: Boolean }) active = false;
+  /** An icon before the label (an mdi icon name). */
+  @property() icon = "";
   /** Drawn as a filled field (a grey box with a line under it), for settings. */
   @property({ type: Boolean, reflect: true }) field = false;
   /** Open the menu above the button instead of below it. */
@@ -150,10 +158,10 @@ export class Dropdown extends LitElement {
   override render() {
     const current = this.options.find((o) => o.id === this.value) ?? this.options[0];
     return html`
-      <button class="dd ${this.value && !this.plain ? "active" : ""}" aria-haspopup="listbox" aria-expanded=${this._open}
+      <button class="dd ${this.active || (this.value && !this.plain) ? "active" : ""}" aria-haspopup="listbox" aria-expanded=${this._open}
         aria-label=${this.label} @click=${(e: Event) => this._toggle(e)}
         @keydown=${(e: KeyboardEvent) => e.key === "Escape" && (this._open = false)}>
-        <span>${!this.value && this.placeholder ? this.placeholder : current?.label ?? ""}</span><ha-icon icon="mdi:menu-down"></ha-icon>
+        ${this.icon ? html`<ha-icon class="lead" icon=${this.icon}></ha-icon>` : nothing}<span>${!this.value && this.placeholder ? this.placeholder : current?.label ?? ""}</span><ha-icon icon="mdi:menu-down"></ha-icon>
       </button>
       ${this._open
         ? html`<button class="backdrop" tabindex="-1" aria-label="Close" @click=${() => (this._open = false)}></button>

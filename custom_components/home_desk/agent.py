@@ -1,6 +1,6 @@
 """The built-in AI: "Review with AI" asks the AI integration chosen in Settings to review a ticket.
 
-This is separate from **Assign to AI Agent**, which only tags a ticket for an AI the person runs themselves (their own Claude
+This is separate from **Queue for AI Agent**, which only tags a ticket for an AI the person runs themselves (their own Claude
 CLI, Claude Desktop or anything else) and sends nothing anywhere. A review sends the ticket to the AI Task entity
 (for example Claude's) and posts its answer as a comment. It never changes the assignee, so a ticket queued for the person's own
 AI stays queued. It has no tools and no memory, so Home Desk gives it what it needs (agent_context.py); it can explain and advise

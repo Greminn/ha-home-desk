@@ -688,53 +688,9 @@ export class TicketDetail extends LitElement {
         flex-wrap: wrap;
         gap: 6px;
       }
-      .assign-chip {
-        height: 32px;
-        padding: 0 12px 0 4px;
-        gap: 6px;
-        border: 1px solid var(--st-outline);
-        border-radius: var(--st-r-pill);
-        background: transparent;
-        color: var(--st-fg-secondary);
-        font-size: var(--st-fs-body);
-        font-weight: 400;
-      }
-      .assign-chip ha-icon {
-        --mdc-icon-size: 24px;
-      }
-      .assign-chip img {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        object-fit: cover;
-      }
-      .assign-chip:hover {
-        color: var(--st-fg);
-        border-color: var(--st-field-outline-hover);
-      }
-      /* "Ask now" runs the AI straight away, which costs; "Assign to" only hands the ticket over for later. */
-      .ask-chip {
-        color: var(--st-accent);
-        border-color: color-mix(in srgb, var(--st-accent) 50%, transparent);
-      }
-      .ask-chip:hover {
-        color: var(--st-accent);
-        background: color-mix(in srgb, var(--st-accent) 10%, transparent);
-        border-color: var(--st-accent);
-      }
-      /* Has it now: filled quietly. Picked to take it: accent. Picked to unassign: dashed. */
-      .assign-chip.current {
-        color: var(--st-fg);
-        background: color-mix(in srgb, var(--st-fg) 10%, transparent);
-      }
-      .assign-chip.picked {
-        color: var(--st-accent);
-        border-color: var(--st-accent);
-        background: color-mix(in srgb, var(--st-accent) 14%, transparent);
-      }
-      .assign-chip.dropping {
-        color: var(--st-fg-secondary);
-        border-style: dashed;
+      /* The AI Action menu: the same height as the priority pills beside it. */
+      st-dropdown.ai-action {
+        --st-h-bar: 32px;
       }
       /* Handing a ticket to the AI Agent matters, so its button also carries the agent's spark icon. */
       .composer button.primary {
@@ -754,8 +710,7 @@ export class TicketDetail extends LitElement {
         justify-content: flex-end;
       }
       /*
-       * The composer reacts to its own width, not the window's. Narrower than a desktop pane the chip loses the
-       * word "Assign to" (its tooltip and label still say it) and the divider after the priority icons goes, so
+       * The composer reacts to its own width, not the window's. Narrower than a desktop pane, the divider after the priority icons goes, so
        * everything stays on one line. On a phone the options sit on one line and the buttons stack full width
        * beneath, with their labels centred.
        */
@@ -763,9 +718,6 @@ export class TicketDetail extends LitElement {
         container-type: inline-size;
       }
       @container (max-width: 860px) {
-        .composer .verb {
-          display: none;
-        }
         .composer .prio-group {
           border-right: 0;
           padding-right: 0;
@@ -775,9 +727,6 @@ export class TicketDetail extends LitElement {
         .composer .bar {
           flex-direction: column;
           align-items: stretch;
-        }
-        .composer .verb {
-          display: inline;
         }
         .composer .acts button {
           flex: 1 1 100%;
@@ -829,7 +778,7 @@ export class TicketDetail extends LitElement {
   /** Collapsing moves the content and can trigger scroll events of its own; ignore them for a moment. */
   private _descSettle = 0;
   /**
-   * The "Assign to AI Agent" switch in the comment box: null while untouched (so it follows the default), then
+   * The "Queue for AI Agent" choice in the AI Action menu: null while untouched (so it follows the default), then
    * true or false once the admin clicks it. Nothing is sent until the main button is pressed.
    */
   @state() private _agentToggle: boolean | null = null;
@@ -1018,35 +967,36 @@ export class TicketDetail extends LitElement {
     return !!this._comment.trim() || this._agentApplies(t) || !!this._priorityTo;
   }
 
-  /** "Ask now": the built-in AI agent reads the ticket and replies at once. The panel confirms first, because it costs. */
-  private _askChip(t: Ticket) {
-    if (!this.canAsk || t.agent_state) return nothing;
-    const tip = "Have the AI chosen in Settings review this ticket: what it thinks is going on and what to try. It can't change anything, it leaves Assign to AI Agent as it is, and it uses your AI plan.";
-    return html`<button class="assign-chip ask-chip" aria-label="Review with AI" title=${tip}
-      @click=${() => this._fire("ask-ai", { body: this._comment.trim(), done: () => { this._comment = ""; this._agentToggle = null; } })}>
-      <ha-icon icon="mdi:star-four-points"></ha-icon><span>Review<span class="verb"> with AI</span></span></button>`;
-  }
-
-  private _agentChip(t: Ticket) {
+  /**
+   * One "AI Action" menu in place of separate buttons: Queue (tags the ticket for an AI you run yourself, applied with the
+   * main button, free) and Review (asks the AI chosen in Settings at once and uses your AI plan, so the panel confirms).
+   * Run AI Agent Now will join it when it exists. Clicking only opens the menu, so a stray click spends nothing.
+   */
+  private _aiAction(t: Ticket) {
     const on = this._agentOn(t);
     const now = this._withAgent(t);
-    const title = now
-      ? on ? "Assigned to an AI agent. Click to take it off." : "It will be taken off the AI agent. Click to keep it."
-      : on ? "Will be assigned to an AI agent. Click to switch off."
-        : "Assign this ticket to an AI agent you run yourself (your Claude CLI, Gemini Antigravity or anything else). Nothing is sent anywhere.";
-    return html`<button class="assign-chip ${now && on ? "current" : ""} ${on && !now ? "picked" : ""} ${now && !on ? "dropping" : ""}"
-      aria-pressed=${on ? "true" : "false"} aria-label="Assign to AI Agent" title=${title}
-      @click=${() => (this._agentToggle = !on)}><ha-icon icon="mdi:creation"></ha-icon><span><span class="verb">Assign to </span>AI Agent</span></button>`;
+    const options = [{ id: "queue", label: on ? "Remove from AI Agent Queue" : "Queue for AI Agent" }];
+    if (this.canAsk && !t.agent_state) options.push({ id: "review", label: "Review with AI" });
+    const state = now && !on ? ": Remove" : on ? ": Queue" : "";
+    const pick = (e: CustomEvent<string>) => {
+      if (e.detail === "queue") this._agentToggle = !on;
+      else if (e.detail === "review") {
+        this._fire("ask-ai", { body: this._comment.trim(), done: () => { this._comment = ""; this._agentToggle = null; } });
+      }
+    };
+    return html`<st-dropdown class="ai-action" up plain ?active=${on !== now || on} icon="mdi:creation" label="AI Action"
+      placeholder=${`AI Action${state}`} .options=${options} value="" @change=${pick}
+      title="Queue the ticket for an AI you run yourself (nothing is sent anywhere), or have the AI chosen in Settings review it (it can't change anything and uses your AI plan)."></st-dropdown>`;
   }
 
   /**
-   * What the main button does. With a comment typed it is "Comment", plus "and Assign to AI Agent" when the
+   * What the main button does. With a comment typed it is "Comment", plus "and Queue for AI Agent" when the
    * hand-over goes with it; a priority change shows on its own icon, so it adds no words. With nothing typed it
    * names the one thing it will do, or "Update" for both.
    */
   private _submitLabel(t: Ticket) {
     const agent = this._agentApplies(t);
-    const agentWords = this._agentOn(t) ? "Assign to AI Agent" : "Unassign from AI Agent";
+    const agentWords = this._agentOn(t) ? "Queue for AI Agent" : "Remove from AI Agent Queue";
     if (this._comment.trim()) return agent ? `Comment and ${agentWords}` : "Comment";
     if (agent && this._priorityTo) return "Update";
     if (agent) return agentWords;
@@ -1103,7 +1053,7 @@ export class TicketDetail extends LitElement {
       case "priority":
         return `changed priority from ${show(d.from)} to ${show(d.to)}`;
       case "assignee":
-        return d.to ? `assigned this to ${isAgent(String(d.to)) ? "an AI Agent" : assigneeName(String(d.to))}` : "took the AI Agent off this";
+        return d.to ? `${isAgent(String(d.to)) ? "queued this for an AI Agent" : `assigned this to ${assigneeName(String(d.to))}`}` : "took this off the AI Agent queue";
       case "link":
         return `linked ticket #${String(d.to)}`;
       case "merge":
@@ -1386,7 +1336,7 @@ export class TicketDetail extends LitElement {
           <div class="bar">
             <div class="opts">
               ${this.isAdmin
-                ? html`${this._agentChip(t)}${this._askChip(t)}
+                ? html`${this._aiAction(t)}
                     ${this._priorityPills(t)}`
                 : nothing}
             </div>
