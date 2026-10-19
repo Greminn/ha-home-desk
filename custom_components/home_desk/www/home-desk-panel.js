@@ -2125,6 +2125,12 @@ ${e.related?.length?B`<div class="chips"><span class="sect">Related</span>${e.re
         margin-left: 4px;
         opacity: 0.7;
       }
+      /* In the narrow history list every entry is the same two lines, what changed and then who and when, so nothing wraps differently. */
+      .history .ev.system .line {
+        flex-direction: column;
+        justify-content: flex-start;
+        gap: 2px;
+      }
       .ev .label {
         margin-left: 6px;
         padding: 0 6px;
