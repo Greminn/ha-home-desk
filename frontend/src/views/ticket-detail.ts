@@ -641,11 +641,9 @@ export class TicketDetail extends LitElement {
         gap: 8px;
         margin-top: 8px;
       }
-      /* The priority pills sit after the assign chips, set off by a thin line. */
+      /* Queue and the priority pills sit together, set off from Resolve and Comment by a thin line. */
       .prio-group {
-        margin-left: 6px;
-        padding: 0 12px;
-        border-left: 1px solid var(--st-divider);
+        padding: 0 12px 0 0;
         border-right: 1px solid var(--st-divider);
       }
       /*
@@ -695,6 +693,7 @@ export class TicketDetail extends LitElement {
       }
       /* AI Action: one pill, a label and a segment for each thing it can do, the same height as the priority pills beside it. */
       .ai-action {
+        margin-right: auto; /* pushes everything else to the right: AI Action sits at the left edge of the bar */
         display: inline-flex;
         align-items: stretch;
         height: 32px;
@@ -733,7 +732,7 @@ export class TicketDetail extends LitElement {
         display: inline-flex;
         gap: 6px;
       }
-      /* Queue for AI Agent, beside the priority icons. With the agent now: a quiet fill. Picked to queue on send: accent. Picked to take off: dashed. */
+      /* Queue for AI Agent, beside the priority icons: highlighted while it is queued or picked to be; it reads "Queued" only once the ticket really is (not while picked, before the main button is pressed); dashed while it is picked to be taken off. */
       .queue-chip {
         height: 32px;
         padding: 0 12px 0 4px;
@@ -752,11 +751,7 @@ export class TicketDetail extends LitElement {
         color: var(--st-fg);
         border-color: var(--st-field-outline-hover);
       }
-      .queue-chip.current {
-        color: var(--st-fg);
-        background: color-mix(in srgb, var(--st-fg) 10%, transparent);
-      }
-      .queue-chip.picked {
+      .queue-chip.on {
         color: var(--st-accent);
         border-color: var(--st-accent);
         background: color-mix(in srgb, var(--st-accent) 14%, transparent);
@@ -1050,9 +1045,9 @@ export class TicketDetail extends LitElement {
       ? on ? "Queued for an AI agent you run yourself. Click to take it off the queue." : "It will be taken off the AI agent queue. Click to keep it."
       : on ? "Will be queued for an AI agent. Click to switch off."
         : "Queue this ticket for an AI agent you run yourself (your Claude CLI, Gemini Antigravity or anything else). Nothing is sent anywhere.";
-    return html`<button class="queue-chip ${now && on ? "current" : ""} ${on && !now ? "picked" : ""} ${now && !on ? "dropping" : ""}"
-      aria-pressed=${on ? "true" : "false"} aria-label="Queue for AI Agent" title=${title}
-      @click=${() => (this._agentToggle = !on)}><ha-icon icon="mdi:creation"></ha-icon><span>Queue<span class="verb"> for AI Agent</span></span></button>`;
+    return html`<button class="queue-chip ${on ? "on" : ""} ${now && !on ? "dropping" : ""}"
+      aria-pressed=${on ? "true" : "false"} aria-label=${now ? "Queued for AI Agent" : "Queue for AI Agent"} title=${title}
+      @click=${() => (this._agentToggle = !on)}><ha-icon icon="mdi:creation"></ha-icon><span>${now ? "Queued" : "Queue"}<span class="verb"> for AI Agent</span></span></button>`;
   }
 
   /**
@@ -1443,10 +1438,10 @@ export class TicketDetail extends LitElement {
           <textarea rows="2" placeholder="Add a comment" .value=${this._comment}
             @input=${(e: Event) => (this._comment = (e.target as HTMLTextAreaElement).value)}></textarea>
           <div class="bar">
+            ${this.isAdmin ? this._aiAction(t) : nothing}
             <div class="opts">
               ${this.isAdmin
-                ? html`${this._aiAction(t)}
-                    ${done ? nothing : html`<div class="assign prio-group" role="group" aria-label="Queue and priority">${this._queueChip(t)}${this._priorityPills(t)}</div>`}`
+                ? html`${done ? nothing : html`<div class="assign prio-group" role="group" aria-label="Queue and priority">${this._queueChip(t)}${this._priorityPills(t)}</div>`}`
                 : nothing}
             </div>
             <div class="acts">
