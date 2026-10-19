@@ -127,7 +127,19 @@ function seed() {
       "**Things to check, in order**\n\n- Whether `input_boolean.heating_manual_override` still exists (Settings, Devices & services, Helpers).\n- Whether the dial actually reports a change to Home Assistant when it is turned by hand, or only the app does.\n- The automation's trace for the last few runs, to confirm it is the one setting the temperature.\n- Whether anything else sets `climate.upstairs`, such as the away-mode scene or the voice routine.",
       "I do not want the schedule removed. The point is for the house to heat itself, and for a person to be able to say \"warmer, now\" and have it stay that way until the next scheduled change. If the fix is complicated, please propose it first and tell me which helpers or automations it touches before changing anything, because this is the heating and it should not be left in a half-working state overnight.",
     ].join("\n\n") },
-    [["claude", "The `Heating schedule` automation has no override condition (it was removed in the helper tidy-up on 12 Oct). Proposing to restore it; nothing changed yet.", 3 * HOUR]]);
+    [
+      ["Simon", "Still happening this morning: set it to 21 at 06:40 and it was back to 17 by 06:45.", 4 * DAY],
+      ["claude", "Looked at the traces: `Heating schedule` fired at 06:45 and set 17°C. Nothing else touched the thermostat between 06:40 and 06:45.", 4 * DAY - HOUR],
+      ["Simon", "That matches. Does the automation have any condition at all?", 4 * DAY - 2 * HOUR],
+      ["claude", "No. The only condition it used to have was on `input_boolean.heating_manual_override`, and that helper no longer exists.", 3 * DAY],
+      ["Simon", "I deleted a bunch of unused helpers on the 12th. That must have been one of them.", 3 * DAY - HOUR],
+      ["claude", "Yes: the helper registry shows it was removed on 12 Oct at 21:14. The automation kept running because a missing condition entity counts as true.", 2 * DAY],
+      ["Simon", "OK. Can you propose a fix that doesn't need a new helper?", 2 * DAY - HOUR],
+      ["claude", "One option: use the thermostat's own `preset_mode`. A manual change sets it to `manual`, and the schedule only acts when it is `schedule`. It needs no helper, but the dial must report the preset, which I have not verified yet.", 30 * HOUR],
+      ["Simon", "Check that the dial reports it before we change anything.", 29 * HOUR],
+      ["claude", "Checked: turning the dial changes `preset_mode` to `manual` within two seconds, and the wall app does the same. Both are reported to Home Assistant.", 6 * HOUR],
+      ["claude", "The `Heating schedule` automation has no override condition (it was removed in the helper tidy-up on 12 Oct). Proposing to restore it; nothing changed yet.", 3 * HOUR],
+    ]);
   const categories = {};
   for (const [id, name, icon, builtin] of CATEGORIES) categories[id] = { id, name, icon, builtin };
   for (const t of Object.values(tickets)) {

@@ -35,6 +35,11 @@ import { renderMarkdown } from "../markdown";
 const LONG_DESCRIPTION = 1800;
 
 /** Right-hand pane: one ticket with its controls, description and timeline. */
+/** The height of the pinned description once it is folded to one line. */
+const DESC_ONE_LINE = 56;
+/** The room kept between the squeezed description and the Comments heading below it. */
+const DESC_GAP = 24;
+
 @safeCustomElement("st-ticket-detail")
 export class TicketDetail extends LitElement {
   static override styles = [
@@ -143,8 +148,8 @@ export class TicketDetail extends LitElement {
         padding: var(--wrap-top) 18px 12px;
       }
       /*
-       * A description of more than a couple of lines is pinned at the top as you scroll, and shrinks as you go
-       * until it is one line ending in an ellipsis (the panel sets its height from the scroll position).
+       * A description of more than a couple of lines is pinned at the top as you scroll, and shrinks at the same rate as you
+       * scroll until it is one line ending in an ellipsis (the panel sets its height from the scroll position).
        */
       .desc-sticky {
         position: sticky;
@@ -155,6 +160,11 @@ export class TicketDetail extends LitElement {
         padding-top: var(--wrap-top);
         overflow: hidden;
         background: var(--st-selected-soft, var(--st-surface));
+      }
+      /* While it is being squeezed, its bottom edge fades out instead of cutting a line of text in half. */
+      .desc-sticky.shrunk {
+        -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+        mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
       }
       .desc-sticky.one {
         cursor: pointer;
@@ -177,7 +187,7 @@ export class TicketDetail extends LitElement {
         margin: 0;
       }
       .desc-sticky.one .more,
-      .desc-sticky.one .entities,
+      .desc-sticky.one .about,
       .desc-sticky.one .attached {
         display: none;
       }
@@ -906,10 +916,8 @@ export class TicketDetail extends LitElement {
   @state() private _showHistory = false;
   /** A long description collapses to one line as soon as the ticket is scrolled, and opens again at the top. */
   @state() private _descCollapsed = false;
-  /** The description's natural height, measured while it is open. */
+  /** The description's natural height, measured while it is not folded to one line. */
   private _descFull = 0;
-  /** Collapsing moves the content and can trigger scroll events of its own; ignore them for a moment. */
-  private _descSettle = 0;
   /**
    * The "Queue for AI Agent" choice beside the priority icons: null while untouched (so it follows the ticket), then true or
    * false once the admin clicks it. Like a priority, nothing is sent until the main button is pressed.
@@ -950,28 +958,39 @@ export class TicketDetail extends LitElement {
     }
   }
 
-  /** Collapse a long description to one line on the first scroll; open it again on a return to the top. */
+  /**
+   * The pinned description shrinks at the same rate as the thread scrolls, until it is one line ending in an ellipsis, and
+   * opens out again as you scroll back up. Its height follows the scroll position, and the space it gives up is added
+   * back below it, so the page keeps its length and the comments move at the speed of the scroll, right under its bottom edge.
+   */
   private _onScroll(e: Event) {
-    if (Date.now() < this._descSettle || this._descFull <= 56) return;
-    const area = e.currentTarget as HTMLElement;
-    const top = area.scrollTop;
-    // Collapsing shortens the page by the description's folded height. If that would leave the thread too short to scroll,
-    // the page would jump up, expand again at the top, and so flick back and forth: leave a short thread alone.
-    const spare = area.scrollHeight - area.clientHeight - (this._descFull - 56);
-    if (!this._descCollapsed && top > 4 && spare > 40) this._setDescCollapsed(true);
-    else if (this._descCollapsed && top <= 0) this._setDescCollapsed(false);
+    this._shrinkDescription((e.currentTarget as HTMLElement).scrollTop);
+  }
+
+  private _shrinkDescription(scrollTop: number) {
+    const block = this.renderRoot.querySelector<HTMLElement>(".desc-sticky");
+    if (!block) return;
+    const full = this._descFull;
+    if (full <= DESC_ONE_LINE || scrollTop <= 0) {
+      block.style.height = "";
+      block.style.marginBottom = "";
+      block.classList.remove("shrunk");
+      if (this._descCollapsed) this._descCollapsed = false;
+      return;
+    }
+    const height = Math.max(DESC_ONE_LINE, full - scrollTop);
+    block.style.height = `${height}px`;
+    // A little extra room (eased in over the first few pixels, so nothing jumps) keeps the cropped edge off the Comments heading.
+    block.style.marginBottom = `${full - height + Math.min(DESC_GAP, scrollTop)}px`;
+    const one = height <= DESC_ONE_LINE;
+    block.classList.toggle("shrunk", !one);
+    if (one !== this._descCollapsed) this._descCollapsed = one;
   }
 
   private _expandDescription = () => {
     if (!this._descCollapsed) return;
-    this._setDescCollapsed(false);
     this.renderRoot.querySelector<HTMLElement>(".scroll")?.scrollTo({ top: 0 });
   };
-
-  private _setDescCollapsed(on: boolean) {
-    this._descCollapsed = on;
-    this._descSettle = Date.now() + 400;
-  }
 
   /** Where to scroll the ticket after the next render: a new ticket starts at the top, new comments at the end. */
   private _scrollTo: "top" | "bottom" | null = null;
@@ -1028,8 +1047,9 @@ export class TicketDetail extends LitElement {
     const box = this.renderRoot.querySelector<HTMLTextAreaElement>("textarea.title-edit");
     if (box) this._fitTitle(box);
     if (!this._descCollapsed) {
-      const card = this.renderRoot.querySelector<HTMLElement>(".desc-sticky .card");
-      this._descFull = card ? card.offsetHeight : 0;
+      // The block's natural height, whatever height the scroll has squeezed it to (scrollHeight is the whole content).
+      const block = this.renderRoot.querySelector<HTMLElement>(".desc-sticky");
+      this._descFull = block ? block.scrollHeight : 0;
     }
     if (this._scrollTo) {
       const area = this.renderRoot.querySelector<HTMLElement>(".scroll");
@@ -1037,6 +1057,9 @@ export class TicketDetail extends LitElement {
       this._scrollTo = null;
       area?.scrollTo({ top: to === "top" ? 0 : area.scrollHeight, behavior: to === "top" ? "auto" : "smooth" });
     }
+    // The description or the pane may have changed size under a half-shrunk block (Show All, a resize): fit it again.
+    const scroller = this.renderRoot.querySelector<HTMLElement>(".scroll");
+    if (scroller) this._shrinkDescription(scroller.scrollTop);
   }
 
   private _fire(name: string, detail?: unknown) {
