@@ -1,32 +1,34 @@
 ---
-title: Using AI with Home Desk
+title: AI Agents
 ---
 
-# Using AI with Home Desk
+# AI Agents
 
-Home Desk has two separate AI actions. Neither one lets an AI change your home on its own.
+Home Desk has two separate AI actions. Neither lets an AI change Home Assistant on its own.
 
-| | What it does | Where it runs |
+| Action | What it does | Runs |
 |---|---|---|
-| **Review with AI** | Asks an AI in Home Assistant to read a ticket and suggest what to do. It can only advise. | Inside Home Assistant. |
-| **Queue for AI Agent** | Marks a ticket for an AI agent that *you* run, such as your own Claude. | Wherever you run your agent. |
+| **Review with AI** | An AI reads the ticket and suggests what to do. It can only advise. | In Home Assistant. |
+| **Queue for AI Agent** | Marks the ticket for an AI agent that you run. | Wherever you run it. |
 
 ## Review with AI
 
-1. Open **Settings** and choose which **AI Agent** to use. Any AI Task or conversation entity in Home Assistant will do.
-2. Open a ticket, open the **AI Action** control beside the comment box, and select **Review with AI**.
-3. Confirm. It uses your AI plan, so you're asked first.
-4. A working indicator shows while it thinks. Its reply is added as a comment signed **AI Review**, often with suggested changes you can apply in one click.
+1. In [Settings](/guide/settings), set **AI Agent** to an AI Task or conversation entity.
+2. On a ticket, open **AI Action** beside the comment box and select **Review with AI**.
+3. Confirm. It uses your AI plan.
 
-You can press **Stop** at any time. It can't change anything, and it doesn't touch who the ticket is assigned to. You can edit the instructions it's given in Settings.
+Home Desk gives the AI the ticket, its comments and what Settings allows (entity states, automation and script configuration, related tickets), with secrets removed. The reply is posted as a comment signed **AI Review**, with a working indicator while it runs, a **Stop** button and one-click proposed changes.
+
+It cannot change anything and never touches the assignment. The instructions it is given are editable in Settings.
 
 ## Queue for AI Agent
 
-1. Write what you want in the comment box.
-2. Select **Queue for AI Agent**.
+Type the instruction in the comment box and select **Queue for AI Agent**. The ticket moves to **Queued for AI** and `home_desk_event` fires with `kind: assigned`, so an [automation](/guide/events) can start the agent. When the agent replies, the ticket returns to the administrator. Queue it again to continue.
 
-The ticket moves to the **Queued for AI** tab. When your AI agent replies, the ticket comes back to you automatically. Home Desk fires an event when you queue a ticket, so an automation can start your agent. See [Automations and Notifications](/guide/events).
+An agent's comments are marked **AI Agent** with the spark icon.
 
-::: tip Want the AI to do the work too?
-The optional [AI Agent Runner](/runner/) lets your own Claude work queued tickets: it looks first, and only acts after you press **Proceed**. It's technical to set up, and it has a warning you should read.
-:::
+## Running the work
+
+To have an agent work queued tickets for you, see the optional [AI Agent Runner](/runner/). Setup is technical, and it carries a warning.
+
+To connect an agent you already run, see [Connect Your Own AI Agent](/ai/access).

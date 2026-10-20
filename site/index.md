@@ -3,14 +3,14 @@ layout: home
 title: Home Desk
 hero:
   name: Home Desk
-  text: A helpdesk for the home
-  tagline: Tickets for your smart home, inside Home Assistant. Raised by you, your household, AI agents and Home Assistant itself.
+  text: A helpdesk for Home Assistant
+  tagline: Tickets, labels and categories in a sidebar panel in Home Assistant's own style.
   actions:
     - { theme: brand, text: Install, link: /guide/install }
     - { theme: alt, text: What Is Home Desk?, link: /guide/what-is-home-desk }
 features:
-  - { title: Looks like Home Assistant, details: A sidebar panel in Home Assistant's own style, with a full-width ticket page, labels and categories. }
-  - { title: Tickets that look after themselves, details: Home Assistant Repairs become tickets and close when fixed. Status moves by itself. }
-  - { title: Household reports, details: A simple form with photos and a voice message that Home Assistant's speech-to-text writes out. }
-  - { title: AI that you control, details: Review with AI only advises. An optional runner lets your own Claude CLI work tickets, review first, acting only after you press Proceed. }
+  - { title: Native panel, details: Built with Home Assistant's theme, with a full-width ticket page, labels and categories. }
+  - { title: Repairs as tickets, details: Each Home Assistant Repair becomes a ticket that resolves when the Repair clears. }
+  - { title: Household reports, details: A report form with photos and a voice message, transcribed by Home Assistant's speech-to-text. }
+  - { title: AI agents, details: Review with AI advises. An optional runner lets your own Claude work tickets, with your approval. }
 ---

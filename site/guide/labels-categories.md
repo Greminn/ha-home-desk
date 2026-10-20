@@ -4,34 +4,31 @@ title: Labels and Categories
 
 # Labels and Categories
 
-Use **categories** to say *where* a problem is, and **labels** to say *what kind* of ticket it is.
+A **category** is the part of the home a ticket concerns. A **label** says what kind of ticket it is, or its topic.
 
 ## Categories
 
-A category is the part of the home a ticket is about: Home Assistant, Network, Lighting, Cameras, and so on. A ticket has one category, or none.
+A ticket has one category or none. Select **Add Category** on a ticket, or click its category pill to change it.
 
-- **Set one:** select **Add Category** on a ticket, or click its category pill to change it.
-- **Manage them:** open the **⋮** menu and select **Manage Categories**. You can create, rename, change the icon of and delete categories. Deleting one leaves its tickets uncategorised.
-
-Home Assistant is a built-in category and can't be changed.
+**Manage Categories** (the **⋮** menu, administrators only) creates, renames, changes the icon of and deletes categories. Deleting a category leaves its tickets uncategorised. **Home Assistant** is built in and locked.
 
 ## Labels
 
-A label says what kind of ticket it is, or what topic it concerns. Labels work like GitHub's: each has a name, a colour and an optional icon and description. A ticket can have as many as you like.
+A label has a name, a colour, and an optional icon and description. The colours are Home Assistant's own colour names, so they follow the theme. A ticket can have any number.
 
-**Built-in labels** (these can't be renamed or deleted):
+Built-in labels are locked: they cannot be renamed, recoloured or deleted.
 
-| Label | Use it for |
+| Label | Meaning |
 |---|---|
-| **Bug** | Something isn't working. |
-| **Enhancement** | An idea for the future. |
+| **Bug** | Something is not working. |
+| **Enhancement** | An idea for later. |
 | **Task** | Something to do. |
 | **Question** | Something to find out. |
 | **Blocked** | Waiting on a person, a part or a fix. |
-| **History** | A record of past work. Hidden from lists unless you ask. |
+| **History** | A record of past work. Hidden from lists unless requested. |
 
-**Make your own:** open the **⋮** menu and select **Manage Labels**. You can also type a new label name straight onto a ticket, and it's created for you.
+**Manage Labels** (the **⋮** menu) creates, edits and deletes the rest. Renaming keeps tickets labelled. Deleting removes the label from every ticket, after a confirmation that gives the count.
 
-::: tip A simple way to start
-Use a few topic labels (Zigbee, Lighting, Automations, Cameras) and let the built-in ones handle the rest. Nothing forces you to use any of them.
-:::
+Typing a label that does not exist onto a ticket creates it, with a colour picked automatically. Names match case-insensitively.
+
+A suggested scheme is a system label (Home Assistant, Network, Media), topic labels (Zigbee, Lighting, Automations, Cameras) and workflow labels (Needs review, Monitoring). Nothing enforces it.

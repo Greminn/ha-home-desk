@@ -4,80 +4,65 @@ title: Install
 
 # Install
 
-You need Home Assistant 2024.10 or newer, and a way to put files in its `config` folder.
+Home Desk is a custom integration. Install it with HACS or copy it in from GitHub. It needs Home Assistant 2024.10 or newer.
 
-## Install with HACS
+## HACS
 
 ::: info Coming soon
-Home Desk isn't in the HACS store yet. This section will be filled in when it is. For now, use [From GitHub](#from-github) below.
+Home Desk is not in HACS yet. This section will be completed when it is. Use [GitHub](#github) until then.
 :::
 
-1. Open **HACS** in the Home Assistant sidebar.
-2. *(placeholder: search for **Home Desk** once it's listed, or add the repository as a custom repository.)*
-3. Select **Download**.
-4. Restart Home Assistant.
-5. Carry on at [Add Home Desk to Home Assistant](#add-home-desk-to-home-assistant).
+1. Open **HACS**.
+2. *(Placeholder: search for **Home Desk**, or add the repository as a custom repository.)*
+3. Select **Download**, then restart Home Assistant.
+4. Continue at [Add the integration](#add-the-integration).
 
-## From GitHub
+## GitHub
 
-You are copying one folder into Home Assistant. There is nothing to build or compile.
+The panel is already built and committed, so there is nothing to compile.
 
-### 1. Get the files
+1. Get the files from the [repository](https://github.com/Greminn/ha-home-desk): **Code → Download ZIP**, or clone it.
 
-Pick one:
+   ```sh
+   git clone https://github.com/Greminn/ha-home-desk.git
+   ```
 
-- **Download a ZIP.** Open the [Home Desk repository on GitHub](https://github.com/Greminn/ha-home-desk), select **Code → Download ZIP**, and unzip it.
-- **Clone it**, if you use Git:
+2. Copy `custom_components/home_desk` into `/config/custom_components/`.
 
-  ```sh
-  git clone https://github.com/Greminn/ha-home-desk.git
-  ```
+   ```
+   config/
+   └── custom_components/
+       └── home_desk/
+           ├── __init__.py
+           ├── manifest.json
+           └── ...
+   ```
 
-Inside, find the folder `custom_components/home_desk`. That folder is all Home Assistant needs.
+3. Restart Home Assistant. A full restart is required. Reloading is not enough.
 
-### 2. Copy it into Home Assistant
+## Add the integration
 
-Copy `home_desk` into the `custom_components` folder inside Home Assistant's `config` folder, so you end up with:
+1. Go to **Settings → Devices & Services → Add Integration**.
+2. Select **Home Desk**. It is added with nothing to fill in.
 
-```
-config/
-└── custom_components/
-    └── home_desk/
-        ├── __init__.py
-        ├── manifest.json
-        └── ...
-```
+**Home Desk** appears in the sidebar. Only one instance can be added.
 
-If there is no `custom_components` folder yet, create it. How you get the files there depends on your setup. Any of these will do:
+## Update
 
-- the **Samba share** add-on (the `config` share shows up as a network drive),
-- the **File editor** or **Studio Code Server** add-on,
-- **SSH** with the Terminal & SSH add-on, using `scp`.
+Replace `custom_components/home_desk` with the new files (or update through HACS) and restart Home Assistant. Tickets are stored in `.storage/home_desk.tickets`, separate from the integration, so they are kept.
 
-### 3. Restart Home Assistant
+A change to the panel only needs a browser hard refresh. A change to the integration's Python needs a restart.
 
-Go to **Settings → System**, select the power icon, then **Restart Home Assistant**. A new integration is only picked up after a full restart.
+## Troubleshooting
 
-## Add Home Desk to Home Assistant
-
-1. Go to **Settings → Devices & Services**.
-2. Select **Add Integration**, search for **Home Desk** and select it. It's added straight away, with nothing to fill in.
-
-**Home Desk** now appears in the sidebar. Open it, and carry on with [Your First Ticket](/guide/first-ticket).
-
-## Updating
-
-- **HACS:** open HACS, find Home Desk, and select **Update**.
-- **From GitHub:** download the new files and copy the `home_desk` folder over the old one.
-
-Then restart Home Assistant. Your tickets are kept. They are stored separately from the integration's files.
-
-## If something looks wrong
-
-| What you see | Try this |
+| Symptom | Fix |
 |---|---|
-| Home Desk isn't in the **Add Integration** list | Check the folder is exactly `config/custom_components/home_desk` (not nested one level deeper), then restart Home Assistant fully. |
-| No **Home Desk** in the sidebar | Hard refresh your browser (Ctrl+Shift+R, or Cmd+Shift+R on a Mac). |
-| The panel looks out of date after an update | Hard refresh your browser. |
+| Home Desk is not in the **Add Integration** list | Check the path is `config/custom_components/home_desk/manifest.json`, not one folder deeper. Restart Home Assistant. |
+| No sidebar item | Hard refresh the browser. |
+| Panel is out of date after an update | Hard refresh the browser. |
 
-If it still doesn't work, look at **Settings → System → Logs** for lines that mention `home_desk`, and [open an issue on GitHub](https://github.com/Greminn/ha-home-desk/issues).
+Check **Settings → System → Logs** for `home_desk` entries.
+
+::: tip Need help?
+[Open an issue on GitHub](https://github.com/Greminn/ha-home-desk/issues).
+:::

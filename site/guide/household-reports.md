@@ -4,32 +4,29 @@ title: Household Reports
 
 # Household Reports
 
-Anyone with a Home Assistant login who isn't an administrator sees a simple **report form** instead of the full ticket list. It's built so your family can say "this is broken" without learning Home Assistant.
+Users who are not administrators see a report form in place of the ticket list. They cannot open other tickets.
 
-## What they see
+## The form
 
-1. They open **Home Desk** in the sidebar.
-2. They choose **Problem** or **Suggestion**.
-3. They write a line and some detail.
-4. Optionally, they add **photos** (up to 6) and a **voice message** (up to 3 minutes), recorded on the spot or picked from the device.
-5. They send it.
+- **Type:** Problem (the **Bug** label) or Suggestion (the **Enhancement** label).
+- **A line and some detail.**
+- **Photos:** up to 6, each shrunk to 1600 px in the browser.
+- **A voice message:** up to 3 minutes, recorded in the panel or picked from the device.
 
-It arrives in your **Inbox** like any other ticket.
+The report arrives in the **Inbox**. Only administrators set the priority and other labels.
 
-::: tip Recording needs a secure connection
-The microphone only works when Home Assistant is opened over `https` (or on the same machine). If your family use the Companion app or a secure address, it works.
+::: warning Recording needs https
+The browser blocks the microphone unless Home Assistant is opened over `https` or `localhost`.
 :::
 
-## Voice messages become text
+## Voice to text
 
-If you use Home Assistant's speech-to-text, a voice message is turned into words and added to the ticket, with the recording kept alongside it. If it can't be turned into text, the ticket and the recording are still saved.
+The recording is converted in the browser to 16 kHz mono WAV. After the report is sent it is passed to Home Assistant's speech-to-text, using the engine chosen in [Settings](/guide/settings) or the one the Assist pipeline uses. The text is added to the description as a quoted block. A speech-to-text failure never loses the ticket or the recording.
 
-To turn this off, open **Settings** and switch off the voice option.
+Turn it off in [Settings](/guide/settings).
 
-## What they can't see
+## Files and limits
 
-Household members only see their own reports, and never your internal notes or other people's tickets. Only administrators and the person who sent a photo or recording can open it.
-
-## Limits
-
-Photos can be up to 10 MB each, and a voice message up to 12 MB. Each person can send ten reports an hour.
+- Files are stored in `<config>/home_desk_attachments/<ticket>/`.
+- Only JPEG, PNG, WebP, WAV, Ogg, WebM, MP4/M4A and MP3 are accepted, judged by their first bytes. They are served with `nosniff` and a sandboxing content policy, only to administrators and the sender, through signed links.
+- Photos are limited to 10 MB each and a voice message to 12 MB. Each person can send ten reports an hour. A refused report leaves nothing behind.

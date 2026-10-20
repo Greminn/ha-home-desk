@@ -4,35 +4,35 @@ title: What Is Home Desk?
 
 # What Is Home Desk?
 
-Home Desk is a helpdesk for your home, built into Home Assistant. When something needs fixing or doing, you raise a ticket, keep notes on it, and close it when it's done. Everything stays in one place, with the full history.
+Home Desk is a helpdesk integration for Home Assistant. It stores tickets, labels and categories, and adds a **Home Desk** panel to the sidebar in Home Assistant's own style.
 
-Tickets can come from:
+Tickets are raised by:
 
-- **You**, for anything around the house: a Zigbee sensor that keeps dropping out, a dashboard to tidy, a new camera to set up.
-- **Your household**, through a simple report form with photos and a voice message.
-- **Home Assistant itself.** Its Repairs become tickets, and close when they're fixed.
-- **AI agents**, if you use them. They can read tickets, add notes and suggest fixes.
+- **Administrators**, for anything in or around the home.
+- **Household users**, through a report form that accepts photos and a voice message.
+- **Home Assistant**, from [Repairs](/guide/repairs). The ticket resolves when the Repair clears.
+- **AI agents**, through the `home_desk.*` actions. See [AI Agents](/ai/using-ai).
 
-Home Desk adds a **Home Desk** item to your Home Assistant sidebar, in the same style as the rest of Home Assistant.
+Every change is kept in the ticket's history and fires a `home_desk_event`, so [automations](/guide/events) can react to it.
 
-## What you can do with it
+## Ticket lifecycle
 
-- Keep a to-do list for your smart home that remembers what you tried and what fixed it.
-- Let your family report problems ("the lounge light is stuck") without learning Home Assistant.
-- Stop losing track of Repairs notices.
-- Ask an AI to look into a problem and suggest what to change. You stay in charge of whether anything changes.
+1. A new ticket is **New** and shows in the **Inbox**.
+2. The first comment, priority, label or category change makes it **In Progress**.
+3. **Resolve** records the cause and the fix.
+4. A resolved ticket **Closes** automatically after a delay set in [Settings](/guide/settings). **Reopen** brings it back.
 
-## How a ticket moves
+See [Status](/guide/status).
 
-1. A ticket is raised. It's **New** and shows in your **Inbox**.
-2. You or an AI agent start on it. It becomes **In Progress**.
-3. You press **Resolve** and note what the cause was and how you fixed it.
-4. After a few days it closes by itself. You can reopen it any time.
+## Requirements
 
-::: tip New here?
-[Install Home Desk](/guide/install), then follow [Your First Ticket](/guide/first-ticket). It takes about five minutes.
+- Home Assistant 2024.10 or newer.
+- Access to the `config` folder, to copy the integration in. See [Install](/guide/install).
+
+::: warning Early release
+Home Desk runs daily on one install. Expect rough edges, and back up before installing.
 :::
 
-::: warning A young project
-Home Desk is in daily use in one home, but it's early. Expect rough edges, and keep a backup of your Home Assistant before you install anything new.
+::: tip Need help?
+[Open an issue on GitHub](https://github.com/Greminn/ha-home-desk/issues).
 :::

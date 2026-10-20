@@ -4,25 +4,29 @@ title: Home Assistant Repairs
 
 # Home Assistant Repairs
 
-Home Assistant shows problems it notices under **Settings → System → Repairs**. Home Desk can turn each one into a ticket, so you get a place to keep notes and history that Repairs doesn't have.
+Home Desk can open a ticket for each Home Assistant Repair (**Settings → System → Repairs**). It is on by default. Turn it off with **Tickets from Repairs** in [Settings](/guide/settings).
 
-## Turn it on or off
+To skip noisy integrations, list them under **Settings → Devices & Services → Home Desk → Configure**.
 
-It's on by default. Open **Settings** in Home Desk and use **Tickets from Repairs**.
+## Ticket contents
 
-To skip integrations that are noisy, go to **Settings → Devices & Services → Home Desk → Configure** and list them there.
+Requester `Home Assistant`, category Home Assistant, labels Bug and Repair. The priority follows severity: critical is Urgent, error is High, warning is Normal. The description holds the Repair's text, the integration and its "learn more" link. Your own changes to priority and labels are kept.
 
-## What you get
+## How the ticket follows the Repair
 
-- A ticket for each Repair, with the Repair's text, the integration it's about, and its "learn more" link. Its priority follows how serious Home Assistant says it is.
-- When the Repair clears, **the ticket resolves itself** with the note "Cleared by Home Assistant".
-- If the Repair comes back, the ticket **reopens in your Inbox**.
-- If you **ignore** a Repair in Home Assistant, the ticket resolves. If you stop ignoring it, it reopens.
-- Several Repairs of the same kind share one ticket. Three Proxmox nodes with the same problem is one ticket listing all three.
-- Any priority or labels you set on the ticket are kept.
+| Repair | Ticket |
+|---|---|
+| Clears | Resolves ("Cleared by Home Assistant"). |
+| Returns | Reopens to **New**. |
+| Is ignored | Resolves ("Ignored in Home Assistant"). |
+| Is no longer ignored | Reopens. |
 
-"Restart required" notices are skipped.
+"Restart required" notices are skipped. Repairs already present at startup are picked up, including ones that cleared while Home Assistant was off.
 
-## Merging duplicates
+## Grouping
 
-If you already have two tickets about the same thing, open one and select **Merge** (beside History). Its comments and labels move to the ticket you keep, and the other closes as "Merged into #N".
+Repairs of one integration and issue type share one ticket that lists what is affected. A problem on three Proxmox nodes is one ticket, resolved when all three clear. Repairs without an issue type keep their own ticket.
+
+## Duplicates
+
+Fold two tickets together with **Merge**. See [Using the Panel](/guide/using-the-panel).

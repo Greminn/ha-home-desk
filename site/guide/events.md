@@ -4,20 +4,22 @@ title: Automations and Notifications
 
 # Automations and Notifications
 
-::: info Built-in notifications are coming
-Home Desk can't send push notifications by itself yet. You can set them up today with a Home Assistant automation, as shown below.
-:::
+Home Desk fires `home_desk_event` on the event bus for every ticket change. Built-in push notifications are not available yet. Use an automation.
 
-Every time a ticket changes, Home Desk sends a Home Assistant event called `home_desk_event`. You can use it as the trigger for any automation.
+## Event data
 
-## Example: a phone alert for new tickets
+| Field | Value |
+|---|---|
+| `kind` | `created`, `updated`, `comment`, `note`, `closed`, or `assigned` (queued for an AI agent). |
+| `ticket_id`, `title` | The ticket. |
+| `status`, `priority`, `category` | Its current values. |
+| `requester`, `actor` | Who raised it, and who made this change. |
+| `assignee`, `with_agent` | Whether an AI agent has it. |
 
-1. Go to **Settings → Automations & Scenes → Create Automation → Create new automation**.
-2. Open the **⋮** menu and select **Edit in YAML**.
-3. Paste this in, and change the notify service to your own phone:
+## Example: notify on a new ticket
 
 ```yaml
-alias: Home Desk - new ticket alert
+alias: Home Desk - new ticket
 triggers:
   - trigger: event
     event_type: home_desk_event
@@ -30,8 +32,8 @@ actions:
       message: "Raised by {{ trigger.event.data.requester }}"
 ```
 
-## What you can match on
+Replace the `notify` action with your own. The `triggers:` syntax needs Home Assistant 2024.10 or newer.
 
-`kind` says what happened: `created`, `updated`, `comment`, `note`, `closed`, or `assigned` (a ticket was queued for an AI agent).
+## Starting an AI agent
 
-The event also carries `ticket_id`, `title`, `status`, `priority`, `requester`, `actor` (who did it), `assignee`, `category` and `with_agent`. Use them in conditions or in your message.
+Trigger on `kind: assigned` to start an agent when a ticket is queued. See [AI Agents](/ai/using-ai).
