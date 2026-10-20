@@ -26,6 +26,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - name: Panel unit tests
+        run: npm test
       - run: npm run build
       # The built panel is committed (Home Assistant loads it straight from the integration), so it must match the source.
       - name: The committed panel bundle matches the source
@@ -42,6 +44,10 @@ jobs:
           python-version: "3.13"
       - name: Compile everything
         run: python -m compileall -q custom_components mcp tools tests
+      - name: The version is the same everywhere
+        run: python tools/check_versions.py
+      - name: Unused names and undefined variables (a schema that uses a helper defined further down fails at start-up, and compileall can't see that)
+        run: pip install pyflakes && python -m pyflakes custom_components tests tools mcp runner
       - name: Generated service files are up to date
         run: |
           python tools/gen_services.py
@@ -59,6 +65,10 @@ jobs:
         run: python -I tests/test_matching.py
       - name: Runner tests
         run: python -I tests/test_runner.py
+      - name: Backup tests (a copy of the ticket file before each new version)
+        run: python -I tests/test_backup.py
+      - name: Security tests (every websocket command needs an administrator unless listed, bounded schemas, no raw errors to the browser)
+        run: python -I tests/test_security.py
       - name: AI agent tests (redaction, the context sent, a full turn against a fake AI Task)
         run: python tests/test_agent.py
 

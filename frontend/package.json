@@ -12,9 +12,10 @@
     "push": "node --env-file=.env scripts/dev/push.mjs",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write src",
-    "check": "npm run typecheck && npm run build",
+    "check": "npm run typecheck && npm run test && npm run build",
     "dev": "node scripts/dev/dev.mjs",
-    "dev:theme": "node scripts/dev/make-theme.mjs"
+    "dev:theme": "node scripts/dev/make-theme.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "dompurify": "^3.2.6",
@@ -32,6 +33,7 @@
     "prettier": "^3.3.3",
     "rollup": "^4.61.0",
     "tslib": "^2.8.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
   }
 }

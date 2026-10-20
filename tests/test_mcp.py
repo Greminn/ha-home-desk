@@ -36,7 +36,6 @@ assert r["status"] == "resolved" and "big" not in r, r
 path, auth, body = calls[-1]
 assert path == "/api/services/home_desk/close_ticket?return_response" and auth == "Bearer tok", path
 assert body == {"ticket_id": 7, "resolution": "Restarted Z2M", "status": "resolved", "actor": "ai:claude"}, body
-import json as _j
 assert m.mcp._tool_manager.get_tool("get_guide") is not None
 m.list_tickets(query="zigbee"); assert calls[-1][2]["query"] == "zigbee" and "label" not in calls[-1][2]
 m.add_comment(5, "evidence", internal=True, keep_assigned=True)
