@@ -91,19 +91,20 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 
 ## 7. Next steps, in order
 
+*Saved 2026-10-20; state of play updated 2026-10-21. Everything below is built, tested and committed locally.*
 
 **State of play**
+- **Deployed to the real install** (2026-10-21, after a Home Assistant restart): all of the panel and backend work, including the staged AI Action bar, the Home page, the list sort, search and filters, Ideas, preview chips, and the Settings notice for an edited Review prompt (`agent_prompt_outdated`). The restart log showed no Home Desk errors.
 
 **Next, in order**
-1. **Check the deploy**: restart done? #226 still resolved, no tickets from HACS `restart_required_*`, the new tabs and chips look right on the real install, no Home Desk errors in the log (Home Assistant's log can't be read from here).
-3. **Decide the MCP servers** (parked 2026-10-20). Leaning: the **Home Desk bridge** (`mcp/server.py`) plus **Home Assistant's built-in MCP Server (Assist API)**. The Assist endpoint works with a non-admin token, only reaches entities exposed to Assist, and can **control** them (not read-only), so the review allow-list is just `GetLiveContext` and the change allow-list adds only the specific control tools you accept. It gives no history, logs, traces or config, so reviews may be shallow; add the community `ha-mcp` with a read-only allow-list later if so. Never put the `ha-mcp` URL or a token in the repository. Next action: draft `mcp.json` and the `extra_tools_review` and `extra_tools_change` lists.
+2. **Decide the MCP servers** (parked 2026-10-20). Leaning: the **Home Desk bridge** (`mcp/server.py`) plus **Home Assistant's built-in MCP Server (Assist API)**. The Assist endpoint works with a non-admin token, only reaches entities exposed to Assist, and can **control** them (not read-only), so the review allow-list is just `GetLiveContext` and the change allow-list adds only the specific control tools you accept. It gives no history, logs, traces or config, so reviews may be shallow; add the community `ha-mcp` with a read-only allow-list later if so. Never put the `ha-mcp` URL or a token in the repository. Next action: draft `mcp.json` and the `extra_tools_review` and `extra_tools_change` lists, if not already done on the LXC.
 
 **Ideas parked**
-- Tab chips: previous/next could swap the chip in place instead of adding one each (stepping through a list piles up chips); a "titles only on hover" mode with more than five chips; a setting for the limit of eight.
+- Tab chips (previous/next swapping in place) is built as **preview chips** (2026-10-21). Still parked: a "titles only on hover" mode with more than five chips, and a setting for the limit of eight.
 - A hotkey to jump between open chips (and one for the search box).
-- Home page (decided 2026-10-21): row 1 is four tiles (Inbox and Working with Urgent and High indicators that open the tab with the Priority filter, Queued for AI, Completed in the last 7 days); row 3 is a 7-day Ticket Activity graph; "Good Morning" in Title Case. The Urgent / High, Unread and This week tiles go, and no All tab is needed.
+- Home page (built 2026-10-21): row 1 is four tiles (Inbox and Working with Urgent and High counts that open the tab with the Priority filter, Queued for AI, Completed in the last 7 days), then a 7-day Ticket Activity graph; "Good Morning" in Title Case. No All tab.
 - Ideas tab (renamed from Enhancements, 2026-10-21): the tab itself is the "not now" place, so no parked state is needed.
-- The Review prompt: an edited prompt keeps the old "Assign to AI Agent" wording until it is reset (the default says Queue for AI Agent).
+- The Review prompt: an edited prompt used to keep old wording silently. Settings now shows a notice with Keep Mine and Reset to Default (built 2026-10-21).
 - Document the hotkeys and the new top bar in the README (the Settings card has the keys).
 
 ## 8. Gotchas
