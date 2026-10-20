@@ -74,7 +74,6 @@ A category says what part of the smart home a ticket is about: Home Assistant, N
 
 ## Assigning to an AI Agent
 
-People don't assign tickets to each other (one or two managers who talk in person don't need to). The one assignee is the **AI Agent**. **Queue for AI Agent**, beside the priority icons in the comment box, hands the ticket over: the comment you type is the instruction, and `home_desk_event` fires with kind `assigned` so an automation can start the agent. When the agent replies on the ticket it is handed back automatically, and you can queue it again when you reply. A ticket with the agent shows "Queued for AI Agent" in the list and on the ticket. The agent's comments are marked **AI Agent (Claude)** with the spark icon. Making the agent actually work the ticket from an automation is not built yet.
 
 ## Home Assistant Repairs
 
@@ -161,4 +160,3 @@ Tests (no HA install needed, no private data): `python3 -I tests/test_storage.py
 - Services (other than the guide and changelog) and the Settings need an administrator; admin-only features rely on HA's own admin flag. Non-admins only see the simple report form (a problem or a suggestion, with photos and a voice message); they can't open tickets.
 - Label colours are limited to the theme-aware names, not arbitrary hex values.
 - The Settings notification options are stored but nothing is sent yet.
-- Review with AI only advises and proposes: nothing in Home Desk starts an AI agent on its own yet (assigning only marks a ticket; auto-starting your own agent is being designed, see `docs/development.md`).
