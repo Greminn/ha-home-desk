@@ -11,7 +11,7 @@
 | `mcp/server.py` | The MCP bridge an AI agent uses (REST to Home Assistant; needs `HA_URL`, `HA_TOKEN`, optional `HOMEDESK_ACTOR`) |
 | `tools/gen_services.py` | Generates `services.yaml`, `strings.json`, `translations/en.json` from one table. Edit it, run it, commit the output. |
 | `tests/` | Six suites plus `run_all.sh` |
-| `home_desk_brand/` | The brand pack (SVG masters, favicons); the integration's own images are in `custom_components/home_desk/brand/` |
+| `brand/` | The brand pack (SVG masters, favicons); the integration's own images are in `custom_components/home_desk/brand/` |
 | `docs/` | Proposals: agent permissions, AI automation, device watchers, entities and devices, and this file |
 
 ## 2. Run it
@@ -59,7 +59,7 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 
 - Branch `main`, **local commits only, nothing pushed**. Nothing is pushed to GitHub until the author says it is **Beta v1**.
 - Commit messages end with the attribution lines the tooling asks for. Every user-visible change gets a `CHANGELOG.md` entry (under Unreleased); a repair or service change that agents need to know about is marked **Action:** or **Breaking:**.
-- `home_desk_brand*.zip` is ignored (the extracted `home_desk_brand/` is the kept copy).
+- `home_desk_brand*.zip` is ignored (the extracted `brand/` is the kept copy).
 
 ## 5. Rules decided in conversation (keep to them)
 

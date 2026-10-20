@@ -1,8 +1,8 @@
 # Home Desk
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="home_desk_brand/extras/home-desk-icon-white-512.png">
-  <img alt="Home Desk" src="home_desk_brand/extras/home-desk-icon-black-512.png" width="96">
+  <source media="(prefers-color-scheme: dark)" srcset="brand/extras/home-desk-icon-white-512.png">
+  <img alt="Home Desk" src="brand/extras/home-desk-icon-black-512.png" width="96">
 </picture>
 
 A helpdesk for the home, living inside Home Assistant. You, your household, AI agents and Home Assistant itself raise tickets; you and your AI agents work them through to resolution, with the full history kept. Home Assistant is the heart of a smart home, so it's where tickets live, but they can be about anything around it too (the network, the servers, the media box). Categories keep those apart.
@@ -51,7 +51,7 @@ cp .env.example .env # then `npm run push` rsyncs the panel bundle to HA; a hard
 
 **Preview without Home Assistant:** `npm run dev` (in `frontend/`) serves the real panel against a mock Home Assistant at <http://localhost:5173> and rebuilds on every save. The control bar switches dark/light, phone/tablet/desktop width and admin/household user, fires a fake "agent update" to test live updates, and resets the mock data (`frontend/dev/mock-hass.js`). It uses Home Assistant's real theme tokens and the real Material Design Icons. `npm run dev:theme` regenerates `dev/theme.css` from a checkout of `home-assistant/frontend` (default `~/Projects/ha-frontend-reference`; the tokens are Apache-2.0). The preview is development-only and not part of the installed integration.
 
-**Brand:** the logo and icon Home Assistant shows for the integration are in `custom_components/home_desk/brand/` (light and dark, with `@2x`). `home_desk_brand/` has the SVG masters, favicon, avatars and social-preview images. The mark is a house with a tick and a small AI spark cut out of it.
+**Brand:** the logo and icon Home Assistant shows for the integration are in `custom_components/home_desk/brand/` (light and dark, with `@2x`). `brand/` has the SVG masters, favicon, avatars and social-preview images. The mark is a house with a tick and a small AI spark cut out of it.
 
 Service names and descriptions (what AI agents read) are generated into `services.yaml`, `strings.json` and `translations/en.json` from one table: edit `tools/gen_services.py`, then run it. HA reads custom-integration service descriptions from `services.yaml`.
 
