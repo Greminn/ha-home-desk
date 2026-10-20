@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="brand/extras/social-preview-dark-1280x640.png">
-  <img alt="Home Desk: a quiet help desk for your smart home." src="brand/extras/social-preview-1280x640.png">
+  <img alt="Home Desk: a smart home ticket system for Home Assistant, with AI to help." src="brand/extras/social-preview-1280x640.png">
 </picture>
 
 ![Beta](https://img.shields.io/badge/status-beta-orange)
