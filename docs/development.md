@@ -105,6 +105,7 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 - Home page (built 2026-10-21): row 1 is four tiles (Inbox and Working with Urgent and High counts that open the tab with the Priority filter, Queued for AI, Completed in the last 7 days), then a 7-day Ticket Activity graph; "Good Morning" in Title Case. No All tab.
 - Ideas tab (renamed from Enhancements, 2026-10-21): the tab itself is the "not now" place, so no parked state is needed.
 - The Review prompt: an edited prompt used to keep old wording silently. Settings now shows a notice with Keep Mine and Reset to Default (built 2026-10-21).
+- **Phone notifications** (future work, 2026-10-21; found while testing, not a fault): the per-manager notification options in Settings are saved but nothing reads them, so nothing is sent. The `home_desk_event` bus event already fires for new tickets, comments and resolved tickets, so an automation can notify a phone in the meantime. To build: send from the integration using each manager's saved choices; never notify someone about their own action; fold a burst (several repairs) into one summary; give each ticket's notices a tag so they replace each other; open `/home-desk/<id>` on tap. Open question: managers only, or the requester too (a household member told their ticket was resolved). Consider hiding the notification options, or saying they don't send yet, until it is built.
 - Document the hotkeys and the new top bar in the README (the Settings card has the keys).
 
 ## 8. Gotchas
