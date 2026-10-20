@@ -13,6 +13,7 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 - **The Home Assistant label is gone: it is a category now.** It is removed from tickets and from `list_labels`. Repair tickets get the category Home Assistant, plus the labels Bug and Repair. Tickets that were only labelled Home Assistant are now uncategorised.
 
 ### Changed
+- **Settings, About: a "Support the Project" link** to the author's Buy Me a Coffee page. Optional, and never expected.
 - **List: sorting, a list search, and filters behind an icon.** A sort menu (Default Sort, Last Updated, Date Opened, Priority, Comments, Title, and Date Closed on Completed; picking the chosen one again flips up and down, and the choice is remembered in the browser). The Inbox defaults to newest opened, every other tab to last updated. A search box in each tab (named after it) and the filters open from an icon. An empty list now has the brand logo, a playful message, and Clear Filters when a search or filter is hiding tickets. The Completed tab no longer has a Status filter.
 - **Ideas.** The Enhancements tab is now called **Ideas** (the Enhancement label is unchanged).
 - **Home page.** Four tiles (Inbox and Working with Urgent and High counts that open the tab on that priority, Queued for AI, and tickets completed in the last 7 days) and a 7-day Ticket Activity graph; "Good Morning" in Title Case.

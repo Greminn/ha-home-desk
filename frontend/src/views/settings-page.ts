@@ -561,6 +561,7 @@ export class SettingsPage extends LitElement {
         ${this._linkRow("mdi:book-open-variant", "Documentation", "How to set up and use Home Desk, and how AI agents work tickets", `${REPO}#readme`)}
         ${this._linkRow("mdi:bug-outline", "Report an Issue", "Found a problem with Home Desk itself? Tell the project", `${REPO}/issues/new/choose`)}
         ${this._linkRow("mdi:github", "GitHub Repository", "Greminn/ha-home-desk", REPO)}
+        ${this._linkRow("mdi:coffee-outline", "Support the Project", "Home Desk is free. If it's useful, you can buy me an espresso. It's never expected.", "https://buymeacoffee.com/greminn")}
       </div>
       ${this._confirmTest
         ? html`<st-confirm-dialog heading="Use your AI plan?" confirmLabel="Yes, test it"
