@@ -22,6 +22,15 @@ os.environ.update(HA_URL=f"http://127.0.0.1:{srv.server_port}", HA_TOKEN="tok", 
 spec = importlib.util.spec_from_file_location("srv", Path(__file__).resolve().parents[1] / "mcp" / "server.py")
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 
+# a token file works too, so an MCP config needs no secret in it
+import tempfile
+tf = Path(tempfile.mkdtemp()) / "token"; tf.write_text("from-file\n")
+os.environ.pop("HA_TOKEN"); os.environ["HA_TOKEN_FILE"] = str(tf)
+spec2 = importlib.util.spec_from_file_location("srv2", Path(__file__).resolve().parents[1] / "mcp" / "server.py")
+m2 = importlib.util.module_from_spec(spec2); spec2.loader.exec_module(m2)
+assert m2.HA_TOKEN == "from-file"
+os.environ.pop("HA_TOKEN_FILE"); os.environ["HA_TOKEN"] = "tok"
+
 r = m.close_ticket(7, "Restarted Z2M")
 assert r["status"] == "resolved" and "big" not in r, r
 path, auth, body = calls[-1]
