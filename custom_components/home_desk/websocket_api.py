@@ -445,6 +445,7 @@ async def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConne
         vol.Optional("agent_config"): bool,
         vol.Optional("agent_related"): bool,
         vol.Optional("agent_prompt"): str,
+        vol.Optional("agent_prompt_outdated"): False,
         vol.Optional("agent_daily_cap"): vol.All(int, vol.Range(min=1, max=500)),
         vol.Optional("notify"): {
             vol.Optional("targets"): [str],

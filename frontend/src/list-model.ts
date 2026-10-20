@@ -46,19 +46,9 @@ export const VIEWS: View[] = [
   { id: "working", icon: "mdi:progress-wrench", label: "Working", count: true, match: (t) => bucket(t) === "working" },
   { id: "queued", icon: "mdi:star-four-points-outline", label: "Queued for AI", count: true, match: (t) => bucket(t) === "queued" },
   { id: "enhancements", icon: "mdi:lightbulb-outline", label: "Ideas", count: true, match: (t) => bucket(t) === "enhancements" },
-  // Done and closed tickets; its "Show" filter also reaches History, everything still open, or every ticket.
+  // Resolved and closed tickets. History tickets are only listed here when the History label is picked.
   { id: "completed", icon: "mdi:check-circle-outline", label: "Completed", match: (t) => bucket(t) === "completed" },
 ];
-
-/** The Completed tab lists resolved and closed tickets, so it has no filter of its own; the Home page tiles can open it on another scope, and the Status filter then shows so you can go back. History is reached by filtering on its label. History is only listed when asked for. */
-const SCOPES: { id: string; label: string; match: (t: TicketSummary) => boolean }[] = [
-  { id: "", label: "Resolved & Closed", match: isClosed },
-  { id: "open", label: "Open", match: isActive },
-  { id: "history", label: "History", match: isHistory },
-  { id: "everything", label: "Everything", match: (t) => !isHistory(t) },
-];
-
-export const SCOPES_OPTIONS: DropdownOption[] = SCOPES.map(({ id, label }) => ({ id, label }));
 
 export type SortDir = "asc" | "desc";
 
@@ -103,8 +93,6 @@ export function sortTickets(tickets: TicketSummary[], view: string, sort: string
 /** What the list is narrowed to. An empty string means "any". */
 export interface ListFilters {
   view: string;
-  /** The "Show" choice on the Completed tab. */
-  scope: string;
   /** A category id, or "none" for tickets with no category. */
   category: string;
   priority: string;
@@ -156,7 +144,7 @@ export function filterTickets(tickets: TicketSummary[], f: ListFilters, matchIds
   const view = VIEWS.find((v) => v.id === f.view) ?? VIEWS[0]!;
   return tickets.filter(
     (t) =>
-      (view.id === "completed" ? SCOPES.find((x) => x.id === f.scope)!.match(t) || (f.label === HISTORY && isHistory(t)) : view.match(t)) &&
+      (view.id === "completed" ? isClosed(t) || (f.label === HISTORY && isHistory(t)) : view.match(t)) &&
       (!matchIds || matchIds.has(t.id)) &&
       (!f.priority || t.priority === f.priority) &&
       (!f.label || t.labels.includes(f.label)) &&

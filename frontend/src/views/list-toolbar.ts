@@ -4,7 +4,7 @@ import { safeCustomElement } from "../define";
 import "./dropdown";
 import { sharedStyles } from "../styles";
 import {
-  SCOPES_OPTIONS, categoryOptions, labelOptions, personOptions, priorityOptions, sortOptions, defaultSort, SORTS, VIEWS,
+  categoryOptions, labelOptions, personOptions, priorityOptions, sortOptions, defaultSort, SORTS, VIEWS,
   type ListFilters, type SortDir,
 } from "../list-model";
 import type { Category, Label, TicketSummary } from "../types";
@@ -215,7 +215,7 @@ export class ListToolbar extends LitElement {
     const chosen = this.sort && (this.sort !== "closed" || f.view === "completed") ? this.sort : "";
     const field = chosen || defaultSort(f.view);
     const desc = (this.sortDir || SORTS.find((x) => x.id === field)!.first) === "desc";
-    const active = [f.scope, f.category, f.person, f.priority, f.label].filter(Boolean).length;
+    const active = [f.category, f.person, f.priority, f.label].filter(Boolean).length;
     // Open by default while the list is narrowed, so it is plain why some tickets are missing.
     const open = this._showFilters ?? active > 0;
     if (this.checkedCount) {
@@ -262,9 +262,6 @@ export class ListToolbar extends LitElement {
       </div>
       ${open ? html`<div class="toolbar filterbar">
   <div class="filters">
-          ${f.view === "completed" && f.scope
-            ? html`<st-dropdown label="Status" placeholder="Status" .options=${SCOPES_OPTIONS} .value=${f.scope} @change=${this._change("scope")}></st-dropdown>`
-            : nothing}
           <st-dropdown label="Category" placeholder="Category" .options=${categoryOptions(this.categories)} .value=${f.category}
             @change=${this._change("category")}></st-dropdown>
           ${f.person

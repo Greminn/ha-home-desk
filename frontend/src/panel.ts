@@ -6,6 +6,7 @@ import { panelStyles } from "./panel-styles";
 import { HaClient } from "./ha-client";
 import type { NewTicket } from "./ha-client";
 import type { Category, HomeAssistant, HomeDeskSettings, Label, Ticket, TicketPatch, TicketSummary } from "./types";
+import { HISTORY } from "./types";
 import { AI_ASSIGNEE, STATUS_LABEL, actorName, isAgent } from "./format";
 import type { Person } from "./format";
 import { VIEWS, filterTickets, matchesQuickly, rankHits, sortTickets, type ListFilters, type SortDir } from "./list-model";
@@ -676,14 +677,14 @@ export class HomeDeskPanel extends LitElement {
   }
 
   private get _filters(): ListFilters {
-    return { view: this._viewId, scope: "", ...(this._tabFilters[this._viewId] ?? NO_FILTERS) };
+    return { view: this._viewId, ...(this._tabFilters[this._viewId] ?? NO_FILTERS) };
   }
 
   /** The tickets Previous and Next move through: the list as filtered, or every ticket if the open one isn't in it. */
   private get _walk(): TicketSummary[] {
     const shown = this._filtered;
     if (this._selectedId === null || shown.some((t) => t.id === this._selectedId)) return shown;
-    return filterTickets(this._tickets, { ...this._filters, view: "completed", scope: "everything", category: "", priority: "", label: "", person: "" }, null);
+    return this._tickets.filter((t) => !t.labels.includes(HISTORY)); // not in the list (a filter or search hides it): every ticket
   }
 
   private get _navPos(): { index: number; total: number } | null {
@@ -728,7 +729,7 @@ export class HomeDeskPanel extends LitElement {
   private _homeTemplate(compact: boolean) {
     return html`<st-home-page .tickets=${this._tickets} .language=${this.hass.language} .userName=${this.hass.user?.name ?? ""} .compact=${compact}
       @open-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
-      @go-view=${(e: CustomEvent<{ view: string; priority: string; scope?: string }>) => {
+      @go-view=${(e: CustomEvent<{ view: string; priority: string }>) => {
         this._page = "";
         this._close();
         this._setView(e.detail.view);

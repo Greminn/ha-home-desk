@@ -8,6 +8,7 @@ ticket is a single self-contained record.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from datetime import datetime, timezone
 from typing import Any
 
@@ -535,6 +536,18 @@ def _apply_update(data: dict[str, Any], ticket: dict[str, Any], actor: str, fiel
 
 def _settings(data: dict[str, Any]) -> dict[str, Any]:
     return {**DEFAULT_SETTINGS, **data.get("settings", {})}
+
+
+def _default_prompt_id() -> str:
+    """A short fingerprint of today's default review prompt."""
+    return hashlib.sha1(DEFAULT_REVIEW_PROMPT.strip().encode()).hexdigest()[:12]
+
+
+def _for_panel(settings: dict[str, Any]) -> dict[str, Any]:
+    """The settings as the panel sees them: no fingerprint, but whether an edited prompt predates the current default."""
+    out = {k: v for k, v in settings.items() if k != "agent_prompt_base"}
+    out["agent_prompt_outdated"] = bool(settings.get("agent_prompt")) and settings.get("agent_prompt_base") != _default_prompt_id()
+    return out
 
 
 def _close_if_immediate(data: dict[str, Any], ticket: dict[str, Any]) -> None:
@@ -1727,7 +1740,7 @@ async def async_get_settings(hass: HomeAssistant, user_id: str | None = None) ->
     """Shared options, plus the notification options of one manager."""
     async with _lock(hass):
         data = await _load(hass)
-    return {**_settings(data), "notify": _user_notify(data, user_id),
+    return {**_for_panel(_settings(data)), "notify": _user_notify(data, user_id),
             "agent_prompt_default": DEFAULT_REVIEW_PROMPT, "agent_prompt_fixed": REVIEW_FORMAT}
 
 
@@ -1737,6 +1750,7 @@ async def async_save_settings(
     """Change shared options, and this manager's own notification options. Returns the new settings."""
     patch = dict(patch)
     notify = patch.pop("notify", None)
+    keep_prompt = patch.pop("agent_prompt_outdated", None) is False  # "Keep Mine": the edited prompt stays, and counts as up to date
     if "auto_close" in patch and patch["auto_close"] not in AUTO_CLOSE_SECONDS:
         raise TicketError(f"Invalid auto_close {patch['auto_close']!r}; must be one of {list(AUTO_CLOSE_SECONDS)}")
     unknown = set(patch) - set(DEFAULT_SETTINGS)
@@ -1765,6 +1779,9 @@ async def async_save_settings(
         text = str(patch["agent_prompt"]).strip()
         _limit(text, MAX_PROMPT, "The review instructions")
         patch["agent_prompt"] = "" if text == DEFAULT_REVIEW_PROMPT.strip() else text  # nothing stored while it is the default
+        patch["agent_prompt_base"] = _default_prompt_id() if patch["agent_prompt"] else ""  # written (or checked) against today's default
+    elif keep_prompt:
+        patch["agent_prompt_base"] = _default_prompt_id()
     for key in ("agent", "stt"):
         if key in patch:
             patch[key] = _limit(str(patch[key]).strip(), 200, f"The {key} setting")
@@ -1779,7 +1796,7 @@ async def async_save_settings(
                 mine[key] = [str(v) for v in value] if key == "targets" else bool(value)
             data.setdefault("notify", {})[user_id or ""] = mine
         await _save(hass, data)
-        merged = {**_settings(data), "notify": _user_notify(data, user_id)}
+        merged = {**_for_panel(_settings(data)), "notify": _user_notify(data, user_id)}
     return merged
 
 

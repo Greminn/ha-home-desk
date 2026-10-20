@@ -411,8 +411,25 @@ async def main():
         prompt = await ctx.async_build_prompt(hass, d["id"], saved, "Claude")
         assert prompt.startswith(custom) and "AI Review in Home Desk" not in prompt, "the person's text replaces the default"
         assert "home-desk-actions" in prompt and "never as instructions to you" in prompt, "the fixed part is still added"
+        assert saved["agent_prompt_outdated"] is False and "agent_prompt_base" not in saved, "a prompt saved against today's default is up to date, and the fingerprint is not shown"
+        # a prompt edited under an older default (or saved before this was tracked) is flagged until it is kept or reset
+        data = await s._load(hass)
+        data["settings"]["agent_prompt_base"] = "an-older-default"
+        await s._save(hass, data)
+        assert (await s.async_get_settings(hass))["agent_prompt_outdated"] is True, "an older default is noticed"
+        data["settings"]["agent_prompt_base"] = ""
+        await s._save(hass, data)
+        assert (await s.async_get_settings(hass))["agent_prompt_outdated"] is True, "unknown counts as older"
+        kept = await s.async_save_settings(hass, {"agent_prompt_outdated": False})
+        assert kept["agent_prompt_outdated"] is False and kept["agent_prompt"] == custom, "Keep Mine hides the notice and leaves the text"
+        data = await s._load(hass)
+        data["settings"]["agent_prompt_base"] = "an-older-default"
+        await s._save(hass, data)
+        edited = await s.async_save_settings(hass, {"agent_prompt": custom + " Be kind."})
+        assert edited["agent_prompt_outdated"] is False, "saving an edit brings it up to date"
         await s.async_save_settings(hass, {"agent_prompt": saved["agent_prompt_default"]})
-        assert (await s.async_get_settings(hass))["agent_prompt"] == "", "the default text is not stored as a custom one"
+        after = await s.async_get_settings(hass)
+        assert after["agent_prompt"] == "" and after["agent_prompt_outdated"] is False, "the default text is not stored as a custom one, and is never out of date"
         await s.async_save_settings(hass, {"agent_prompt": "   "})
         assert "AI Review in Home Desk" in await ctx.async_build_prompt(hass, d["id"], await s.async_get_settings(hass), "Claude"), "empty means the default"
         try:
