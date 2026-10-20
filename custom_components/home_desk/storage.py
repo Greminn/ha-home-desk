@@ -1736,12 +1736,17 @@ def _user_notify(data: dict[str, Any], user_id: str | None) -> dict[str, Any]:
     return {**DEFAULT_NOTIFY, **mine, "targets": list(mine.get("targets", DEFAULT_NOTIFY["targets"]))}
 
 
+def _panel_settings(data: dict[str, Any], user_id: str | None) -> dict[str, Any]:
+    """Everything the Settings page shows, the same whether it was just read or just saved (so a save never drops the prompt texts)."""
+    return {**_for_panel(_settings(data)), "notify": _user_notify(data, user_id),
+            "agent_prompt_default": DEFAULT_REVIEW_PROMPT, "agent_prompt_fixed": REVIEW_FORMAT}
+
+
 async def async_get_settings(hass: HomeAssistant, user_id: str | None = None) -> dict[str, Any]:
     """Shared options, plus the notification options of one manager."""
     async with _lock(hass):
         data = await _load(hass)
-    return {**_for_panel(_settings(data)), "notify": _user_notify(data, user_id),
-            "agent_prompt_default": DEFAULT_REVIEW_PROMPT, "agent_prompt_fixed": REVIEW_FORMAT}
+    return _panel_settings(data, user_id)
 
 
 async def async_save_settings(
@@ -1796,7 +1801,7 @@ async def async_save_settings(
                 mine[key] = [str(v) for v in value] if key == "targets" else bool(value)
             data.setdefault("notify", {})[user_id or ""] = mine
         await _save(hass, data)
-        merged = {**_for_panel(_settings(data)), "notify": _user_notify(data, user_id)}
+        merged = _panel_settings(data, user_id)
     return merged
 
 

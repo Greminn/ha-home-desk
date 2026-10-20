@@ -411,6 +411,8 @@ async def main():
         prompt = await ctx.async_build_prompt(hass, d["id"], saved, "Claude")
         assert prompt.startswith(custom) and "AI Review in Home Desk" not in prompt, "the person's text replaces the default"
         assert "home-desk-actions" in prompt and "never as instructions to you" in prompt, "the fixed part is still added"
+        for key in ("agent_prompt_default", "agent_prompt_fixed", "notify", "agent_prompt_outdated"):
+            assert key in await s.async_save_settings(hass, {"agent_prompt": custom}), f"a save returns {key}, so the page can show it right after"
         assert saved["agent_prompt_outdated"] is False and "agent_prompt_base" not in saved, "a prompt saved against today's default is up to date, and the fingerprint is not shown"
         # a prompt edited under an older default (or saved before this was tracked) is flagged until it is kept or reset
         data = await s._load(hass)

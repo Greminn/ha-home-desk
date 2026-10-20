@@ -307,7 +307,7 @@ export class SettingsPage extends LitElement {
     if (!s) return;
     this._s = { ...s, ...patch, notify: { ...s.notify, ...patch.notify } };
     try {
-      this._s = await this.client.saveSettings(patch);
+      this._s = { ...s, ...(await this.client.saveSettings(patch)) }; // keep what a reply leaves out (an older integration omits the prompt texts)
       this._error = "";
       this.dispatchEvent(new CustomEvent("settings-changed", { detail: this._s, bubbles: true, composed: true }));
     } catch {
