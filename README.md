@@ -1,66 +1,85 @@
-# Home Desk
-
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="brand/extras/home-desk-icon-white-512.png">
-  <img alt="Home Desk" src="brand/extras/home-desk-icon-black-512.png" width="96">
+  <source media="(prefers-color-scheme: dark)" srcset="brand/extras/social-preview-dark-1280x640.png">
+  <img alt="Home Desk: a quiet help desk for your smart home." src="brand/extras/social-preview-1280x640.png">
 </picture>
 
-A helpdesk for the home, living inside Home Assistant. You, your household, AI agents and Home Assistant itself raise tickets; you and your AI agents work them through to resolution, with the full history kept. Home Assistant is the heart of a smart home, so it's where tickets live, but they can be about anything around it too (the network, the servers, the media box). Categories keep those apart.
+![Beta](https://img.shields.io/badge/status-beta-orange)
 
-**Status: v0.1 plus the unreleased changes in the [changelog](custom_components/home_desk/CHANGELOG.md), in daily use on one install.** Not published to HACS yet, and expect rough edges.
+Something in the house stops working, a household member has a request, or you have an idea for later, and it lives in your head, a chat thread or a note on the fridge. Home Desk is a helpdesk that lives inside Home Assistant. You, your household, AI agents and Home Assistant itself raise tickets; you and your AI agents work them through to resolution, with the full history kept. Home Assistant is the heart of a smart home, so it's where tickets live, but they can be about anything around it too: the network, the servers, the media box.
 
-**Features**
+![Home Desk in Home Assistant: the Inbox beside an open ticket, with its priority, category and labels, and the reply bar below](site/public/screenshots/screenshot-main-v1.png)
 
-- A Home page (what needs you, what the AI Agent is doing, recent activity), a ticket list and a full-width ticket page in Home Assistant's own style.
-- A four-status lifecycle that moves by itself, GitHub-style labels, and categories for what part of the home a ticket is about.
-- Home Assistant Repairs (and anything else that fires an event) become tickets, and close themselves when fixed.
-- A simple report form for household users, with photos and a voice message that Home Assistant's speech-to-text writes out.
-- Two separate AI actions. **Review with AI** asks the AI you chose in Settings to review a ticket from what Home Desk shows it (the ticket, its comments, and what Settings allows, with secrets removed). It only advises and cannot change anything. **Queue for AI Agent** hands a ticket to an AI agent you run yourself.
-- Not built yet: push notifications (the options are stored, nothing is sent) and reporting.
+*A preview with sample tickets.*
 
-See [IDEA.md](IDEA.md) for the bigger vision.
+## What you get
+
+- **A panel that looks like part of Home Assistant.** A Home page (what needs you, recent activity), five tabs (Inbox, Working, Queued for AI, Ideas, Completed), a searchable, sortable list and a full-width ticket page.
+- **A lifecycle that moves by itself.** New, In Progress, Resolved and Closed, with GitHub-style labels and categories for which part of the home a ticket is about.
+- **Tickets from Home Assistant Repairs.** Each repair becomes a ticket, and closes itself when the repair clears. Anything else that fires an event can raise one too.
+- **A simple report form for household users**, with photos and a voice message that Home Assistant's speech-to-text writes out.
+- **AI that advises first.** **Review With AI** asks the AI you chose in Settings to look at a ticket and say what it thinks, and it can't change anything. **Queue** hands a ticket to an AI agent you run yourself.
 
 ## Documentation
 
-The full documentation is at **<https://greminn.github.io/ha-home-desk/>** (source in [`site/`](site/)):
+The full guide is at **<https://greminn.github.io/ha-home-desk/>**:
 
-- [Install](https://greminn.github.io/ha-home-desk/guide/install) from HACS (coming soon) or from GitHub, then [your first ticket](https://greminn.github.io/ha-home-desk/guide/first-ticket)
-- [Using the panel](https://greminn.github.io/ha-home-desk/guide/using-the-panel), [status](https://greminn.github.io/ha-home-desk/guide/status), [labels and categories](https://greminn.github.io/ha-home-desk/guide/labels-categories), [household reports](https://greminn.github.io/ha-home-desk/guide/household-reports), [Home Assistant Repairs](https://greminn.github.io/ha-home-desk/guide/repairs) and [Settings](https://greminn.github.io/ha-home-desk/guide/settings)
+- [What is Home Desk?](https://greminn.github.io/ha-home-desk/guide/what-is-home-desk), [install](https://greminn.github.io/ha-home-desk/guide/install) and [your first ticket](https://greminn.github.io/ha-home-desk/guide/first-ticket)
+- [Using the panel](https://greminn.github.io/ha-home-desk/guide/using-the-panel), [status](https://greminn.github.io/ha-home-desk/guide/status) and [labels and categories](https://greminn.github.io/ha-home-desk/guide/labels-categories)
+- [Household reports](https://greminn.github.io/ha-home-desk/guide/household-reports), [Home Assistant Repairs](https://greminn.github.io/ha-home-desk/guide/repairs) and [Settings](https://greminn.github.io/ha-home-desk/guide/settings)
 - [Automations and notifications](https://greminn.github.io/ha-home-desk/guide/events)
 - [Using AI with Home Desk](https://greminn.github.io/ha-home-desk/ai/using-ai) and [connecting your own AI agent](https://greminn.github.io/ha-home-desk/ai/access)
 
-## Install
+## Installation
 
-**From GitHub:** copy the `custom_components/home_desk` folder into Home Assistant's `config/custom_components/`, restart Home Assistant, then go to **Settings → Devices & Services → Add Integration → Home Desk**. **HACS:** coming soon. [Step by step](https://greminn.github.io/ha-home-desk/guide/install).
+Needs **Home Assistant 2024.10** or newer. Home Desk is a **beta** and isn't in the HACS default repository yet, so it's added as a custom repository.
 
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Greminn&repository=ha-home-desk&category=integration)
 
+1. Click the button above, or in HACS choose **⋮ → Custom repositories**, paste `https://github.com/Greminn/ha-home-desk` and set **Type** to **Integration**.
+2. Install **Home Desk** (turn on **Show beta versions** if you don't see it).
+3. Restart Home Assistant, then **Settings → Devices & Services → Add Integration → Home Desk**.
 
-> **Warning.** An AI agent can misread a ticket, and ticket text can be written by anyone who can reach your Home Assistant. Start with the **Advise Only** preset, and never give it a tool you would not give a stranger who can talk you into things.
+Prefer to copy files by hand? Put `custom_components/home_desk/` into your `/config/custom_components/`. The [install guide](https://greminn.github.io/ha-home-desk/guide/install) has the details.
 
+## Quick start
 
-## Development
+1. Open **Home Desk** from the sidebar and select **New Ticket**.
+2. Give it a title and a description. It lands in the **Inbox** as **New**.
+3. Open it, set the priority, a category and labels, and comment. The first change moves it to **Working**.
+4. When it's fixed, type the cause and the fix in the comment box and select **Resolve**. It moves to **Completed** and closes after the delay you set in Settings.
+5. Optional: pick **Review** in the reply bar and press **Review With AI Now** for a second opinion.
 
-A handoff for picking the work up again (how to run, test and deploy, where things stand, what is next) is in [docs/development.md](docs/development.md).
+The [first ticket walkthrough](https://greminn.github.io/ha-home-desk/guide/first-ticket) covers each step.
 
-```sh
-cd frontend && npm install
-npm run build        # writes custom_components/home_desk/www/home-desk-panel.js (committed, like Spatial Context)
-npm run typecheck
-cp .env.example .env # then `npm run push` rsyncs the panel bundle to HA; a hard browser refresh picks it up, no HA restart
+## Using it with AI assistants and automations
+
+Home Desk's services return real data, so an assistant or an automation can read and work tickets (they need an administrator). `home_desk.get_guide` tells an agent how everything works.
+
+```yaml
+actions:
+  - action: home_desk.list_tickets
+    data:
+      priority: urgent
+    response_variable: urgent_tickets
 ```
 
-**Preview without Home Assistant:** `npm run dev` (in `frontend/`) serves the real panel against a mock Home Assistant at <http://localhost:5173> and rebuilds on every save. The control bar switches dark/light, phone/tablet/desktop width and admin/household user, fires a fake "agent update" to test live updates, and resets the mock data (`frontend/dev/mock-hass.js`). It uses Home Assistant's real theme tokens and the real Material Design Icons. `npm run dev:theme` regenerates `dev/theme.css` from a checkout of `home-assistant/frontend` (default `~/Projects/ha-frontend-reference`; the tokens are Apache-2.0). The preview is development-only and not part of the installed integration.
-
-**Brand:** the logo and icon Home Assistant shows for the integration are in `custom_components/home_desk/brand/` (light and dark, with `@2x`). `brand/` has the SVG masters, favicon, avatars and social-preview images. The mark is a house with a tick and a small AI spark cut out of it.
-
-Service names and descriptions (what AI agents read) are generated into `services.yaml`, `strings.json` and `translations/en.json` from one table: edit `tools/gen_services.py`, then run it. HA reads custom-integration service descriptions from `services.yaml`.
-
-Tests (no HA install needed, no private data): `python3 -I tests/test_storage.py` (tickets, labels, categories, the status rules, the AI agent, settings, auto-close, repairs), `uv run --with voluptuous python tests/test_api.py` (who may do what over the websocket and the services) `uv run --with aiohttp python tests/test_attachments.py` (reports with photos and a voice message), `uv run --with pyyaml python tests/test_agent.py` (the built-in AI agent) and `uv run --with "mcp<2" python tests/test_mcp.py`. They run in GitHub on every push (`.github/workflows/validate.yml`, with Home Assistant's `hassfest` and HACS validation).
+Every ticket change also fires `home_desk_event`, so an [automation](https://greminn.github.io/ha-home-desk/guide/events) can notify your phone. Built-in push notifications aren't available yet.
 
 
-## Known limits
+## Support the project
 
-- Tested without a Home Assistant install (storage logic, the websocket and service layers against stand-ins for Home Assistant, the MCP bridge, and the panel in a mock page) and by use on a live install; there is no automated test of the panel itself or of the real HA wiring.
-- Services (other than the guide and changelog) and the Settings need an administrator; admin-only features rely on HA's own admin flag. Non-admins only see the simple report form (a problem or a suggestion, with photos and a voice message); they can't open tickets.
-- Label colours are limited to the theme-aware names, not arbitrary hex values.
-- The Settings notification options are stored but nothing is sent yet.
+Home Desk is a personal project, free and shared as is. If it's useful to you and you'd like to say thanks, you can [buy me an espresso](https://buymeacoffee.com/greminn). It's never expected, and bug reports and ideas are just as welcome.
+
+<a href="https://buymeacoffee.com/greminn"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20an%20espresso&emoji=&slug=greminn&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Buy me an espresso" height="50"></a>
+
+## Status
+
+**Beta.** Used daily on the author's own home, but the interface may still change between releases, and it hasn't yet been tested against the wide variety of Home Assistant setups a stable release should handle.
+
+Found a bug, or have an idea? Please [open an issue](https://github.com/Greminn/ha-home-desk/issues). Problems and feature ideas are equally welcome, not just polished bug reports.
+
+## Development and licence
+
+Building, testing, the mock preview and deploying are covered in [docs/development.md](docs/development.md), and the bigger vision is in [IDEA.md](IDEA.md). The panel is built from `frontend/` (Lit and TypeScript) and the output is committed, so HACS and a manual copy need no build step.
+
+[MIT](LICENSE)

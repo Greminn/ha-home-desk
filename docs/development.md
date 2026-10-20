@@ -19,13 +19,18 @@
 ```sh
 cd frontend && npm install        # once
 npm run dev                       # the real panel against a mock Home Assistant: http://localhost:5173
-npm run typecheck && npm run build   # build writes custom_components/home_desk/www/home-desk-panel.js (committed)
-./tests/run_all.sh                # all six suites; prints fail=0 or the failures
+npm run check                     # typecheck, the panel's unit tests (vitest), then the build; the build writes custom_components/home_desk/www/home-desk-panel.js (committed)
+./tests/run_all.sh                # every Python suite; prints fail=0 or the failures
+python3 tools/check_versions.py   # the version is the same in the manifest, package.json and the build info
 ```
 
 - **Preview:** the control bar switches dark/light, phone/tablet/desktop, admin/household, fires a fake "agent update", and resets the data. It remembers the last open ticket (`/home-desk/7`) in the browser's storage. **If a change doesn't show, restart `npm run dev`** (the TypeScript watcher sometimes serves stale files).
+- **Mock preview** (`npm run dev`): the real panel against a mock Home Assistant (`frontend/dev/mock-hass.js`) with Home Assistant's real theme tokens and Material Design Icons. `npm run dev:theme` regenerates `dev/theme.css` from a checkout of `home-assistant/frontend` (default `~/Projects/ha-frontend-reference`; the tokens are Apache-2.0). It is development-only and not part of the installed integration.
+- **Brand:** the logo and icon Home Assistant shows for the integration are in `custom_components/home_desk/brand/` (light and dark, with `@2x`). `brand/` holds the SVG masters, favicon, avatars and social-preview images (the README uses the social preview). The mark is a house with a tick and a small AI spark cut out of it.
+- **Service text:** service names and descriptions (what AI agents read) are generated into `services.yaml`, `strings.json` and `translations/en.json` from one table: edit `tools/gen_services.py`, then run it. Home Assistant reads custom-integration service descriptions from `services.yaml`.
+- **Known limits** are listed for users in `site/guide/good-to-know.md`.
 - **Tests** need `python3` and `uv`. They use stand-ins for Home Assistant, so no install and no private data. CI (`.github/workflows/validate.yml`) runs the same suites plus hassfest and HACS validation.
-- Python is formatted by hand to the surrounding style; the panel uses `npm run format` (prettier) only if you want it.
+- Python is formatted by hand to the surrounding style. The panel is not Prettier-clean (a format check would reformat nearly every file), so there is no format check in CI yet; `npm run format` rewrites files if you run it.
 
 ## 3. Deploy to the real Home Assistant
 
