@@ -27,6 +27,9 @@ const AUTO_CLOSE = [
  */
 const REPO = "https://github.com/Greminn/ha-home-desk";
 
+/** The notification options are saved but nothing sends yet (see "Phone notifications" in docs/development.md), so the card stays hidden until it does. */
+const NOTIFICATIONS_SEND = false;
+
 /** The keyboard shortcuts: the keys, what they do, and a line of detail. Keep in step with the key handlers in ticket-detail.ts and top-bar.ts. */
 const SHORTCUTS: [string[], string, string][] = [
   [["R"], "Reply", "Opens the comment box and puts the cursor in it. With the cursor outside the box it closes it again."],
@@ -510,7 +513,8 @@ export class SettingsPage extends LitElement {
         ${s.agent_runner && !s.agent_user ? html`<div class="note">Choose the agent's user, or the runner can't sign in with limited rights.</div>` : nothing}
       </div>
 
-      <div class="card">
+      ${NOTIFICATIONS_SEND
+        ? html`      <div class="card">
         <h2>Notifications</h2>
         <p class="help">These are your own settings. Each manager chooses where their notifications go and what they hear about.</p>
         <div class="sub">Notify me when</div>
@@ -535,7 +539,8 @@ export class SettingsPage extends LitElement {
               </label>`,
             )
           : html`<div class="note">Home Assistant has no notify services yet. Install the Companion app on a phone to get one.</div>`}
-      </div>
+      </div>`
+        : nothing}
       <div class="card keys">
         <h2>Keyboard Shortcuts</h2>
         <p class="help">They work anywhere in Home Desk except while you are typing in a box.</p>
