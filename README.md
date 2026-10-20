@@ -5,9 +5,20 @@
   <img alt="Home Desk" src="home_desk_brand/extras/home-desk-icon-black-512.png" width="96">
 </picture>
 
-A helpdesk for the home, living inside Home Assistant. The manager, household members, AI agents and Home Assistant itself raise tickets; the manager and AI agents work them through to resolution, with the full history kept. Home Assistant is the heart of a smart home, so it's where tickets live, but they can be about anything around it too (the network, the servers, the media box). Categories keep those apart. See [IDEA.md](IDEA.md) for the bigger vision.
+A helpdesk for the home, living inside Home Assistant. You, your household, AI agents and Home Assistant itself raise tickets; you and your AI agents work them through to resolution, with the full history kept. Home Assistant is the heart of a smart home, so it's where tickets live, but they can be about anything around it too (the network, the servers, the media box). Categories keep those apart.
 
-**Status: v0.1 plus the unreleased changes in the [changelog](custom_components/home_desk/CHANGELOG.md), in daily use on one install.** Built: a Home page (what needs you, what the AI Agent is doing, recent activity), a ticket list and a flat, full-width ticket page in the Home Assistant style, a four-status lifecycle that moves by itself, categories (what part of the home a ticket is about) and GitHub-style labels, assigning tickets to an AI agent, a Settings page, AI access, Home Assistant Repairs as tickets, import of an existing markdown tracker. Also built: a simple report form for household users, with photos and a voice message that Home Assistant's speech-to-text writes out. Not built yet: push notifications (the options are stored, nothing is sent yet), reporting. Also built: two separate AI actions. **Queue for AI Agent** only marks a ticket for an AI agent you run yourself (your own Claude CLI, Gemini Antigravity or any other), sending nothing anywhere. **Review with AI** (after a confirmation, as it uses your AI plan) asks the AI you chose in Settings to review the ticket: Home Desk gives it the ticket, its comments and what Settings allows (entity states, automation and script configuration, related tickets, secrets removed) and posts its reply, signed AI Review, with a working indicator, a Stop button and one-click proposed changes. It only advises; it can't change anything, and it never touches the assignment. The instructions it is given are editable in Settings. See [IDEA.md](IDEA.md).
+**Status: v0.1 plus the unreleased changes in the [changelog](custom_components/home_desk/CHANGELOG.md), in daily use on one install.** Not published to HACS yet, and expect rough edges.
+
+**Features**
+
+- A Home page (what needs you, what the AI Agent is doing, recent activity), a ticket list and a full-width ticket page in Home Assistant's own style.
+- A four-status lifecycle that moves by itself, GitHub-style labels, and categories for what part of the home a ticket is about.
+- Home Assistant Repairs (and anything else that fires an event) become tickets, and close themselves when fixed.
+- A simple report form for household users, with photos and a voice message that Home Assistant's speech-to-text writes out.
+- Two separate AI actions. **Review with AI** asks the AI you chose in Settings to review a ticket from what Home Desk shows it (the ticket, its comments, and what Settings allows, with secrets removed). It only advises and cannot change anything. **Queue for AI Agent** hands a ticket to an AI agent you run yourself.
+- Not built yet: push notifications (the options are stored, nothing is sent) and reporting.
+
+See [IDEA.md](IDEA.md) for the bigger vision.
 
 *Formerly "Support Tickets" (domain `support_tickets`); see [Upgrading from Support Tickets](#upgrading-from-support-tickets).*
 
@@ -96,20 +107,8 @@ Changing the integration's Python code (not just the panel bundle) needs another
 
 The first build was called Support Tickets (domain `support_tickets`). Home Desk adopts its tickets automatically the first time it loads, leaving the old `.storage/support_tickets.tickets` file in place as a backup. To move over: replace `custom_components/support_tickets/` with `custom_components/home_desk/`, restart, add **Home Desk** under Devices & Services, and remove the dead Support Tickets entry. Service names change from `support_tickets.*` to `home_desk.*` (and the event to `home_desk_event`), so update any automations that used them.
 
-## Import the existing tracker
+## Import an existing tracker
 
-```sh
-ssh <ha> 'cat > /config/home_desk_import.json' < import/operations.json   # plain scp may be refused by the HA SSH add-on
-```
-
-Then call the service (Developer tools → Actions), `home_desk.import_file` with `path: /config/home_desk_import.json`. Any file inside the HA config directory works. It's idempotent: re-running skips tickets already imported (each ticket's `source_key` is its dated heading plus its position among that date's entries, so inserting a new entry above older ones on the same date could confuse a later re-import).
-
-What comes in:
-- **94 numbered to-do items** become tickets (`OPS-n`). Checked items are resolved/closed; unchecked are open and tagged `needs-review`, because OPERATIONS.md often records the resolution *inside* an entry, so an unchecked box isn't proof it's still open.
-- **Dated Issue Log entries** become closed `History` tickets, linked to the to-do items they mention.
-- Entries under *Low Priority / Monitoring* come in as open monitoring tickets.
-- Original markdown is kept verbatim as the description.
-- Imported tickets arrive uncategorised, with a Bug, Task or History label (from the old item type) plus a few keyword topic labels; tidy them with Manage labels. The importer no longer adds bookkeeping labels (source, group). Some imported titles are rough where the original heading was terse.
 
 ## AI access
 
@@ -130,6 +129,23 @@ Services: `get_guide`, `get_changelog`, `list_tickets`, `get_ticket`, `create_ti
   }
 }
 ```
+
+
+I built this for myself. I run a small always-on machine at home, I already use the Claude CLI, and I wanted to raise a ticket in Home Assistant, ask an AI to look into it, read what it found, and only then let it act. It works for me and it is in daily use on one install. It is **not** a feature everyone needs: Home Desk is fully useful without it, and nothing runs unless you set it up and switch on "Offer Run AI Agent Now" in Settings.
+
+
+> **Warning.** An AI agent can misread a ticket, and ticket text can be written by anyone who can reach your Home Assistant, including a guest or a hacked device. Start with the **Advise Only** preset, where the agent diagnoses and you make the edit. Only widen it when you can undo the result, and never give it a tool you would not give a stranger who can talk you into things.
+
+That said, it was not thrown together. It is built to assume the AI can be wrong, and to limit the damage when it is:
+
+- **Review first, then Proceed.** The agent looks and proposes with read-only tools. Only an administrator pressing **Proceed** in the panel lets it act, and it is told to do exactly what was approved and nothing else.
+- **Its own limited user.** A separate, non-administrator Home Assistant user, with a short list of Home Desk services. Merging tickets, labels and similar are refused.
+- **An exact tool list, no shell.** A fixed allow-list of tools, only the MCP servers you name, a turn limit and a time limit. Anything not listed is refused, not asked about.
+- **Tickets are data, not orders.** The agent is told never to follow instructions found in ticket text. The tool list, not that instruction, is what actually holds the line.
+- **Fails safe.** A crashed run is marked failed instead of left running. **Stop** works at any time. An unknown preset name stops everything.
+- **Off until you turn it on**, and it starts with the safest preset.
+
+None of this makes it risk free. It makes the risks small, visible and yours to choose.
 
 ## Notifications
 
