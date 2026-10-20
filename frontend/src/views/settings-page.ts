@@ -25,6 +25,8 @@ const AUTO_CLOSE = [
  * line of help on the left and its control on the right. Changes are saved as soon as they are made.
  * Notifications are each manager's own; everything else is shared.
  */
+const REPO = "https://github.com/Greminn/ha-home-desk";
+
 /** The keyboard shortcuts: the keys, what they do, and a line of detail. Keep in step with the key handlers in ticket-detail.ts and top-bar.ts. */
 const SHORTCUTS: [string[], string, string][] = [
   [["R"], "Reply", "Opens the comment box and puts the cursor in it. With the cursor outside the box it closes it again."],
@@ -92,6 +94,32 @@ export class SettingsPage extends LitElement {
         min-width: 0;
       }
       .srow .name {
+        font-size: var(--st-fs-body);
+      }
+      /* A row that is a link: icon, name and hint, and an "opens in a new tab" arrow. The whole row is the target. */
+      a.srow {
+        color: inherit;
+        text-decoration: none;
+      }
+      a.srow:hover {
+        background: var(--st-hover);
+      }
+      a.srow:focus-visible {
+        outline: 2px solid var(--st-accent);
+        outline-offset: -2px;
+      }
+      .srow > ha-icon {
+        --mdc-icon-size: 20px;
+        flex: none;
+        color: var(--st-fg-secondary);
+      }
+      .srow > ha-icon.external {
+        --mdc-icon-size: 16px;
+        color: var(--st-accent);
+      }
+      .srow .value {
+        flex: none;
+        color: var(--st-fg-secondary);
         font-size: var(--st-fs-body);
       }
       /* The keyboard shortcuts: each key as a small outlined cap, with what it does beside it. */
@@ -300,6 +328,14 @@ export class SettingsPage extends LitElement {
       .sort((a, b) => a.label.localeCompare(b.label));
   }
 
+  private _linkRow(icon: string, name: string, hint: string, href: string) {
+    return html`<a class="srow" href=${href} target="_blank" rel="noopener noreferrer">
+      <ha-icon icon=${icon}></ha-icon>
+      <div class="text"><div class="name">${name}</div><div class="desc">${hint}</div></div>
+      <ha-icon class="external" icon="mdi:open-in-new"></ha-icon>
+    </a>`;
+  }
+
   private _switch(on: boolean, label: string, onChange: (v: boolean) => void) {
     return html`<button class="switch" role="switch" aria-checked=${on ? "true" : "false"} aria-label=${label}
       @click=${() => onChange(!on)}></button>`;
@@ -480,6 +516,17 @@ export class SettingsPage extends LitElement {
             <div class="text"><div class="name">${name}</div>${desc ? html`<div class="desc">${desc}</div>` : nothing}</div>
           </div>`,
         )}
+      </div>
+      <div class="card">
+        <h2>About</h2>
+        <div class="srow">
+          <div class="text"><div class="name">Version</div></div>
+          <span class="value">${__VERSION__ === "dev" ? "Preview" : `v${__VERSION__}`}</span>
+        </div>
+        ${this._linkRow("mdi:text-box-outline", "Release Notes", "What changed in each version", `${REPO}/blob/main/custom_components/home_desk/CHANGELOG.md`)}
+        ${this._linkRow("mdi:book-open-variant", "Documentation", "How to set up and use Home Desk, and how AI agents work tickets", `${REPO}#readme`)}
+        ${this._linkRow("mdi:bug-outline", "Report an Issue", "Found a problem with Home Desk itself? Tell the project", `${REPO}/issues/new/choose`)}
+        ${this._linkRow("mdi:github", "GitHub Repository", "Greminn/ha-home-desk", REPO)}
       </div>
       ${this._confirmTest
         ? html`<st-confirm-dialog heading="Use your AI plan?" confirmLabel="Yes, test it"
