@@ -224,22 +224,32 @@ export class AppHeader extends LitElement {
         top: 48px;
         right: 8px;
         min-width: 180px;
+        width: max-content;
+        max-width: calc(100vw - 16px);
         padding: 8px 0;
         border-radius: 4px;
         background: var(--st-surface);
         box-shadow: var(--st-shadow-m);
       }
+      /* Every item is one line: the icon in a fixed 24px column, then the words, all left-aligned. With no wrapping the menu is as wide as its longest item. */
       .menu-popover button {
+        display: flex;
+        align-items: center;
+        gap: 16px;
         width: 100%;
         height: 48px;
         padding: 0 16px;
         border-radius: 0;
         justify-content: flex-start;
+        text-align: left;
+        white-space: nowrap;
         color: var(--st-fg);
         font-weight: 400;
         font-size: var(--st-fs-row);
       }
       .menu-popover ha-icon {
+        flex: none;
+        --mdc-icon-size: 24px;
         color: var(--st-fg-secondary);
       }
     `,

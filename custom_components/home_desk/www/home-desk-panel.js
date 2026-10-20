@@ -3988,22 +3988,32 @@ ${e.related?.length?B`<div class="chips"><span class="sect">Related</span>${e.re
         top: 48px;
         right: 8px;
         min-width: 180px;
+        width: max-content;
+        max-width: calc(100vw - 16px);
         padding: 8px 0;
         border-radius: 4px;
         background: var(--st-surface);
         box-shadow: var(--st-shadow-m);
       }
+      /* Every item is one line: the icon in a fixed 24px column, then the words, all left-aligned. With no wrapping the menu is as wide as its longest item. */
       .menu-popover button {
+        display: flex;
+        align-items: center;
+        gap: 16px;
         width: 100%;
         height: 48px;
         padding: 0 16px;
         border-radius: 0;
         justify-content: flex-start;
+        text-align: left;
+        white-space: nowrap;
         color: var(--st-fg);
         font-weight: 400;
         font-size: var(--st-fs-row);
       }
       .menu-popover ha-icon {
+        flex: none;
+        --mdc-icon-size: 24px;
         color: var(--st-fg-secondary);
       }
     `],e([de()],ho.prototype,"page",void 0),e([de()],ho.prototype,"view",void 0),e([de({attribute:!1})],ho.prototype,"tickets",void 0),e([de({type:Boolean})],ho.prototype,"narrow",void 0),e([de({type:Boolean})],ho.prototype,"admin",void 0),e([he()],ho.prototype,"_menuOpen",void 0),e([he()],ho.prototype,"_viewsOpen",void 0),ho=e([pe("st-app-header")],ho);let po=class extends ae{constructor(){super(...arguments),this.tickets=[],this.categories=[],this.labels=[],this.selectable=!1,this.selecting=!1,this.checkedCount=0}_fire(e,t){this.dispatchEvent(new CustomEvent(e,{detail:t,bubbles:!0,composed:!0}))}_change(e){return t=>this._fire("filters-change",{[e]:t.detail})}_merge(e){const t=e.currentTarget.getBoundingClientRect();this._fire("merge-selected",{rect:t})}render(){const e=this.filters;return this.checkedCount?B`<div class="toolbar selbar">
