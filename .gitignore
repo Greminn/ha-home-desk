@@ -13,3 +13,6 @@ frontend/dev/local/
 
 # The downloaded brand pack: the extracted home_desk_brand/ folder is the copy kept in git.
 home_desk_brand*.zip
+site/node_modules/
+site/.vitepress/cache/
+site/.vitepress/dist/
