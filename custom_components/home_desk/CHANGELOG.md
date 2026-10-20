@@ -6,6 +6,12 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.0.0-beta.1] - 2026-10-21
+
+The first public beta. It covers everything since the internal 0.1.0 below; the panel's look and workflow changed a lot, so read **Breaking** first if you used 0.1.0.
+
 ### Breaking
 - **Statuses are now `new`, `in_progress`, `resolved` and `closed`: `open` is gone.** Existing `open` tickets become `in_progress` on first start. Setting `status: open` (or `waiting`) still works and means `in_progress`, but responses never contain `open`. **Action:** stop reading or writing `open`.
 - **Status now moves by itself.** The first comment or change on a `new` ticket moves it to `in_progress` (changes by Home Assistant, import and Home Desk itself don't count). A `resolved` ticket becomes `closed` automatically after a delay the manager sets in Settings (default 7 days; "straight away" and "never" are options). **Action:** you rarely need to set `status`; use `close_ticket` to resolve.

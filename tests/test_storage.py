@@ -790,5 +790,13 @@ text = (PKG / "CHANGELOG.md").read_text()
 assert "[0.1.0]" in cl.changelog_since(text, None)
 newer = cl.changelog_since(text, "0.1.0")
 assert "[Unreleased]" in newer and "[0.1.0]" not in newer
+# a beta is older than its final release, and newer than the version before it
+pre = "# Changelog\n\n## [Unreleased]\n\n- x\n\n## [1.0.0] - 2027-01-01\n\n- f\n\n## [1.0.0-beta.2] - 2026-12-01\n\n- b2\n\n## [1.0.0-beta.1] - 2026-10-21\n\n- b1\n\n## [0.1.0] - 2026-10-16\n\n- o\n"
+after_beta = cl.changelog_since(pre, "1.0.0-beta.1")
+assert "[1.0.0]" in after_beta and "[1.0.0-beta.2]" in after_beta and "[1.0.0-beta.1]" not in after_beta and "[0.1.0]" not in after_beta
+after_final = cl.changelog_since(pre, "1.0.0")
+assert "[1.0.0]" not in after_final and "[1.0.0-beta.2]" not in after_final and "[Unreleased]" in after_final
+assert "[1.0.0-beta.1]" in cl.changelog_since(pre, "0.1.0")
+print("changelog versions ok")
 print("changelog ok")
 print("ALL OK")
