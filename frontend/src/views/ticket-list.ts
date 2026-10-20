@@ -4,6 +4,7 @@ import { safeCustomElement } from "../define";
 import "./ticket-tags";
 import { sharedStyles } from "../styles";
 import { BLOCKED } from "../types";
+import { brandMark } from "../brand";
 import type { Category, Label, Status, TicketSummary } from "../types";
 import {
   PRIORITY_LABEL,
@@ -23,6 +24,16 @@ import {
 } from "../format";
 
 /** The ticket list: a row per ticket (state icon, title, who and when, then its category). */
+/** What each tab says when it has nothing in it. */
+const EMPTY: Record<string, { title: string; text: string }> = {
+  inbox: { title: "Inbox Zero", text: "The home is behaving." },
+  working: { title: "Nothing in progress", text: "Put your feet up." },
+  queued: { title: "Nothing queued", text: "The AI Agent is twiddling its thumbs." },
+  enhancements: { title: "No bright ideas yet", text: "Label a ticket Enhancement and it lands here." },
+  completed: { title: "Nothing finished yet", text: "Give it time." },
+};
+const NO_MATCH = { title: "Nothing to see here…", text: "Nothing matches that. Try fewer filters." };
+
 @safeCustomElement("st-ticket-list")
 export class TicketList extends LitElement {
   static override styles = [
@@ -253,10 +264,33 @@ export class TicketList extends LitElement {
         color: var(--st-warning);
       }
       .empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
         padding: 48px 24px;
         text-align: center;
         color: var(--st-fg-secondary);
         font-size: var(--st-fs-row);
+      }
+      .empty-mark {
+        width: 56px;
+        height: 56px;
+        margin-bottom: 8px;
+        opacity: 0.35;
+      }
+      .empty-title {
+        color: var(--st-fg);
+        font-size: var(--ha-font-size-xl, 20px);
+      }
+      .clear-filters {
+        margin-top: 12px;
+        height: var(--st-h-bar);
+        padding: 0 16px;
+        border-radius: var(--st-r-pill);
+        border: 1px solid var(--st-outline);
+        background: transparent;
+        color: var(--st-accent);
       }
     `,
   ];
@@ -271,6 +305,9 @@ export class TicketList extends LitElement {
   /** Ids of the ticked tickets, and whether checkboxes show on every row. */
   @property({ attribute: false }) checked: Set<number> = new Set();
   @property({ type: Boolean }) ticking = false;
+  /** The tab, and whether a filter or search is hiding tickets: they choose what the empty list says. */
+  @property() view = "";
+  @property({ type: Boolean }) narrowed = false;
   private _pressTimer: number | undefined;
   private _pressed = false;
 
@@ -322,7 +359,15 @@ export class TicketList extends LitElement {
 
   override render() {
     if (!this.tickets.length) {
-      return html`<div class="empty">No tickets here.</div>`;
+      const none = this.narrowed ? NO_MATCH : EMPTY[this.view] ?? NO_MATCH;
+      return html`<div class="empty">
+        ${brandMark("empty-mark")}
+        <div class="empty-title">${none.title}</div>
+        ${none.text ? html`<div>${none.text}</div>` : nothing}
+        ${this.narrowed
+          ? html`<button class="clear-filters" @click=${() => this.dispatchEvent(new CustomEvent("clear-filters", { bubbles: true, composed: true }))}>Clear Filters</button>`
+          : nothing}
+      </div>`;
     }
     return html`${this.tickets.map((t) => {
       const done = t.status === "resolved" || t.status === "closed";

@@ -21,7 +21,7 @@ const isQueued = (t: TicketSummary) => isAgent(t.assignee ?? "");
 
 /**
  * Every ticket is in exactly one tab, the first that fits, so the tabs never overlap and their counts add up:
- * Completed, then Queued for AI (the agent has it), then Enhancements (ideas not started yet, so they don't bury problems), then Inbox
+ * Completed, then Queued for AI (the agent has it), then Ideas (Enhancement tickets not started yet, so they don't bury problems), then Inbox
  * (status New: raised and not yet looked at, or reopened by Home Assistant or an AI agent, which sends it back to New), then Working
  * (everything else open, including a ticket an AI agent has answered, which its reply hands back to you).
  */
@@ -33,25 +33,72 @@ export function bucket(t: TicketSummary): "completed" | "queued" | "enhancements
   return "working";
 }
 
+/** Where a ticket is found, in the tab bar's words: the name of its tab ("History" for history tickets, which have no tab). */
+export function whereIs(t: TicketSummary): string {
+  if (isHistory(t)) return "History";
+  const view = VIEWS.find((v) => v.id === bucket(t));
+  return view?.label ?? "";
+}
+
 export const VIEWS: View[] = [
   { id: "inbox", icon: "mdi:inbox-outline", label: "Inbox", count: true, match: (t) => bucket(t) === "inbox" },
   // What you or the other admins are working on.
   { id: "working", icon: "mdi:progress-wrench", label: "Working", count: true, match: (t) => bucket(t) === "working" },
   { id: "queued", icon: "mdi:star-four-points-outline", label: "Queued for AI", count: true, match: (t) => bucket(t) === "queued" },
-  { id: "enhancements", icon: "mdi:lightbulb-outline", label: "Enhancements", count: true, match: (t) => bucket(t) === "enhancements" },
+  { id: "enhancements", icon: "mdi:lightbulb-outline", label: "Ideas", count: true, match: (t) => bucket(t) === "enhancements" },
   // Done and closed tickets; its "Show" filter also reaches History, everything still open, or every ticket.
   { id: "completed", icon: "mdi:check-circle-outline", label: "Completed", match: (t) => bucket(t) === "completed" },
 ];
 
-/** The "Show" filter on the Completed tab. History is only listed when asked for. */
+/** The Completed tab lists resolved and closed tickets, so it has no filter of its own; the Home page tiles can open it on another scope, and the Status filter then shows so you can go back. History is reached by filtering on its label. History is only listed when asked for. */
 const SCOPES: { id: string; label: string; match: (t: TicketSummary) => boolean }[] = [
-  { id: "", label: "Completed", match: isClosed },
+  { id: "", label: "Resolved & Closed", match: isClosed },
   { id: "open", label: "Open", match: isActive },
   { id: "history", label: "History", match: isHistory },
   { id: "everything", label: "Everything", match: (t) => !isHistory(t) },
 ];
 
 export const SCOPES_OPTIONS: DropdownOption[] = SCOPES.map(({ id, label }) => ({ id, label }));
+
+export type SortDir = "asc" | "desc";
+
+export interface Sort {
+  id: string;
+  label: string;
+  /** Orders a before b when the value is lower (ascending). */
+  compare: (a: TicketSummary, b: TicketSummary) => number;
+  /** The direction a fresh pick starts in: newest, most urgent and most comments first; titles A to Z. */
+  first: SortDir;
+}
+
+const RANK: Record<string, number> = { low: 0, normal: 1, high: 2, urgent: 3 };
+const by = (key: "created_at" | "updated_at" | "closed_at") => (a: TicketSummary, b: TicketSummary) => (a[key] ?? "").localeCompare(b[key] ?? "");
+
+export const SORTS: Sort[] = [
+  { id: "updated", label: "Last Updated", compare: by("updated_at"), first: "desc" },
+  { id: "opened", label: "Date Opened", compare: by("created_at"), first: "desc" },
+  { id: "priority", label: "Priority", compare: (a, b) => (RANK[a.priority] ?? 0) - (RANK[b.priority] ?? 0), first: "desc" },
+  { id: "comments", label: "Comments", compare: (a, b) => a.comment_count - b.comment_count, first: "desc" },
+  { id: "title", label: "Title", compare: (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base", numeric: true }), first: "asc" },
+  { id: "closed", label: "Date Closed", compare: by("closed_at"), first: "desc" },
+];
+
+/** The Inbox is read newest first, as a stream of what just arrived; every other tab by what changed last. */
+export const defaultSort = (view: string): string => (view === "inbox" ? "opened" : "updated");
+
+/** Date Closed only makes sense once tickets can be closed, so it is offered on the Completed tab alone. */
+export const sortOptions = (view: string): DropdownOption[] => [
+  // Clears any choice, so the list goes back to the tab's own order.
+  { id: "", label: "Default Sort" },
+  ...SORTS.filter((x) => x.id !== "closed" || view === "completed").map(({ id, label }) => ({ id, label })),
+];
+
+/** `sort` and `dir` are "" until the person chooses, which means the tab's default, newest first. */
+export function sortTickets(tickets: TicketSummary[], view: string, sort: string, dir: SortDir | ""): TicketSummary[] {
+  const s = SORTS.find((x) => x.id === sort && (x.id !== "closed" || view === "completed")) ?? SORTS.find((x) => x.id === defaultSort(view))!;
+  const sign = (dir || s.first) === "asc" ? 1 : -1;
+  return [...tickets].sort((a, b) => sign * s.compare(a, b) || by("updated_at")(b, a));
+}
 
 /** What the list is narrowed to. An empty string means "any". */
 export interface ListFilters {
@@ -109,7 +156,7 @@ export function filterTickets(tickets: TicketSummary[], f: ListFilters, matchIds
   const view = VIEWS.find((v) => v.id === f.view) ?? VIEWS[0]!;
   return tickets.filter(
     (t) =>
-      (view.id === "completed" ? SCOPES.find((x) => x.id === f.scope)!.match(t) : view.match(t)) &&
+      (view.id === "completed" ? SCOPES.find((x) => x.id === f.scope)!.match(t) || (f.label === HISTORY && isHistory(t)) : view.match(t)) &&
       (!matchIds || matchIds.has(t.id)) &&
       (!f.priority || t.priority === f.priority) &&
       (!f.label || t.labels.includes(f.label)) &&

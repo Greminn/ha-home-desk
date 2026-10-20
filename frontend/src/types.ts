@@ -221,6 +221,8 @@ export interface HomeDeskSettings {
   /** The review instructions you wrote, or empty for the default; the default text and the part always added after yours. */
   agent_prompt: string;
   agent_prompt_default: string;
+  /** Your edited prompt was written against an older default, which has changed since (the integration works this out and clears it on Keep Mine or a save). */
+  agent_prompt_outdated?: boolean;
   agent_prompt_fixed: string;
   notify: {
     /** Notify services to send to, e.g. "mobile_app_simons_iphone" or "persistent_notification". */

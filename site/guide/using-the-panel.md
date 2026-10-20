@@ -15,7 +15,7 @@ Each open ticket is in exactly one view, the first that fits.
 | **Inbox** | New tickets, and tickets reopened by Home Assistant or an AI agent. |
 | **Working** | Tickets in progress, and tickets an AI agent has answered. |
 | **Queued for AI** | Tickets handed to an AI agent. |
-| **Enhancements** | Ideas not yet started. Notes do not move them. **Start Working** moves one to **Working**. |
+| **Ideas** | Enhancement tickets not yet started. Notes do not move them. **Start Working** moves one to **Working**. |
 | **Completed** | Resolved and closed tickets. The **Show** filter also reaches Open, History and Everything. |
 
 The first four show counts that add up to the open tickets. The last view used is remembered per browser.

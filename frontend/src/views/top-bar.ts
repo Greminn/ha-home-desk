@@ -2,7 +2,8 @@ import { LitElement, html, css, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { safeCustomElement } from "../define";
 import { sharedStyles } from "../styles";
-import { STATUS_LABEL, stateColor, stateIcon } from "../format";
+import { stateColor, stateIcon } from "../format";
+import { whereIs } from "../list-model";
 import type { Priority, Status, TicketSummary } from "../types";
 
 /** The room a chip should have for its title before the bar makes way for it, in pixels. */
@@ -23,6 +24,8 @@ export interface TabInfo {
   comments: number;
   /** An AI agent is working on it right now. */
   working: boolean;
+  /** Only passed through (stepped to, or clicked in the list): the next such ticket takes its place. */
+  preview: boolean;
 }
 
 /**
@@ -110,6 +113,14 @@ export class TopBar extends LitElement {
         color: var(--st-accent);
         border-color: var(--st-accent);
         background: color-mix(in srgb, var(--st-accent) 14%, transparent);
+      }
+      /* A preview chip: lighter and italic, until it is kept. */
+      .tab.preview .ttl,
+      .tab.preview .num {
+        font-style: italic;
+      }
+      .tab.preview:not(.active) {
+        border-style: dashed;
       }
       .tab:focus-visible {
         outline: 2px solid var(--st-accent);
@@ -469,22 +480,23 @@ export class TopBar extends LitElement {
       </span>
       <div class="tabs" role="tablist" aria-label="Open tickets">
         ${this.tabs.map(
-          (t) => html`<div class="tab ${t.id === this.activeId ? "active" : ""}" role="tab" tabindex="0"
-            aria-selected=${t.id === this.activeId} title=${`#${t.id} ${t.title}`}
+          (t) => html`<div class="tab ${t.id === this.activeId ? "active" : ""} ${t.preview ? "preview" : ""}" role="tab" tabindex="0"
+            aria-selected=${t.id === this.activeId} title=${`#${t.id} ${t.title}${t.preview ? " (preview: the next ticket you open replaces it, until you act on it or click it)" : ""}`}
             @click=${() => this._fire("tab-select", t.id)}
             @auxclick=${(e: MouseEvent) => e.button === 1 && (e.preventDefault(), this._fire("tab-close", t.id))}
             @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), this._fire("tab-select", t.id))}>
             <ha-icon class="st" .icon=${stateIcon(t.status, t.queued ? "ai:AI" : null, t.enhancement ? ["enhancement"] : [])} style="color: ${stateColor(t.status, t.queued ? "ai:AI" : null, t.enhancement ? ["enhancement"] : [], t.comments)}"></ha-icon>
             <span class="num">#${t.id}</span><span class="ttl">${t.title}</span>
             ${t.working ? html`<ha-icon class="flag" icon="mdi:star-four-points" title="An AI agent is working on it"></ha-icon>` : t.unread ? html`<span class="dot" title="Changed since you looked"></span>` : nothing}
-            <button class="x" title="Close" aria-label=${`Close #${t.id}`} @click=${(e: Event) => { e.stopPropagation(); this._fire("tab-close", t.id); }}><ha-icon icon="mdi:close"></ha-icon></button>
+            <button class="x" title=${`Close (${/Mac/i.test(navigator.platform) ? "Option" : "Alt"}-click closes all)`} aria-label=${`Close #${t.id}`}
+              @click=${(e: MouseEvent) => { e.stopPropagation(); this._fire(e.altKey ? "tabs-close-all" : "tab-close", t.id); }}><ha-icon icon="mdi:close"></ha-icon></button>
           </div>`,
         )}
       </div>
       <div class="search" @focusin=${() => (this._focused = true)} @focusout=${() => (this._focused = false)}>
         <div class="field">
           <ha-icon icon="mdi:magnify"></ha-icon>
-          <input type="search" placeholder="Search tickets" aria-label="Search tickets" role="combobox" aria-expanded=${this._focused && !!this.q.trim()} .value=${this.q}
+          <input type="search" placeholder="Search all tickets…" aria-label="Search all tickets" role="combobox" aria-expanded=${this._focused && !!this.q.trim()} .value=${this.q}
             @input=${(e: Event) => this._fire("search", (e.target as HTMLInputElement).value)} @keydown=${this._searchKey} />
         </div>
         ${this._focused && this.q.trim()
@@ -494,7 +506,7 @@ export class TopBar extends LitElement {
                     (t, i) => html`<button class="hit ${i === this._active ? "on" : ""}" role="option" aria-selected=${i === this._active}
                       @mouseenter=${() => (this._active = i)} @click=${() => this._fire("open-result", t.id)}>
                       <ha-icon .icon=${stateIcon(t.status, t.assignee, t.labels)} style="color: ${stateColor(t.status, t.assignee, t.labels, t.comment_count)}"></ha-icon>
-                      <span class="num">#${t.id}</span><span class="ttl">${t.title}</span><span class="state">${STATUS_LABEL[t.status]}</span>
+                      <span class="num">#${t.id}</span><span class="ttl">${t.title}</span><span class="state">${whereIs(t)}</span>
                     </button>`,
                   )
                 : html`<div class="none">No tickets match</div>`}

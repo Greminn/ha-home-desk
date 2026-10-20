@@ -73,8 +73,8 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 
 **The panel's layout and workflow as of 2026-10-20** (all in the CHANGELOG under Unreleased; the preview, `npm run dev`, shows all of it, but only what is listed under "On the real install" below has been deployed):
 - **Names:** the *app header* (logo and tabs), the *top bar* (New Ticket, open-ticket chips, search), the *list bar* (Select Tickets and the filters), the *ticket header*, the *comment box* (a strip that opens on hover, focus or **R**).
-- **Tabs are exclusive buckets, first match wins:** Completed, Queued for AI, Enhancements (not started), Inbox (New, including tickets reopened by Home Assistant or an AI agent, which go back to New), Working. The Completed tab's Show filter reaches Open, History and Everything.
-- **Enhancements** collect notes and stay New (backend `_progress` skips them); **Start Working** moves one to In Progress, so it shows under Working.
+- **Tabs are exclusive buckets, first match wins:** Completed, Queued for AI, Ideas (Enhancement tickets not started), Inbox (New, including tickets reopened by Home Assistant or an AI agent, which go back to New), Working. The Completed tab's Show filter reaches Open, History and Everything.
+- **Ideas** (Enhancement tickets) collect notes and stay New (backend `_progress` skips them); **Start Working** moves one to In Progress, so it shows under Working.
 - **Open tickets are chips** in the top bar (up to 8, remembered per browser, each remembering normal or full width view). New Ticket then Search squeeze to a plus and a magnifier as chips need room, and open out on hover. The **live search drop down** searches every tab (a bare number finds exactly that ticket).
 - **Full width view** (icon beside History, or **F**): header across the top, details, description and history on the left (as wide as the list), comments on the right. **X** closes the open ticket's chip.
 - **Hotkeys** (ignored while typing): R reply box, F full width, X close the ticket. HA's own C, E, D, M and A are left alone. They are not documented in the panel yet.
@@ -101,8 +101,8 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 **Ideas parked**
 - Tab chips: previous/next could swap the chip in place instead of adding one each (stepping through a list piles up chips); a "titles only on hover" mode with more than five chips; a setting for the limit of eight.
 - A hotkey to jump between open chips (and one for the search box).
-- The Home tiles "Urgent / High" and "Unread" open the Completed tab on its Open or Everything scope, which is odd: an "All" tab, or real filters, would be cleaner.
-- Enhancements: a way to say an idea is "not now" without resolving it; showing note counts on the Enhancements tab.
+- Home page (decided 2026-10-21): row 1 is four tiles (Inbox and Working with Urgent and High indicators that open the tab with the Priority filter, Queued for AI, Completed in the last 7 days); row 3 is a 7-day Ticket Activity graph; "Good Morning" in Title Case. The Urgent / High, Unread and This week tiles go, and no All tab is needed.
+- Ideas tab (renamed from Enhancements, 2026-10-21): the tab itself is the "not now" place, so no parked state is needed.
 - The Review prompt: an edited prompt keeps the old "Assign to AI Agent" wording until it is reset (the default says Queue for AI Agent).
 - Document the hotkeys and the new top bar in the README (the Settings card has the keys).
 

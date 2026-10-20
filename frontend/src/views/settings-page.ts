@@ -208,6 +208,24 @@ export class SettingsPage extends LitElement {
         font-size: var(--st-fs-small);
         color: var(--st-fg-secondary);
       }
+      .stale {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0 16px 12px;
+        padding: 12px 16px;
+        border-radius: var(--ha-border-radius-md, 8px);
+        background: color-mix(in srgb, var(--st-warning) 14%, transparent);
+        font-size: var(--st-fs-small);
+      }
+      .stale > div {
+        flex: 1;
+        min-width: 0;
+      }
+      .stale ha-icon {
+        flex: none;
+        color: var(--st-warning);
+      }
       .prompt-edit {
         padding: 0 16px;
       }
@@ -446,12 +464,23 @@ export class SettingsPage extends LitElement {
       <div class="card">
         <h2>Review instructions</h2>
         <p class="help">What Review with AI tells the AI about its job and how to write. ${s.agent_prompt ? "You have changed it from the default." : "This is the default."} Home Desk adds the ticket, its comments and what you allowed above after your text, along with the part shown below, which it needs to read proposed changes and can't be edited.</p>
+        ${s.agent_prompt && s.agent_prompt_outdated
+          ? html`<div class="stale" role="status">
+              <ha-icon icon="mdi:information-outline"></ha-icon>
+              <div>
+                <strong>The default has changed since you edited this.</strong>
+                <div>Your text is untouched. It may still use older wording, like "Assign to AI Agent" instead of "Queue for AI Agent".</div>
+              </div>
+              <button class="tbtn" @click=${() => void this._save({ agent_prompt_outdated: false })}>Keep Mine</button>
+              <button class="tbtn" @click=${() => void this._save({ agent_prompt: "" })}>Reset to Default</button>
+            </div>`
+          : nothing}
         <div class="prompt-edit">
           <textarea rows="18" aria-label="Review instructions" spellcheck="false" maxlength="6000"
             .value=${s.agent_prompt || s.agent_prompt_default}
             @change=${(e: Event) => void this._save({ agent_prompt: (e.target as HTMLTextAreaElement).value })}></textarea>
           <div class="prompt-acts">
-            <button class="tbtn" ?disabled=${!s.agent_prompt} @click=${() => void this._save({ agent_prompt: "" })}>Reset to default</button>
+            <button class="tbtn" ?disabled=${!s.agent_prompt} @click=${() => void this._save({ agent_prompt: "" })}>Reset to Default</button>
           </div>
         </div>
         <details class="fixed">

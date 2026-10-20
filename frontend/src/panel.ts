@@ -8,7 +8,7 @@ import type { NewTicket } from "./ha-client";
 import type { Category, HomeAssistant, HomeDeskSettings, Label, Ticket, TicketPatch, TicketSummary } from "./types";
 import { AI_ASSIGNEE, STATUS_LABEL, actorName, isAgent } from "./format";
 import type { Person } from "./format";
-import { VIEWS, filterTickets, matchesQuickly, rankHits, type ListFilters } from "./list-model";
+import { VIEWS, filterTickets, matchesQuickly, rankHits, sortTickets, type ListFilters, type SortDir } from "./list-model";
 import "./views/ticket-list";
 import "./views/ticket-detail";
 import "./views/new-ticket-dialog";
@@ -34,6 +34,8 @@ const NO_CATEGORY = "___none___";
 
 const SEARCH_DEBOUNCE_MS = 250;
 /** The most tickets kept open as chips in the top bar. */
+type TabFilters = Pick<ListFilters, "category" | "priority" | "label" | "person">;
+const NO_FILTERS: TabFilters = { category: "", priority: "", label: "", person: "" };
 const MAX_TABS = 8;
 const POLL_MS = 20_000;
 const COMPACT_QUERY = "(max-width: 870px)";
@@ -53,20 +55,28 @@ export class HomeDeskPanel extends LitElement {
   @state() private _selected: Ticket | null = null;
   @state() private _selectedId: number | null = null;
   /** The tickets open as chips in the top bar, each remembering whether you had it in the full width view. */
-  @state() private _tabs: { id: number; wide: boolean }[] = [];
+  @state() private _tabs: { id: number; wide: boolean; preview?: boolean }[] = [];
   /** The ticket fills the page (the list is hidden): the full width view. */
   @state() private _wide = false;
   @state() private _view = "inbox";
   @state() private _q = "";
-  @state() private _priority = "";
-  @state() private _label = "";
   /** A category id, "none" for tickets with no category yet, or "" for any. */
-  @state() private _category = "";
   /** A requester's name (as stored), or "" for anyone. */
-  @state() private _person = "";
   /** True when only one pane fits: the list or the ticket, not both. */
   @state() private _compact = window.matchMedia(COMPACT_QUERY).matches;
-  @state() private _scope = "";
+  /** Each tab has its own filters (kept for this visit only, not saved). */
+  @state() private _tabFilters: Record<string, TabFilters> = {};
+  @state() private _closingTabs = false;
+  /** What is typed in the list's own search box (the top bar searches every ticket). */
+  @state() private _listQuery = "";
+  /** Each tab remembers its own sort (a taste, so it is kept in this browser; the filters are not). */
+  @state() private _sorts: Record<string, { sort: string; dir: SortDir | "" }> = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("home-desk-sorts") ?? "{}") as Record<string, { sort: string; dir: SortDir | "" }>;
+    } catch {
+      return {};
+    }
+  })();
   @state() private _labelList: Label[] = [];
   @state() private _categoryList: Category[] = [];
   /** Home Desk's options (admins); the AI agent comes from here. */
@@ -121,6 +131,7 @@ export class HomeDeskPanel extends LitElement {
   private _themeKey: unknown;
 
   override willUpdate(changed: Map<string, unknown>) {
+    if (changed.has("_page") && this._client) this._savePage(); // a refresh comes back to the same page, not always Home
     if (changed.has("hass") && this.hass) {
       const key = (this.hass as { themes?: unknown }).themes;
       if (key !== this._themeKey || !this.hasUpdated) {
@@ -217,10 +228,16 @@ export class HomeDeskPanel extends LitElement {
 
   private _restoreState() {
     try {
-      const saved = JSON.parse(localStorage.getItem("home-desk-tabs") ?? "[]") as { id: number; wide?: boolean }[];
-      if (Array.isArray(saved)) this._tabs = saved.filter((t) => Number.isInteger(t?.id)).map((t) => ({ id: t.id, wide: !!t.wide }));
+      const saved = JSON.parse(localStorage.getItem("home-desk-tabs") ?? "[]") as { id: number; wide?: boolean; preview?: boolean }[];
+      if (Array.isArray(saved)) this._tabs = saved.filter((t) => Number.isInteger(t?.id)).map((t) => ({ id: t.id, wide: !!t.wide, preview: !!t.preview }));
     } catch {
       // No saved chips.
+    }
+    try {
+      const page = localStorage.getItem("home-desk-page");
+      if (page !== null && ["", "home", "report", "labels", "categories", "settings"].includes(page)) this._page = page as Page; // a ticket's own address still wins
+    } catch {
+      // Fall through to Home.
     }
     try {
       const raw = localStorage.getItem("home-desk-view");
@@ -228,6 +245,14 @@ export class HomeDeskPanel extends LitElement {
       if (id && VIEWS.some((v) => v.id === id)) this._view = id;
     } catch {
       // Fall through to the default view.
+    }
+  }
+
+  private _savePage() {
+    try {
+      localStorage.setItem("home-desk-page", this._page);
+    } catch {
+      // Not persisted; a refresh opens Home.
     }
   }
 
@@ -240,14 +265,23 @@ export class HomeDeskPanel extends LitElement {
   }
 
   /** A ticket you open gets a chip and keeps it until you close it. With more than MAX_TABS the oldest chip you are not on goes. */
-  private _touchTab(id: number) {
+  private _touchTab(id: number, preview: boolean) {
     if (this._tabs.some((t) => t.id === id)) return;
-    let tabs = [...this._tabs, { id, wide: false }];
+    // A ticket you only passed through (stepping, a list click, a search) takes the place of the previous preview chip.
+    const at = preview ? this._tabs.findIndex((t) => t.preview) : -1;
+    let tabs = at >= 0 ? this._tabs.map((t, i) => (i === at ? { id, wide: false, preview: true } : t)) : [...this._tabs, { id, wide: false, preview }];
     while (tabs.length > MAX_TABS) {
       const drop = tabs.findIndex((t) => t.id !== id);
       tabs = tabs.filter((_, i) => i !== drop);
     }
     this._tabs = tabs;
+    this._saveTabs();
+  }
+
+  /** A preview chip becomes a real one once you do something with its ticket or click the chip. */
+  private _keepTab(id: number | null) {
+    if (id === null || !this._tabs.some((t) => t.id === id && t.preview)) return;
+    this._tabs = this._tabs.map((t) => (t.id === id ? { ...t, preview: false } : t));
     this._saveTabs();
   }
 
@@ -278,13 +312,26 @@ export class HomeDeskPanel extends LitElement {
     return this._tabs.flatMap((tab) => {
       const t = byId.get(tab.id);
       if (!t || t.merged_into) return [];
-      return [{ id: t.id, title: t.title, status: t.status, priority: t.priority, unread: !!t.unread, queued: !!t.assignee && isAgent(t.assignee), enhancement: t.labels.includes("enhancement"), comments: t.comment_count, working: !!t.agent_state }];
+      return [{ id: t.id, title: t.title, status: t.status, priority: t.priority, unread: !!t.unread, queued: !!t.assignee && isAgent(t.assignee), enhancement: t.labels.includes("enhancement"), comments: t.comment_count, working: !!t.agent_state, preview: !!tab.preview }];
     });
+  }
+
+  private get _sortChoice(): { sort: string; dir: SortDir | "" } {
+    return this._sorts[this._filters.view] ?? { sort: "", dir: "" };
+  }
+
+  private _setSort(sort: string, dir: SortDir | "") {
+    this._sorts = { ...this._sorts, [this._filters.view]: { sort, dir } };
+    try {
+      localStorage.setItem("home-desk-sorts", JSON.stringify(this._sorts));
+    } catch {
+      /* private window: it just isn't remembered */
+    }
   }
 
   private _setView(id: string) {
     this._view = id;
-    this._scope = ""; // the Show choice belongs to the Completed tab
+    this._listQuery = "";
     try {
       localStorage.setItem("home-desk-view", id);
     } catch {
@@ -411,6 +458,7 @@ export class HomeDeskPanel extends LitElement {
   private async _act(fn: (client: HaClient) => Promise<Ticket>) {
     if (!this._client) return;
     try {
+      this._keepTab(this._selectedId); // acting on a ticket makes its chip a real one
       this._selected = await fn(this._client);
       this._error = "";
       void this._refresh();
@@ -429,12 +477,12 @@ export class HomeDeskPanel extends LitElement {
     this._searchTimer = window.setTimeout(() => void this._runSearch(), SEARCH_DEBOUNCE_MS);
   }
 
-  private async _open(id: number, navigate = true) {
+  private async _open(id: number, navigate = true, preview = false) {
     if (this._selectedId !== id) this._seenAt = "";
     if (this._page === "home") this._setView("inbox"); // the list beside Home is the Inbox: keep it as you open a ticket
     this._page = "";
     this._selectedId = id;
-    this._touchTab(id);
+    this._touchTab(id, preview);
     this._wide = this._tabs.find((t) => t.id === id)?.wide ?? false; // back to the view this ticket was last in
     if (navigate) this._navigate(`${this._prefix}/${id}`);
     await this._loadSelected(id);
@@ -615,18 +663,20 @@ export class HomeDeskPanel extends LitElement {
 
   /** A change from the filter dropdowns. */
   private _applyFilters(c: Partial<ListFilters>) {
-    if (c.scope !== undefined) this._scope = c.scope;
-    if (c.category !== undefined) this._category = c.category;
-    if (c.person !== undefined) this._person = c.person;
-    if (c.priority !== undefined) this._priority = c.priority;
-    if (c.label !== undefined) this._label = c.label;
+    this._setTabFilters(c);
+  }
+
+  /** The tab the list is showing (Home shows the Inbox beside it). */
+  private get _viewId(): string {
+    return this._page === "home" ? "inbox" : this._view;
+  }
+
+  private _setTabFilters(patch: Partial<TabFilters>, view = this._viewId) {
+    this._tabFilters = { ...this._tabFilters, [view]: { ...(this._tabFilters[view] ?? NO_FILTERS), ...patch } };
   }
 
   private get _filters(): ListFilters {
-    return {
-      view: this._page === "home" ? "inbox" : this._view, scope: this._scope, category: this._category, priority: this._priority,
-      label: this._label, person: this._person,
-    };
+    return { view: this._viewId, scope: "", ...(this._tabFilters[this._viewId] ?? NO_FILTERS) };
   }
 
   /** The tickets Previous and Next move through: the list as filtered, or every ticket if the open one isn't in it. */
@@ -646,11 +696,11 @@ export class HomeDeskPanel extends LitElement {
   private _step(dir: number) {
     const pos = this._navPos;
     const target = pos ? this._walk[pos.index + dir] : undefined;
-    if (target) void this._open(target.id);
+    if (target) void this._open(target.id, true, true);
   }
 
   private get _filtered(): TicketSummary[] {
-    return filterTickets(this._tickets, this._filters, null);
+    return sortTickets(filterTickets(this._tickets, this._filters, null).filter((t) => !this._listQuery.trim() || matchesQuickly(t, this._listQuery.trim())), this._filters.view, this._sortChoice.sort, this._sortChoice.dir);
   }
 
   /** What "Queue for AI Agent" stores: any AI the person runs themselves, so no particular name. */
@@ -682,8 +732,7 @@ export class HomeDeskPanel extends LitElement {
         this._page = "";
         this._close();
         this._setView(e.detail.view);
-        this._scope = e.detail.scope ?? "";
-        this._priority = e.detail.priority;
+        this._setTabFilters({ ...NO_FILTERS, priority: e.detail.priority }, e.detail.view);
       }}></st-home-page>`;
   }
 
@@ -726,14 +775,15 @@ export class HomeDeskPanel extends LitElement {
           @open-result=${(e: CustomEvent<number>) => {
             this._q = "";
             this._hits = [];
-            void this._open(e.detail);
+            void this._open(e.detail, true, true);
           }}
-          @tab-select=${(e: CustomEvent<number>) => void this._open(e.detail)}
+          @tab-select=${(e: CustomEvent<number>) => { this._keepTab(e.detail); void this._open(e.detail); }}
           @tab-close=${(e: CustomEvent<number>) => this._closeTab(e.detail)}
+          @tabs-close-all=${() => (this._closingTabs = true)}
           @search=${(e: CustomEvent<string>) => this._search(e.detail)}
           @new-ticket=${() => (this._creating = true)}></st-top-bar>
         <div class="list-pane">
-          <st-list-toolbar .filters=${this._filters} .tickets=${this._tickets}
+          <st-list-toolbar .filters=${this._filters} .query=${this._listQuery} @list-query=${(e: CustomEvent<string>) => (this._listQuery = e.detail)} .sort=${this._sortChoice.sort} .sortDir=${this._sortChoice.dir} .tickets=${this._tickets}
             .categories=${this._categoryList} .labels=${this._labelList}
             .selectable=${this._admin} .selecting=${this._ticking} .checkedCount=${this._checked.size}
             @toggle-select=${() => (this._ticking ? this._clearChecked() : (this._ticking = true))}
@@ -741,9 +791,13 @@ export class HomeDeskPanel extends LitElement {
             @mark-read-selected=${() => void this._markRead([...this._checked]).then(() => this._clearChecked())}
             @select-all=${() => (this._checked = new Set(this._filtered.map((t) => t.id)))}
             @merge-selected=${(e: CustomEvent<{ rect: DOMRect }>) => (this._merging = { rect: e.detail.rect, ids: this._tickets.filter((t) => this._checked.has(t.id) && !t.merged_into).map((t) => t.id) })}
+            @sort-change=${(e: CustomEvent<{ sort: string; dir: SortDir | "" }>) => this._setSort(e.detail.sort, e.detail.dir)}
             @filters-change=${(e: CustomEvent<Partial<ListFilters>>) => this._applyFilters(e.detail)}></st-list-toolbar>
           <st-ticket-list
             .tickets=${this._filtered}
+            .view=${this._filters.view}
+            .narrowed=${Object.values(this._tabFilters[this._viewId] ?? NO_FILTERS).some(Boolean) || !!this._listQuery.trim()}
+            @clear-filters=${() => { this._setTabFilters(NO_FILTERS); this._listQuery = ""; }}
             .selectedId=${this._selectedId}
             .language=${lang}
             .isAdmin=${this._admin}
@@ -752,8 +806,8 @@ export class HomeDeskPanel extends LitElement {
             .ticking=${this._ticking}
             .categoryMap=${new Map(this._categoryList.map((c) => [c.id, c]))}
             @toggle-check=${(e: CustomEvent<{ id: number; range: boolean }>) => this._toggleCheck(e.detail)}
-            @select-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
-            @filter-person=${(e: CustomEvent<string>) => (this._person = e.detail)}
+            @select-ticket=${(e: CustomEvent<number>) => void this._open(e.detail, true, true)}
+            @filter-person=${(e: CustomEvent<string>) => this._setTabFilters({ person: e.detail })}
             @pick-category=${(e: CustomEvent<{ ticket: TicketSummary; rect: DOMRect }>) => (this._picking = e.detail)}
             @remove-label=${(e: CustomEvent<{ ticket: TicketSummary; label: Label }>) => (this._removing = e.detail)}
           ></st-ticket-list>
@@ -821,6 +875,17 @@ export class HomeDeskPanel extends LitElement {
             body="Merge ${this._mergeConfirm.from.map((t) => "#" + t.id).join(", ")} into #${this._mergeConfirm.into.id} (${this._mergeConfirm.into.title})? The comments, labels and files of ${this._mergeConfirm.from.length > 1 ? "the others" : "#" + this._mergeConfirm.from[0]!.id} move to #${this._mergeConfirm.into.id}, and ${this._mergeConfirm.from.length > 1 ? "they are" : "it is"} closed. This can't be undone."
             @cancel=${() => (this._mergeConfirm = null)}
             @confirm=${() => void this._doMerge()}></st-confirm-dialog>`
+        : nothing}
+      ${this._closingTabs
+        ? html`<st-confirm-dialog heading="Close All Tickets?" confirmLabel="Close All"
+            body="Close all ${this._tabs.length} open ticket${this._tabs.length === 1 ? "" : "s"} in the bar? The tickets themselves aren't changed."
+            @cancel=${() => (this._closingTabs = false)}
+            @confirm=${() => {
+              this._closingTabs = false;
+              this._tabs = [];
+              this._saveTabs();
+              this._close();
+            }}></st-confirm-dialog>`
         : nothing}
       ${this._confirmCost
         ? html`<st-confirm-dialog heading="Use your AI plan?" confirmLabel="Yes, go ahead" body=${this._confirmCost.text}
