@@ -38,7 +38,17 @@ def _token() -> str:
 
 
 HA_TOKEN = _token()
-_CONTEXT = ssl.create_default_context(cafile=os.environ["HA_CA_FILE"]) if os.environ.get("HA_CA_FILE") else None
+def _context() -> ssl.SSLContext | None:
+    """Trust only the certificate authority in HA_CA_FILE. The chain and host name are still checked; only Python's extra-strict
+    rules on the certificate's extensions are relaxed (many home certificate authorities leave out key usage)."""
+    if not os.environ.get("HA_CA_FILE"):
+        return None
+    ctx = ssl.create_default_context(cafile=os.environ["HA_CA_FILE"])
+    ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+    return ctx
+
+
+_CONTEXT = _context()
 _actor = os.environ.get("HOMEDESK_ACTOR", "claude").strip() or "claude"
 # Home Desk knows an AI by the "ai:" in front of its name, so any AI (Gemini, Antigravity, Claude) is recognised without it
 # being written into the setting: HOMEDESK_ACTOR=Gemini is recorded as "ai:Gemini".
