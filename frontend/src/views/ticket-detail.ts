@@ -35,11 +35,6 @@ import { renderMarkdown } from "../markdown";
 const LONG_DESCRIPTION = 1800;
 
 /** Right-hand pane: one ticket with its controls, description and timeline. */
-/** The height of the pinned description once it is folded to one line. */
-const DESC_ONE_LINE = 56;
-/** The room kept between the squeezed description and the Comments heading below it. */
-const DESC_GAP = 16;
-
 @safeCustomElement("st-ticket-detail")
 export class TicketDetail extends LitElement {
   static override styles = [
@@ -147,66 +142,11 @@ export class TicketDetail extends LitElement {
         min-width: 0;
         padding: var(--wrap-top) 18px 28px; /* room under the last comment, above the comment box */
       }
-      /*
-       * A description of more than a couple of lines is pinned at the top as you scroll, and shrinks at the same rate as you
-       * scroll until it is one line ending in an ellipsis (the panel sets its height from the scroll position).
-       */
-      .desc-sticky {
-        position: sticky;
-        top: 0;
-        z-index: 3;
-        /* The pane's top padding belongs to this block, so the text has the same space above it whether or not it is pinned. */
-        margin-top: calc(var(--wrap-top) * -1);
-        padding-top: var(--wrap-top);
-        overflow: hidden;
-        background: var(--st-selected-soft, var(--st-surface));
-      }
-      /* While it is being squeezed, its bottom edge fades out instead of cutting a line of text in half. */
-      .desc-sticky.shrunk {
-        -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
-        mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
-      }
-      .desc-sticky.one {
-        cursor: pointer;
-      }
-      .desc-sticky.one .card {
-        margin: 0 0 16px;
-        padding: 0 28px 16px 0;
-      }
-      .desc-sticky.one .md {
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 1;
-        overflow: hidden;
-        max-height: none;
-        -webkit-mask-image: none;
-        mask-image: none;
-        color: var(--st-fg-secondary);
-      }
-      .desc-sticky.one .md > * {
-        margin: 0;
-      }
-      .desc-sticky.one .more,
-      .desc-sticky.one .about,
-      .desc-sticky.one .attached {
-        display: none;
-      }
       .attached {
         margin-top: 12px;
       }
       .md + .attached {
         margin-top: 16px;
-      }
-      .desc-sticky .pin-hint {
-        --mdc-icon-size: 20px;
-        position: absolute;
-        right: 0;
-        top: calc(var(--wrap-top) + 1px);
-        display: none;
-        color: var(--st-fg-secondary);
-      }
-      .desc-sticky.one .pin-hint {
-        display: inline-flex;
       }
       .back {
         display: none;
@@ -407,15 +347,6 @@ export class TicketDetail extends LitElement {
       }
       .side-wrap .history {
         margin-top: 8px;
-      }
-      /* In the side panel the description just sits there, whole: it isn't pinned or squeezed. */
-      .desc-sticky.plain {
-        position: static;
-        margin-top: 0;
-        padding-top: 0;
-        overflow: visible;
-        z-index: auto;
-        background: transparent;
       }
       .main {
         min-width: 0;
@@ -1031,10 +962,6 @@ export class TicketDetail extends LitElement {
   @state() private _expanded = false;
   /** Status changes and other system lines are tucked away; the history button brings them back. */
   @state() private _showHistory = false;
-  /** A long description collapses to one line as soon as the ticket is scrolled, and opens again at the top. */
-  @state() private _descCollapsed = false;
-  /** The description's natural height, measured while it is not folded to one line. */
-  private _descFull = 0;
   /**
    * The "Queue for AI Agent" choice beside the priority icons: null while untouched (so it follows the ticket), then true or
    * false once the admin clicks it. Like a priority, nothing is sent until the main button is pressed.
@@ -1050,7 +977,6 @@ export class TicketDetail extends LitElement {
   @state() private _comment = "";
 
   override willUpdate(changed: Map<string, unknown>) {
-    if (changed.has("wide")) this._descCollapsed = false; // the side panel shows the description whole
     if (changed.has("ticket")) {
       this.toggleAttribute("open", !!this.ticket);
       const prev = changed.get("ticket") as Ticket | null | undefined;
@@ -1061,7 +987,6 @@ export class TicketDetail extends LitElement {
       }
       if (prev?.id !== this.ticket?.id) {
         this._scrollTo = "top";
-        this._descCollapsed = false;
         this._priorityTo = "";
         this._agentToggle = null;
         this._composerMode = "auto";
@@ -1075,46 +1000,6 @@ export class TicketDetail extends LitElement {
       }
     }
   }
-
-  /**
-   * The pinned description shrinks at the same rate as the thread scrolls, until it is one line ending in an ellipsis, and
-   * opens out again as you scroll back up. Its height follows the scroll position, and the space it gives up is added
-   * back below it, so the page keeps its length and the comments move at the speed of the scroll, right under its bottom edge.
-   */
-  private _onScroll(e: Event) {
-    if (this.wide) return;
-    this._shrinkDescription((e.currentTarget as HTMLElement).scrollTop);
-  }
-
-  private _shrinkDescription(scrollTop: number) {
-    const block = this.renderRoot.querySelector<HTMLElement>(".desc-sticky");
-    if (!block) return;
-    const full = this._descFull;
-    // Squeezing only makes sense to bring a real thread into view. With no comments, or just a short one, there is nothing
-    // below to reveal, so the description is left whole and simply scrolls.
-    const scroller = this.renderRoot.querySelector<HTMLElement>(".scroll");
-    const thread = this.renderRoot.querySelector<HTMLElement>(".timeline");
-    const worthIt = !!scroller && !!thread && thread.offsetHeight >= scroller.clientHeight * 0.4;
-    if (!worthIt || full <= DESC_ONE_LINE || scrollTop <= 0) {
-      block.style.height = "";
-      block.style.marginBottom = "";
-      block.classList.remove("shrunk");
-      if (this._descCollapsed) this._descCollapsed = false;
-      return;
-    }
-    const height = Math.max(DESC_ONE_LINE, full - scrollTop);
-    block.style.height = `${height}px`;
-    // A little extra room (eased in over the first few pixels, so nothing jumps) keeps the cropped edge off the Comments heading.
-    block.style.marginBottom = `${full - height + Math.min(DESC_GAP, scrollTop)}px`;
-    const one = height <= DESC_ONE_LINE;
-    block.classList.toggle("shrunk", !one);
-    if (one !== this._descCollapsed) this._descCollapsed = one;
-  }
-
-  private _expandDescription = () => {
-    if (!this._descCollapsed) return;
-    this.renderRoot.querySelector<HTMLElement>(".scroll")?.scrollTo({ top: 0 });
-  };
 
   /** Where to scroll the ticket after the next render: a new ticket starts at the top, new comments at the end. */
   private _scrollTo: "top" | "bottom" | null = null;
@@ -1170,20 +1055,12 @@ export class TicketDetail extends LitElement {
     // The text can change (another ticket, an agent's edit) or wrap differently (a resize).
     const box = this.renderRoot.querySelector<HTMLTextAreaElement>("textarea.title-edit");
     if (box) this._fitTitle(box);
-    if (!this._descCollapsed) {
-      // The block's natural height, whatever height the scroll has squeezed it to (scrollHeight is the whole content).
-      const block = this.renderRoot.querySelector<HTMLElement>(".desc-sticky");
-      this._descFull = block ? block.scrollHeight : 0;
-    }
     if (this._scrollTo) {
       const area = this.renderRoot.querySelector<HTMLElement>(".scroll");
       const to = this._scrollTo;
       this._scrollTo = null;
       area?.scrollTo({ top: to === "top" ? 0 : area.scrollHeight, behavior: to === "top" ? "auto" : "smooth" });
     }
-    // The description or the pane may have changed size under a half-shrunk block (Show All, a resize): fit it again.
-    const scroller = this.renderRoot.querySelector<HTMLElement>(".scroll");
-    if (scroller) this._shrinkDescription(scroller.scrollTop);
   }
 
   private _fire(name: string, detail?: unknown) {
@@ -1683,11 +1560,7 @@ ${canWide
 </div>`;
     const descBlock = html`
 ${t.description || t.attachments?.length
-  ? html`<div class="desc-sticky ${this.wide ? "plain" : this._descCollapsed ? "one" : ""}"
-      role=${this._descCollapsed ? "button" : nothing} tabindex=${this._descCollapsed ? 0 : nothing}
-      aria-label=${this._descCollapsed ? "Show the full description" : nothing}
-      @click=${this._expandDescription}
-      @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && this._descCollapsed && (e.preventDefault(), this._expandDescription())}>
+  ? html`<div class="desc-block">
       <div class="card desc">
         ${t.description ? html`<div class="md ${long && !this._expanded && !this.wide ? "clamp" : ""}">${unsafeHTML(renderMarkdown(t.description))}</div>` : nothing}
         ${t.attachments?.length && this.client
@@ -1698,7 +1571,6 @@ ${t.description || t.attachments?.length
           .entities=${t.entities} .devices=${t.devices ?? []} .areas=${t.areas ?? []} 
           @change=${(e: CustomEvent<{ entities: string[]; devices: string[]; areas: string[] }>) => this._patch(e.detail)}></st-ticket-things>
       </div>
-      <ha-icon class="pin-hint" icon="mdi:chevron-up"></ha-icon>
     </div>`
   : nothing}`;
     const resolutionBlock = html`
@@ -1766,7 +1638,7 @@ ${t.related?.length
     }
     return html`
       <div class="top">${headRow}${subBlock}</div>
-      <div class="scroll" @scroll=${this._onScroll}>
+      <div class="scroll">
         <div class="wrap">${descBlock}${resolutionBlock}${relatedBlock}${timelineBlock}</div>
       </div>
       ${dock}
