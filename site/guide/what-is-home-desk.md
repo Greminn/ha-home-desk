@@ -4,16 +4,35 @@ title: What Is Home Desk?
 
 # What Is Home Desk?
 
-A helpdesk for the home, living inside Home Assistant. You, your household, AI agents and Home Assistant itself raise tickets; you and your AI agents work them through to resolution, with the full history kept. Home Assistant is the heart of a smart home, so it's where tickets live, but they can be about anything around it too (the network, the servers, the media box). Categories keep those apart.
+Home Desk is a helpdesk for your home, built into Home Assistant. When something needs fixing or doing, you raise a ticket, keep notes on it, and close it when it's done. Everything stays in one place, with the full history.
 
-**Status:** v0.1 plus the [unreleased changes](https://github.com/Greminn/ha-home-desk/blob/main/custom_components/home_desk/CHANGELOG.md), in daily use on one install. Expect rough edges.
+Tickets can come from:
 
-## What's in it
+- **You**, for anything around the house: a Zigbee sensor that keeps dropping out, a dashboard to tidy, a new camera to set up.
+- **Your household**, through a simple report form with photos and a voice message.
+- **Home Assistant itself.** Its Repairs become tickets, and close when they're fixed.
+- **AI agents**, if you use them. They can read tickets, add notes and suggest fixes.
 
-| Part | Where | What it does |
-|---|---|---|
-| Integration | `custom_components/home_desk/` | Stores tickets, labels, categories and settings in `.storage/home_desk.tickets`, WebSocket API for the panel, `home_desk.*` services, a `home_desk_event` on the event bus for every change, and an hourly job that closes resolved tickets |
-| Panel | `frontend/` → `www/home-desk-panel.js` | Sidebar app (Lit, HA theme variables): ticket list and ticket side by side, with comments, resolve/reopen, coloured labels, categories, a Settings page and the label and category managers |
-| Brand | `custom_components/home_desk/brand/`, `home_desk_brand/` | The logo and icon (light and dark) Home Assistant shows for the integration; the SVG masters and extras |
-| AI bridge | `mcp/server.py` | Optional MCP server: list, get, create, update, comment, close, link, labels, categories, stats |
-| Importer | `tools/export_operations.py` | Turns the author's own markdown tracker (`OPERATIONS.md`) into an import file; only useful if you keep one in the same format |
+Home Desk adds a **Home Desk** item to your Home Assistant sidebar, in the same style as the rest of Home Assistant.
+
+## What you can do with it
+
+- Keep a to-do list for your smart home that remembers what you tried and what fixed it.
+- Let your family report problems ("the lounge light is stuck") without learning Home Assistant.
+- Stop losing track of Repairs notices.
+- Ask an AI to look into a problem and suggest what to change. You stay in charge of whether anything changes.
+
+## How a ticket moves
+
+1. A ticket is raised. It's **New** and shows in your **Inbox**.
+2. You or an AI agent start on it. It becomes **In Progress**.
+3. You press **Resolve** and note what the cause was and how you fixed it.
+4. After a few days it closes by itself. You can reopen it any time.
+
+::: tip New here?
+[Install Home Desk](/guide/install), then follow [Your First Ticket](/guide/first-ticket). It takes about five minutes.
+:::
+
+::: warning A young project
+Home Desk is in daily use in one home, but it's early. Expect rough edges, and keep a backup of your Home Assistant before you install anything new.
+:::

@@ -13,14 +13,14 @@ export default defineConfig({
     nav: [
       { text: "Install", link: "/guide/install" },
       { text: "Using Home Desk", link: "/guide/using-the-panel" },
-      { text: "AI Agents", link: "/ai/access" },
+      { text: "AI Agents", link: "/ai/using-ai" },
       { text: "The Runner", link: "/runner/" },
     ],
     sidebar: [
       { text: "Getting Started", items: [
         { text: "What Is Home Desk?", link: "/guide/what-is-home-desk" },
         { text: "Install", link: "/guide/install" },
-        { text: "Known Limits", link: "/guide/known-limits" },
+        { text: "Your First Ticket", link: "/guide/first-ticket" },
       ] },
       { text: "Using Home Desk", items: [
         { text: "Using the Panel", link: "/guide/using-the-panel" },
@@ -28,13 +28,13 @@ export default defineConfig({
         { text: "Labels and Categories", link: "/guide/labels-categories" },
         { text: "Household Reports", link: "/guide/household-reports" },
         { text: "Home Assistant Repairs", link: "/guide/repairs" },
+        { text: "Automations and Notifications", link: "/guide/events" },
         { text: "Settings", link: "/guide/settings" },
-        { text: "Events and Notifications", link: "/guide/events" },
-        { text: "Importing a Tracker", link: "/guide/importing" },
+        { text: "Good to Know", link: "/guide/good-to-know" },
       ] },
       { text: "AI Agents", items: [
-        { text: "AI Access", link: "/ai/access" },
-        { text: "Assigning to an AI Agent", link: "/ai/assigning" },
+        { text: "Using AI with Home Desk", link: "/ai/using-ai" },
+        { text: "Connect Your Own AI Agent", link: "/ai/access" },
       ] },
       { text: "The AI Agent Runner (Optional)", items: [
         { text: "Overview", link: "/runner/" },

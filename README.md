@@ -20,21 +20,18 @@ A helpdesk for the home, living inside Home Assistant. You, your household, AI a
 
 See [IDEA.md](IDEA.md) for the bigger vision.
 
-*Formerly "Support Tickets" (domain `support_tickets`); see [Upgrading from Support Tickets](#upgrading-from-support-tickets).*
-
 ## Documentation
 
 The full documentation is at **<https://greminn.github.io/ha-home-desk/>** (source in [`site/`](site/)):
 
-- [Install](https://greminn.github.io/ha-home-desk/guide/install) and [upgrading from Support Tickets](https://greminn.github.io/ha-home-desk/guide/install#upgrading-from-support-tickets)
+- [Install](https://greminn.github.io/ha-home-desk/guide/install) from HACS (coming soon) or from GitHub, then [your first ticket](https://greminn.github.io/ha-home-desk/guide/first-ticket)
 - [Using the panel](https://greminn.github.io/ha-home-desk/guide/using-the-panel), [status](https://greminn.github.io/ha-home-desk/guide/status), [labels and categories](https://greminn.github.io/ha-home-desk/guide/labels-categories), [household reports](https://greminn.github.io/ha-home-desk/guide/household-reports), [Home Assistant Repairs](https://greminn.github.io/ha-home-desk/guide/repairs) and [Settings](https://greminn.github.io/ha-home-desk/guide/settings)
-- [AI access](https://greminn.github.io/ha-home-desk/ai/access) and [assigning to an AI agent](https://greminn.github.io/ha-home-desk/ai/assigning)
-- [Events and notifications](https://greminn.github.io/ha-home-desk/guide/events) and [known limits](https://greminn.github.io/ha-home-desk/guide/known-limits)
+- [Automations and notifications](https://greminn.github.io/ha-home-desk/guide/events)
+- [Using AI with Home Desk](https://greminn.github.io/ha-home-desk/ai/using-ai) and [connecting your own AI agent](https://greminn.github.io/ha-home-desk/ai/access)
 
 ## Install
 
-1. Copy `custom_components/home_desk/` into Home Assistant's `/config/custom_components/`.
-2. Restart Home Assistant, then **Settings → Devices & Services → Add Integration → Home Desk**. **Home Desk** appears in the sidebar.
+**From GitHub:** copy the `custom_components/home_desk` folder into Home Assistant's `config/custom_components/`, restart Home Assistant, then go to **Settings → Devices & Services → Add Integration → Home Desk**. **HACS:** coming soon. [Step by step](https://greminn.github.io/ha-home-desk/guide/install).
 
 
 

@@ -1,14 +1,31 @@
 ---
-title: AI Access
+title: Connect Your Own AI Agent
 ---
 
-# AI Access
+# Connect Your Own AI Agent
 
-The app explains itself to AI agents, so nothing needs adding to a project's own instructions. Any agent connected to your HA (through an HA MCP server, or the REST API) can find the `home_desk.*` services, whose descriptions say what they are for. **`home_desk.get_guide`** returns the full guide ([AGENT_GUIDE.md](https://github.com/Greminn/ha-home-desk/blob/main/custom_components/home_desk/AGENT_GUIDE.md)): fields and statuses, how to review, comment on, update and close tickets, and conventions such as passing `actor` with the agent's own name so its work is attributed to it on the timeline.
+If you run an AI agent (such as Claude) that's already connected to Home Assistant, it can read and work Home Desk tickets with no extra setup. Home Desk explains itself to the agent.
 
-Services: `get_guide`, `get_changelog`, `list_tickets`, `get_ticket`, `create_ticket`, `update_ticket`, `add_comment`, `close_ticket`, `link_tickets`, `list_labels`, `create_label`, `update_label`, `delete_label`, `list_categories`, `create_category`, `update_category`, `delete_category`, `get_stats` (and the admin-only `import_file`). Labels and categories can be passed by name or id; a category must exist before a ticket uses it. Agents can create, change and delete unused labels like categories (a label in use is only deleted by a person, in the panel). They return data, so call them with response enabled (for example `ha_call_service` with `return_response: true` in ha-mcp, or `action:` with `response_variable` in an automation). They work from automations too.
+## How it works
 
-**Optional dedicated MCP server** (`mcp/server.py`): typed tools wrapping the same services, for setups without a general HA MCP server. Add to `.mcp.json` (keep the token out of git):
+Home Desk adds a set of actions to Home Assistant, all starting with `home_desk.` They list, read, create, update, comment on and close tickets. Their descriptions tell the agent what each is for.
+
+The first thing an agent should call is **`home_desk.get_guide`**. It returns a guide to the fields, statuses, and how to review, comment on and close tickets.
+
+::: tip Give the agent its own name
+Agents should pass their own name as `actor`, so their work is labelled on the ticket's history. Otherwise it's recorded under whoever's token they use.
+:::
+
+## Option 1: through your existing Home Assistant connection
+
+Use any Home Assistant MCP server or the REST API, and let the agent find the `home_desk.*` actions. Responses are returned as data, so call them with **response enabled** (for example `return_response: true`).
+
+## Option 2: the Home Desk MCP server
+
+If you don't have a general Home Assistant MCP server, there's a small one for Home Desk only. It's the file [`mcp/server.py`](https://github.com/Greminn/ha-home-desk/blob/main/mcp/server.py) in the repository.
+
+1. Create a **long-lived access token** in your Home Assistant profile (select your name at the bottom of the sidebar, then **Security**). Keep it private.
+2. Add the server to your AI tool's MCP settings, with `uv` installed:
 
 ```json
 {
@@ -16,8 +33,18 @@ Services: `get_guide`, `get_changelog`, `list_tickets`, `get_ticket`, `create_ti
     "home-desk": {
       "command": "uv",
       "args": ["run", "--script", "/path/to/ha-home-desk/mcp/server.py"],
-      "env": { "HA_URL": "http://homeassistant.local:8123", "HA_TOKEN": "<long-lived token>", "HOMEDESK_ACTOR": "claude" }
+      "env": {
+        "HA_URL": "http://homeassistant.local:8123",
+        "HA_TOKEN": "<your long-lived token>",
+        "HOMEDESK_ACTOR": "claude"
+      }
     }
   }
 }
 ```
+
+::: warning Keep the token out of Git
+Never put the token in a file you share or commit.
+:::
+
+For the full list of actions and fields, see the [agent guide](https://github.com/Greminn/ha-home-desk/blob/main/custom_components/home_desk/AGENT_GUIDE.md).

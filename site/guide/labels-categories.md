@@ -4,14 +4,34 @@ title: Labels and Categories
 
 # Labels and Categories
 
-Labels work as they do on GitHub: they say what a ticket is, and which system or topic it concerns. Each label has a name, a colour (the same colour names HA uses for its own labels, so they follow your theme), an optional icon and an optional description.
-
-- **Built-in labels** (locked: they can't be renamed, recoloured or deleted): **Bug** (something isn't working), **Enhancement** (an idea or request for the future), **Task**, **Question**, **History** (a record of past work, hidden from lists unless you ask) and **Blocked** (waiting on a person, a part or a fix). The Inbox and Enhancements views rely on these. (There used to be a Home Assistant label; it is a category now.)
-- Every other label is yours: **Manage labels** (in the panel's ⋮ menu, admins only) opens a page like Home Assistant's own Labels page, where you create, edit (name, icon, colour, description) and delete them. Renaming keeps tickets labelled; deleting removes the label from every ticket after a confirmation that says how many.
-- Typing a label name that doesn't exist (in the panel, or an AI agent using it) creates it, with a colour picked automatically. Names match case-insensitively.
-- A suggested scheme, used on the imported tracker: a **system** (Home Assistant, Network, Infrastructure, Media), **topics** (Zigbee, Lighting, Automations, Dashboards, Cameras, Presence, Energy, Voice, Security...) and **workflow** labels (Needs review, Monitoring, Recurring, Side project). Nothing enforces it.
-- Household users can pick Problem (the Bug label) or Suggestion (Enhancement) when raising their own ticket; only admins set other labels and the priority.
+Use **categories** to say *where* a problem is, and **labels** to say *what kind* of ticket it is.
 
 ## Categories
 
-A category says what part of the smart home a ticket is about: Home Assistant, Network, Lighting, Cameras... A ticket has one category or none (it then shows an **Add Category** pill). **Home Assistant** is built in and locked; every other category is yours. **Manage Categories** (in the ⋮ menu, admins only) works like Manage Labels: a searchable list, create, rename, change the icon, delete (tickets in it become uncategorised). AI agents can list, create, rename and assign categories, and can delete only a category nothing uses. In the list the category is the outlined pill under each ticket; click it to change it.
+A category is the part of the home a ticket is about: Home Assistant, Network, Lighting, Cameras, and so on. A ticket has one category, or none.
+
+- **Set one:** select **Add Category** on a ticket, or click its category pill to change it.
+- **Manage them:** open the **⋮** menu and select **Manage Categories**. You can create, rename, change the icon of and delete categories. Deleting one leaves its tickets uncategorised.
+
+Home Assistant is a built-in category and can't be changed.
+
+## Labels
+
+A label says what kind of ticket it is, or what topic it concerns. Labels work like GitHub's: each has a name, a colour and an optional icon and description. A ticket can have as many as you like.
+
+**Built-in labels** (these can't be renamed or deleted):
+
+| Label | Use it for |
+|---|---|
+| **Bug** | Something isn't working. |
+| **Enhancement** | An idea for the future. |
+| **Task** | Something to do. |
+| **Question** | Something to find out. |
+| **Blocked** | Waiting on a person, a part or a fix. |
+| **History** | A record of past work. Hidden from lists unless you ask. |
+
+**Make your own:** open the **⋮** menu and select **Manage Labels**. You can also type a new label name straight onto a ticket, and it's created for you.
+
+::: tip A simple way to start
+Use a few topic labels (Zigbee, Lighting, Automations, Cameras) and let the built-in ones handle the rest. Nothing forces you to use any of them.
+:::

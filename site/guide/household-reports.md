@@ -4,8 +4,32 @@ title: Household Reports
 
 # Household Reports
 
-Household users see only a report form. Besides the type, a line and some detail, they can add up to **6 photos** (shrunk to 1600 px in the browser) and a **voice message** of up to 3 minutes, recorded in the panel (the microphone needs https or localhost) or picked from the device. Everything goes in one upload to `POST /api/home_desk/report`.
+Anyone with a Home Assistant login who isn't an administrator sees a simple **report form** instead of the full ticket list. It's built so your family can say "this is broken" without learning Home Assistant.
 
-- **Voice to text:** the recording is converted in the browser to 16 kHz mono WAV and, after the report is sent, passed to Home Assistant's speech-to-text (the engine in Settings, or the one your Assist pipeline uses). The words are added to the ticket's description as a quoted block and stored on the recording. A failure never loses the ticket or the recording. Switch it off in Settings.
-- **Where files live:** `<config>/home_desk_attachments/<ticket>/`. They are judged by their first bytes (JPEG, PNG, WebP, WAV, Ogg, WebM, MP4/M4A, MP3 only), served with `nosniff` and a sandboxing content policy, and only to administrators and the person who sent them. The panel loads them through signed links.
-- **Limits:** photos 10 MB each, a voice message 12 MB, ten reports an hour per person. Refused reports leave nothing behind.
+## What they see
+
+1. They open **Home Desk** in the sidebar.
+2. They choose **Problem** or **Suggestion**.
+3. They write a line and some detail.
+4. Optionally, they add **photos** (up to 6) and a **voice message** (up to 3 minutes), recorded on the spot or picked from the device.
+5. They send it.
+
+It arrives in your **Inbox** like any other ticket.
+
+::: tip Recording needs a secure connection
+The microphone only works when Home Assistant is opened over `https` (or on the same machine). If your family use the Companion app or a secure address, it works.
+:::
+
+## Voice messages become text
+
+If you use Home Assistant's speech-to-text, a voice message is turned into words and added to the ticket, with the recording kept alongside it. If it can't be turned into text, the ticket and the recording are still saved.
+
+To turn this off, open **Settings** and switch off the voice option.
+
+## What they can't see
+
+Household members only see their own reports, and never your internal notes or other people's tickets. Only administrators and the person who sent a photo or recording can open it.
+
+## Limits
+
+Photos can be up to 10 MB each, and a voice message up to 12 MB. Each person can send ten reports an hour.

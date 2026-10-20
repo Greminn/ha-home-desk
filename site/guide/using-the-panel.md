@@ -4,12 +4,46 @@ title: Using the Panel
 
 # Using the Panel
 
-- **Views** (tabs): every open ticket is in exactly one, the first that fits. **Completed** is resolved and closed tickets (its Show filter also reaches Open, History and Everything). **Queued for AI** is what is with an AI agent. **Enhancements** are ideas for the future that haven't been started: you can add notes without them moving, and **Start Working** moves one to Working. **Inbox** is new tickets, including tickets reopened by Home Assistant or an AI agent. **Working** is the rest: what you and the other admins are working on, and tickets an AI agent has answered. The first four show counts, which add up to the open tickets. The ticket list is on the left and the open ticket on the right (one at a time on a phone). Every ticket has its own address, `/home-desk/123`. The last view you used is remembered per browser. The **+** at the left of the toolbar raises a ticket.
-- **Find things:** search covers titles, descriptions, comments, resolutions, labels and categories. Filter by category, who raised it, AI Agent (with or not), priority and label. Click a person's name in the list to see just their tickets.
-- **Work a ticket:** the title, status, priority, category and labels are pinned at the top and the title edits in place. The description sits under it and scrolls with the page. Comments are below, and the comment box is docked at the bottom as a slim strip (it opens when you point at it or press **R**, and Escape closes it (so does **R** when the cursor is not in the box)) with the priority icons (High, Urgent), **Queue for AI Agent**, an **AI Action** control (**Review with AI**), **Resolve** and **Comment**. The clock icon shows the ticket's history (each change as a line, with the exact time).
-- **Live:** the panel refreshes when anything changes, including changes made by an AI agent or an automation, and scrolls to a new comment.
-- **Accessibility:** icon-only controls have names, the dialogs are modal, new comments are announced, label badges open on keyboard focus as well as on hover, and animation stops if your system asks for reduced motion.
+## Find your way around
+
+The ticket list is on the left and the open ticket on the right. On a phone you see one at a time.
+
+The tabs along the top sort every open ticket into exactly one place:
+
+| Tab | What's in it |
+|---|---|
+| **Inbox** | New tickets nobody has touched. A ticket that Home Assistant or an AI agent reopens also lands here. |
+| **Working** | Tickets you're working on, and ones an AI agent has answered. |
+| **Queued for AI** | Tickets waiting for an AI agent. |
+| **Enhancements** | Ideas for the future. You can add notes without them leaving this tab. |
+| **Completed** | Resolved and closed tickets. |
+
+## Raise a ticket
+
+Select the **+** at the top left, enter a title and some detail, and save.
+
+## Work a ticket
+
+Open a ticket from the list. At the top you can change its **title** (click it), **priority**, **category** and **labels**. Below are the description and the comments.
+
+- **Comment:** type in the box at the bottom and select **Comment**. Point at the strip to open it.
+- **Resolve:** type what caused it and how you fixed it, then select **Resolve**.
+- **Reopen:** on a resolved or closed ticket, select **Reopen**.
+- **History:** the clock icon shows every change with its time.
+- **Merge:** if two tickets are about the same thing, **Merge** (beside History) folds one into the other.
+- **Start Working:** on an Enhancement, moves it into **Working** when you begin it.
+
+## Find tickets
+
+- **Search** at the top finds words in titles, descriptions, comments, resolutions, labels and categories. You can also type a ticket number.
+- **Filters** narrow the list by category, who raised it, priority, label, or whether an AI agent has it.
+- **Click a person's name** in the list to see only their tickets.
 
 ## Who sees what
 
-Admins see and change everything. Other Home Assistant users can raise tickets and comment on their own, and don't see internal notes or other people's tickets.
+- **Administrators** see and change everything.
+- **Everyone else** sees a simple report form. See [Household Reports](/guide/household-reports).
+
+::: tip It updates itself
+You don't need to refresh. When anything changes, including a change made by an automation or an AI agent, the panel updates and scrolls to the new comment.
+:::
