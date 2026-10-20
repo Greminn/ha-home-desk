@@ -4,40 +4,74 @@ title: Using the Panel
 
 # Using the Panel
 
-The ticket list is on the left and the open ticket on the right. A phone shows one at a time. Every ticket has its own address, `/home-desk/<id>`.
+The ticket list is on the left and the open ticket on the right. A phone shows one at a time. Every ticket has its own address, `/home-desk/<id>`, and a refresh keeps you on the page you were on.
 
-## Views
+## The Home page
 
-Each open ticket is in exactly one view, the first that fits.
+The **Home Desk** title in the header opens the Home page. It shows:
 
-| View | Contents |
+- **Four tiles:** Inbox, Working, Queued for AI, and how many tickets were completed in the last 7 days. Select a tile to open that tab.
+- **Urgent and High counts** on the Inbox and Working tiles. Select one to open that tab with the priority filter already set, so the number always matches the list you land on.
+- **Blue numbers.** A tile's number turns blue when that tab has tickets with updates you have not seen, the same as the counts in the tab bar.
+- **Ticket Activity:** a graph of tickets opened and completed on each of the last 7 days.
+
+## Tabs
+
+Each open ticket is in exactly one tab, the first that fits.
+
+| Tab | Contents |
 |---|---|
 | **Inbox** | New tickets, and tickets reopened by Home Assistant or an AI agent. |
 | **Working** | Tickets in progress, and tickets an AI agent has answered. |
 | **Queued for AI** | Tickets handed to an AI agent. |
 | **Ideas** | Enhancement tickets not yet started. Notes do not move them. **Start Working** moves one to **Working**. |
-| **Completed** | Resolved and closed tickets. The **Show** filter also reaches Open, History and Everything. |
+| **Completed** | Resolved and closed tickets. Tickets with the **History** label are listed here only when you filter by that label. |
 
-The first four show counts that add up to the open tickets. The last view used is remembered per browser.
+The first four show counts that add up to the open tickets. The last tab used is remembered per browser.
+
+## The list
+
+Above the list:
+
+- **Search** (named after the tab, for example **Search Inbox…**) narrows the current tab by ticket number, title or label. The box in the header, **Search all tickets…**, searches every ticket.
+- **Sort** (the sort icon) opens a menu: **Default Sort**, **Last Updated**, **Date Opened**, **Priority**, **Comments** and **Title**, plus **Date Closed** on the Completed tab. Select the chosen sort again to flip its direction, shown by an arrow. The default is newest opened in the Inbox and most recently updated everywhere else. Each tab remembers its own sort in this browser, and the icon shows a badge while a custom sort is on.
+- **Filters** (the filter icon) open a row for **Category**, **Priority** and **Label**. A badge counts the filters that are set, and each tab has its own filters. They are not kept when you reload. Selecting a person's name in the list also filters to their tickets.
+- **Select Tickets** (the checkbox icon) shows a checkbox on every row. With tickets ticked you can mark them as read or merge them.
+
+An empty list says why. If a search or filter is hiding tickets, **Clear Filters** brings them back.
+
+## Open tickets
+
+Each ticket you open gets a chip under the header.
+
+- A ticket you only pass through (Previous and Next, a click in the list, a search result) shows as an *italic* chip with a dashed outline, a **preview**. The next ticket you pass through takes its place.
+- A preview chip becomes a normal chip when you do something with the ticket, such as comment or change the priority, or when you select the chip.
+- Up to eight chips stay open. The **X** closes a chip, a middle click does too, and **Option-click** (**Alt-click** on Windows and Linux) on an **X** closes every chip, after a confirmation.
 
 ## Working a ticket
 
 - **Title:** click to edit.
 - **Priority, category, labels:** pinned at the top of the ticket.
-- **Comment:** the comment strip at the bottom opens when pointed at. It holds the priority icons (High, Urgent), **Queue for AI Agent**, the **AI Action** control, **Resolve** and **Comment**.
+- **Comment:** the strip at the bottom opens when pointed at. See below.
 - **Resolve:** text in the comment box is saved as the resolution.
-- **Reopen:** on a resolved or closed ticket.
+- **Start Working:** on an idea, moves it to **Working**. **Reopen:** on a resolved or closed ticket.
 - **History:** the clock icon lists each change with its exact time.
 - **Merge:** beside History. Comments, labels, files and linked Repairs move to the kept ticket. The other closes as "Merged into #N".
 
-## Finding tickets
+### The reply bar
 
-- **Search** covers titles, descriptions, comments, resolutions, labels and categories. A ticket number finds that ticket.
-- **Filters** cover category, who raised it, AI Agent (with or without), priority and label.
-- Clicking a person's name in the list shows only their tickets.
+Choices in the reply bar are picked first, then applied with the main button, which says what it will do:
 
-The panel updates live, including changes made by automations and AI agents.
+- **Priority icons** (High, Urgent): the button reads **Set Priority** when that is all you chose.
+- **AI Action:** pick one of **Run**, **Review** or **Queue**, and select it again to switch it off. The main button then reads **Run AI Agent Now**, **Review With AI Now** or **Queue for AI Agent**. Run and Review ask you to confirm first, because they use your AI plan. See [AI Agents](/ai/using-ai).
+- Text in the comment box is posted first, as your comment or as the instruction to the AI.
+
+**Resolve**, **Start Working** and **Reopen** act straight away.
+
+The keyboard shortcuts are listed in Settings.
 
 ## Permissions
 
 Administrators see and change everything. Other users see only the [report form](/guide/household-reports).
+
+The panel updates live, including changes made by automations and AI agents.

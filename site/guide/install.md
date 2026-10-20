@@ -8,14 +8,13 @@ Home Desk is a custom integration. Install it with HACS or copy it in from GitHu
 
 ## HACS
 
-::: info Coming soon
-Home Desk is not in HACS yet. This section will be completed when it is. Use [GitHub](#github) until then.
-:::
+Home Desk is a beta and is not in the HACS default list yet, so you add it as a custom repository.
 
-1. Open **HACS**.
-2. *(Placeholder: search for **Home Desk**, or add the repository as a custom repository.)*
-3. Select **Download**, then restart Home Assistant.
-4. Continue at [Add the integration](#add-the-integration).
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Greminn&repository=ha-home-desk&category=integration)
+
+1. Select the button above, or in **HACS** open **⋮ → Custom repositories**, paste `https://github.com/Greminn/ha-home-desk` and set **Type** to **Integration**.
+2. Install **Home Desk**. Turn on **Show beta versions** if you do not see it.
+3. Restart Home Assistant, then continue at [Add the integration](#add-the-integration).
 
 ## GitHub
 
@@ -49,7 +48,7 @@ The panel is already built and committed, so there is nothing to compile.
 
 ## Update
 
-Replace `custom_components/home_desk` with the new files (or update through HACS) and restart Home Assistant. Tickets are stored in `.storage/home_desk.tickets`, separate from the integration, so they are kept.
+Replace `custom_components/home_desk` with the new files (or update through HACS) and restart Home Assistant. Tickets are stored in `.storage/home_desk.tickets`, separate from the integration, so they are kept. Before a new version first runs, Home Desk also copies that file to `.storage/home_desk.tickets.backup-<version>`, and keeps the newest three copies. If the file was written by a newer Home Desk than the one installed, Home Desk refuses to read it and leaves it untouched; update Home Desk instead.
 
 A change to the panel only needs a browser hard refresh. A change to the integration's Python needs a restart.
 

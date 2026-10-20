@@ -3,7 +3,7 @@ import { defineConfig } from "vitepress";
 // Published at https://greminn.github.io/ha-home-desk/ (GitHub Pages), so every address starts with /ha-home-desk/.
 export default defineConfig({
   title: "Home Desk",
-  description: "A helpdesk for the home, inside Home Assistant.",
+  description: "A smart home ticket system for Home Assistant, with AI to help.",
   base: "/ha-home-desk/",
   cleanUrls: true,
   lastUpdated: false,
