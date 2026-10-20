@@ -162,6 +162,52 @@ export class AppHeader extends LitElement {
           padding: 0 8px;
         }
       }
+      /* On a phone the five tabs are one button that names the one you are on and opens a list of them all. */
+      .tabs.picker {
+        overflow: visible;
+        justify-content: center;
+      }
+      .view-picker {
+        align-self: stretch;
+        height: auto;
+        padding: 0 8px 0 12px;
+        gap: 8px;
+        border-radius: 0;
+        border-bottom: 2px solid var(--st-accent);
+        color: var(--st-accent);
+        font-weight: 500;
+        font-size: var(--st-fs-row);
+        white-space: nowrap;
+      }
+      .view-picker .count,
+      .view-menu .count {
+        font-weight: 400;
+        font-size: var(--st-fs-caption);
+        padding: 1px 7px;
+        border-radius: 10px;
+        background: color-mix(in srgb, currentColor 18%, transparent);
+      }
+      .view-picker .count.unread,
+      .view-menu .count.unread {
+        background: var(--st-accent);
+        color: var(--st-on-accent, #fff);
+        font-weight: 500;
+      }
+      .menu-popover.view-menu {
+        left: 8px;
+        right: auto;
+        min-width: 240px;
+      }
+      .view-menu button.active {
+        color: var(--st-accent);
+        background: color-mix(in srgb, var(--st-accent) 12%, transparent);
+      }
+      .view-menu button.active ha-icon {
+        color: var(--st-accent);
+      }
+      .view-menu .count {
+        margin-left: auto;
+      }
       .menu-backdrop {
         position: fixed;
         inset: 0;
@@ -206,6 +252,8 @@ export class AppHeader extends LitElement {
   @property({ type: Boolean }) narrow = false;
   @property({ type: Boolean }) admin = false;
   @state() private _menuOpen = false;
+  /** On a phone the tabs are one drop down: whether its list is open. */
+  @state() private _viewsOpen = false;
 
   private _fire(name: string, detail?: unknown) {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
@@ -214,6 +262,34 @@ export class AppHeader extends LitElement {
   private _choose(page: Page) {
     this._menuOpen = false;
     this._fire("page-change", page);
+  }
+
+  private _count(v: (typeof VIEWS)[number]) {
+    if (!v.count) return nothing;
+    const unread = this.tickets.some((t) => t.unread && v.match(t));
+    return html`<span class="count ${unread ? "unread" : ""}" title=${unread ? "Has updates you haven't seen" : ""}>${this.tickets.filter(v.match).length}</span>`;
+  }
+
+  /** The phone's version of the tabs: one button showing the current view, which opens a list of them all. */
+  private _viewPicker() {
+    const current = VIEWS.find((v) => v.id === this.view);
+    return html`<div class="tabs picker">
+      <button class="view-picker" aria-haspopup="menu" aria-expanded=${this._viewsOpen} title="Choose a list"
+        @click=${() => (this._viewsOpen = !this._viewsOpen)}>
+        <ha-icon .icon=${current?.icon ?? "mdi:format-list-bulleted"}></ha-icon><span>${current?.label ?? "Tickets"}</span>${current ? this._count(current) : nothing}<ha-icon icon="mdi:menu-down"></ha-icon>
+      </button>
+      ${this._viewsOpen
+        ? html`<button class="menu-backdrop" aria-label="Close list" @click=${() => (this._viewsOpen = false)}></button>
+            <div class="menu-popover view-menu" role="menu">
+              ${VIEWS.map(
+                (v) => html`<button role="menuitemradio" aria-checked=${v.id === this.view} class=${v.id === this.view ? "active" : ""}
+                  @click=${() => { this._viewsOpen = false; this._fire("view-change", v.id); }}>
+                  <ha-icon .icon=${v.icon}></ha-icon>${v.label}${this._count(v)}
+                </button>`,
+              )}
+            </div>`
+        : nothing}
+    </div>`;
   }
 
   override render() {
@@ -230,7 +306,9 @@ export class AppHeader extends LitElement {
         </div>
         ${this.page || !this.admin
           ? html`<div class="tabs"></div>`
-          : html`<div class="tabs" role="tablist">
+          : this.narrow
+            ? this._viewPicker()
+            : html`<div class="tabs" role="tablist">
               ${VIEWS.map(
                 (v) => html`<button class="tab ${v.id === this.view ? "active" : ""}" role="tab" title=${v.label} aria-label=${v.label}
                   aria-selected=${v.id === this.view} @click=${() => this._fire("view-change", v.id)}>
@@ -241,7 +319,7 @@ export class AppHeader extends LitElement {
               )}
             </div>`}
         <div class="side end">
-          ${this.admin
+          ${this.admin && !this.narrow
             ? html`<button class="icon" title="Settings" aria-label="Settings" @click=${() => this._choose("settings")}><ha-icon icon="mdi:cog-outline"></ha-icon></button>`
             : nothing}
           ${this.admin
@@ -251,6 +329,9 @@ export class AppHeader extends LitElement {
           ${this.admin && this._menuOpen
             ? html`<button class="menu-backdrop" aria-label="Close menu" @click=${() => (this._menuOpen = false)}></button>
                 <div class="menu-popover" role="menu">
+                  ${this.narrow
+                    ? html`<button role="menuitem" @click=${() => this._choose("settings")}><ha-icon icon="mdi:cog-outline"></ha-icon>Settings</button>`
+                    : nothing}
                   <button role="menuitem" @click=${() => { this._menuOpen = false; this._fire("refresh"); }}><ha-icon icon="mdi:refresh"></ha-icon>Refresh</button>
                   <button role="menuitem" @click=${() => this._choose("report")}><ha-icon icon="mdi:message-alert-outline"></ha-icon>Report a Problem or Idea</button>
                   <button role="menuitem" @click=${() => { this._menuOpen = false; this._fire("mark-all-read"); }}><ha-icon icon="mdi:email-open-multiple-outline"></ha-icon>Mark All as Read</button>
