@@ -6,6 +6,7 @@ they can't open a ticket or comment on it, so anything more is talked through in
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import voluptuous as vol
@@ -13,7 +14,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
-from .const import AUTO_CLOSE_SECONDS, DOMAIN, LABEL_COLORS, PRIORITIES, STATUS_ALIASES, STATUSES
+from .const import AUTO_CLOSE_SECONDS, DOMAIN, LABEL_COLORS, MAX_TEXT, MAX_TITLE, PRIORITIES, STATUS_ALIASES, STATUSES
 from .agent import async_run_now, async_stop_turn, async_test_agent
 from .suggest import async_guess
 from .storage import (
@@ -47,9 +48,24 @@ from .storage import (
     view,
 )
 
+_LOGGER = logging.getLogger(__name__)
+
 # What a non-admin may tag their own new ticket with: what kind of report it is.
 HOUSEHOLD_LABELS = ("bug", "enhancement", "question")
-_LABELS = [vol.All(str, vol.Length(min=1, max=64))]
+# Size limits on what the browser may send (the storage layer checks again, with clearer messages). These helpers must stay
+# above every schema that uses them: a schema is built when the module loads.
+_SHORT = vol.All(str, vol.Length(max=256))  # ids, names and filters
+_TITLE = vol.All(str, vol.Length(max=MAX_TITLE))
+_LONG = vol.All(str, vol.Length(max=MAX_TEXT))  # descriptions, comments and resolutions
+_MAX_ITEMS = 5000
+
+
+def _items(schema: Any) -> Any:
+    """A list of `schema`, no longer than _MAX_ITEMS."""
+    return vol.All([schema], vol.Length(max=_MAX_ITEMS))
+
+
+_LABELS = _items(vol.All(str, vol.Length(min=1, max=64)))
 # Old status names ("open") are still accepted; the storage layer translates them.
 _STATUS = vol.In([*STATUSES, *STATUS_ALIASES])
 
@@ -72,6 +88,14 @@ def _viewer(connection: websocket_api.ActiveConnection) -> dict[str, Any] | None
     return {"id": connection.user.id, "name": _actor(connection), "admin": _is_admin(connection)}
 
 
+def _client_error(err: BaseException, what: str) -> str:
+    """A short fixed message for the browser. The detail (which can hold entity ids, addresses or payloads) goes to the log only."""
+    _LOGGER.warning("%s failed", what, exc_info=err)
+    if isinstance(err, TimeoutError):
+        return f"{what} timed out"
+    return f"{what} failed. See the Home Assistant log for details."
+
+
 def _fail(connection: websocket_api.ActiveConnection, msg: dict, code: str, text: str) -> None:
     connection.send_error(msg["id"], code, text)
 
@@ -79,12 +103,12 @@ def _fail(connection: websocket_api.ActiveConnection, msg: dict, code: str, text
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "home_desk/list",
-        vol.Optional("status"): str,
-        vol.Optional("q"): str,
+        vol.Optional("status"): _SHORT,
+        vol.Optional("q"): _SHORT,
         vol.Optional("priority"): vol.In(PRIORITIES),
-        vol.Optional("assignee"): str,
-        vol.Optional("label"): str,
-        vol.Optional("category"): str,
+        vol.Optional("assignee"): _SHORT,
+        vol.Optional("label"): _SHORT,
+        vol.Optional("category"): _SHORT,
         vol.Optional("include_history"): bool,
     }
 )
@@ -127,7 +151,7 @@ async def ws_get(hass: HomeAssistant, connection: websocket_api.ActiveConnection
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "home_desk/mark_read", vol.Optional("ticket_ids"): [int]}
+    {vol.Required("type"): "home_desk/mark_read", vol.Optional("ticket_ids"): _items(int)}
 )
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -150,14 +174,14 @@ async def ws_stats(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "home_desk/create",
-        vol.Required("title"): str,
-        vol.Optional("description"): str,
+        vol.Required("title"): _TITLE,
+        vol.Optional("description"): _LONG,
         vol.Optional("priority"): vol.In(PRIORITIES),
         vol.Optional("labels"): _LABELS,
-        vol.Optional("category"): str,
-        vol.Optional("entities"): [str],
-        vol.Optional("devices"): [str],
-        vol.Optional("areas"): [str],
+        vol.Optional("category"): _SHORT,
+        vol.Optional("entities"): _items(_SHORT),
+        vol.Optional("devices"): _items(_SHORT),
+        vol.Optional("areas"): _items(_SHORT),
     }
 )
 @websocket_api.async_response
@@ -189,17 +213,17 @@ async def ws_create(hass: HomeAssistant, connection: websocket_api.ActiveConnect
     {
         vol.Required("type"): "home_desk/update",
         vol.Required("ticket_id"): int,
-        vol.Optional("title"): str,
-        vol.Optional("description"): str,
+        vol.Optional("title"): _TITLE,
+        vol.Optional("description"): _LONG,
         vol.Optional("status"): _STATUS,
         vol.Optional("priority"): vol.In(PRIORITIES),
-        vol.Optional("assignee"): vol.Any(str, None),
+        vol.Optional("assignee"): vol.Any(_SHORT, None),
         vol.Optional("labels"): _LABELS,
-        vol.Optional("category"): vol.Any(str, None),
-        vol.Optional("entities"): [str],
-        vol.Optional("devices"): [str],
-        vol.Optional("areas"): [str],
-        vol.Optional("resolution"): vol.Any(str, None),
+        vol.Optional("category"): vol.Any(_SHORT, None),
+        vol.Optional("entities"): _items(_SHORT),
+        vol.Optional("devices"): _items(_SHORT),
+        vol.Optional("areas"): _items(_SHORT),
+        vol.Optional("resolution"): vol.Any(_LONG, None),
     }
 )
 @websocket_api.require_admin
@@ -218,7 +242,7 @@ async def ws_update(hass: HomeAssistant, connection: websocket_api.ActiveConnect
     {
         vol.Required("type"): "home_desk/comment",
         vol.Required("ticket_id"): int,
-        vol.Required("body"): str,
+        vol.Required("body"): _LONG,
         vol.Optional("internal"): bool,
     }
 )
@@ -247,7 +271,7 @@ async def ws_comment(hass: HomeAssistant, connection: websocket_api.ActiveConnec
     {
         vol.Required("type"): "home_desk/close",
         vol.Required("ticket_id"): int,
-        vol.Required("resolution"): str,
+        vol.Required("resolution"): _LONG,
         vol.Optional("status"): vol.In(["resolved", "closed"]),
     }
 )
@@ -290,7 +314,7 @@ async def ws_link(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     {
         vol.Required("type"): "home_desk/merge",
         vol.Required("ticket_id"): int,
-        vol.Required("merge_ids"): [int],
+        vol.Required("merge_ids"): _items(int),
     }
 )
 @websocket_api.require_admin
@@ -315,10 +339,10 @@ async def ws_labels(hass: HomeAssistant, connection: websocket_api.ActiveConnect
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "home_desk/label_create",
-        vol.Required("name"): str,
+        vol.Required("name"): _SHORT,
         vol.Optional("color"): vol.In(LABEL_COLORS),
-        vol.Optional("description"): str,
-        vol.Optional("icon"): str,
+        vol.Optional("description"): _LONG,
+        vol.Optional("icon"): _SHORT,
     }
 )
 @websocket_api.require_admin
@@ -337,11 +361,11 @@ async def ws_label_create(hass: HomeAssistant, connection: websocket_api.ActiveC
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "home_desk/label_update",
-        vol.Required("label_id"): str,
-        vol.Optional("name"): str,
+        vol.Required("label_id"): _SHORT,
+        vol.Optional("name"): _SHORT,
         vol.Optional("color"): vol.In(LABEL_COLORS),
-        vol.Optional("description"): str,
-        vol.Optional("icon"): str,
+        vol.Optional("description"): _LONG,
+        vol.Optional("icon"): _SHORT,
     }
 )
 @websocket_api.require_admin
@@ -358,7 +382,7 @@ async def ws_label_update(hass: HomeAssistant, connection: websocket_api.ActiveC
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "home_desk/label_delete", vol.Required("label_id"): str}
+    {vol.Required("type"): "home_desk/label_delete", vol.Required("label_id"): _SHORT}
 )
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -379,7 +403,7 @@ async def ws_categories(hass: HomeAssistant, connection: websocket_api.ActiveCon
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "home_desk/category_create", vol.Required("name"): str, vol.Optional("icon"): str}
+    {vol.Required("type"): "home_desk/category_create", vol.Required("name"): _SHORT, vol.Optional("icon"): _SHORT}
 )
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -395,9 +419,9 @@ async def ws_category_create(hass: HomeAssistant, connection: websocket_api.Acti
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "home_desk/category_update",
-        vol.Required("category_id"): str,
-        vol.Optional("name"): str,
-        vol.Optional("icon"): str,
+        vol.Required("category_id"): _SHORT,
+        vol.Optional("name"): _SHORT,
+        vol.Optional("icon"): _SHORT,
     }
 )
 @websocket_api.require_admin
@@ -411,7 +435,7 @@ async def ws_category_update(hass: HomeAssistant, connection: websocket_api.Acti
     connection.send_result(msg["id"], category)
 
 
-@websocket_api.websocket_command({vol.Required("type"): "home_desk/category_delete", vol.Required("category_id"): str})
+@websocket_api.websocket_command({vol.Required("type"): "home_desk/category_delete", vol.Required("category_id"): _SHORT})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_category_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
@@ -435,20 +459,20 @@ async def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConne
     {
         vol.Required("type"): "home_desk/settings_save",
         vol.Optional("auto_close"): vol.In(list(AUTO_CLOSE_SECONDS)),
-        vol.Optional("agent"): str,
+        vol.Optional("agent"): _SHORT,
         vol.Optional("agent_runner"): bool,
-        vol.Optional("agent_user"): str,
+        vol.Optional("agent_user"): _SHORT,
         vol.Optional("repairs"): bool,
-        vol.Optional("stt"): str,
+        vol.Optional("stt"): _SHORT,
         vol.Optional("transcribe"): bool,
         vol.Optional("agent_states"): bool,
         vol.Optional("agent_config"): bool,
         vol.Optional("agent_related"): bool,
-        vol.Optional("agent_prompt"): str,
+        vol.Optional("agent_prompt"): _LONG,
         vol.Optional("agent_prompt_outdated"): False,
         vol.Optional("agent_daily_cap"): vol.All(int, vol.Range(min=1, max=500)),
         vol.Optional("notify"): {
-            vol.Optional("targets"): [str],
+            vol.Optional("targets"): _items(_SHORT),
             vol.Optional("new_ticket"): bool,
             vol.Optional("comment"): bool,
             vol.Optional("resolved"): bool,
@@ -488,8 +512,8 @@ async def ws_suggest(hass: HomeAssistant, connection: websocket_api.ActiveConnec
     except TicketError as err:
         _fail(connection, msg, "invalid", str(err))
         return
-    except Exception as err:  # noqa: BLE001 - shown to the person who asked
-        _fail(connection, msg, "failed", str(err).strip().splitlines()[0][:300] if str(err).strip() else err.__class__.__name__)
+    except Exception as err:  # noqa: BLE001 - the person is told it failed; the detail is logged
+        _fail(connection, msg, "failed", _client_error(err, "The suggestion lookup"))
         return
     connection.send_result(msg["id"], {"suggestions": found})
 
@@ -592,8 +616,11 @@ async def ws_agent_test(hass: HomeAssistant, connection: websocket_api.ActiveCon
         return
     try:
         reply = await async_test_agent(hass, entity)
-    except Exception as err:  # noqa: BLE001 - shown to the person trying it
-        _fail(connection, msg, "failed", str(err).strip().splitlines()[0][:300] if str(err).strip() else err.__class__.__name__)
+    except TicketError as err:  # our own message, written to be read
+        _fail(connection, msg, "failed", str(err))
+        return
+    except Exception as err:  # noqa: BLE001 - the person is told it failed; the detail is logged
+        _fail(connection, msg, "failed", _client_error(err, "The AI test"))
         return
     connection.send_result(msg["id"], {"reply": reply})
 

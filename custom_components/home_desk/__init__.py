@@ -16,9 +16,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.start import async_at_started
+from homeassistant.loader import async_get_integration
 
-from .const import CONF_REPAIRS
-from .storage import async_auto_close, async_get_settings, async_save_settings
+from .backup import safe_backup
+from .const import CONF_REPAIRS, DOMAIN
+from .storage import async_auto_close, async_get_settings, async_save_settings, storage_file
 from .attachments import async_register_views
 from .frontend import async_register_sidebar_panel, async_register_static_paths
 from .repairs import async_setup_repairs
@@ -30,6 +32,12 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up integration-wide resources: WebSocket commands, services, panel."""
+    # Before anything reads the tickets: a copy for each new version (the newest three are kept).
+    try:
+        integration = await async_get_integration(hass, DOMAIN)
+        await hass.async_add_executor_job(safe_backup, storage_file(hass), str(integration.version))
+    except Exception:  # noqa: BLE001 - a missing backup must never stop Home Desk starting
+        _LOGGER.warning("Could not check the ticket file backup", exc_info=True)
     async_register_commands(hass)
     await async_setup_services(hass)
     try:

@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -108,8 +109,25 @@ def _lock(hass: HomeAssistant) -> asyncio.Lock:
     return hass.data[key]
 
 
+class _TicketStore(Store):
+    """The ticket file. A file written by a newer Home Desk is refused with a clear message, never read and rewritten."""
+
+    async def _async_migrate_func(self, old_major_version: int, old_minor_version: int, old_data: Any) -> Any:
+        if old_major_version > _STORE_VERSION:
+            raise NotImplementedError(
+                f"The ticket file was written by a newer Home Desk (format {old_major_version}); this version understands "
+                f"up to {_STORE_VERSION}. Update Home Desk. The file has been left untouched."
+            )
+        return old_data  # no older formats to convert: shape changes are migrated in _load
+
+
 def _store(hass: HomeAssistant) -> Store[dict[str, Any]]:
-    return Store(hass, _STORE_VERSION, _STORE_KEY)
+    return _TicketStore(hass, _STORE_VERSION, _STORE_KEY)
+
+
+def storage_file(hass: HomeAssistant) -> Path:
+    """Where the ticket file lives (for the backup made before an upgrade)."""
+    return Path(hass.config.path(".storage", _STORE_KEY))
 
 
 def _slug(name: str) -> str:

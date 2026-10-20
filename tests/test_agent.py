@@ -278,7 +278,7 @@ async def main():
         assert t["assignee"] is None
         print("turn ok")
 
-        # ---- a failure leaves a comment with a reason, and no assignee change
+        # ---- a failure leaves a comment, without the raw error (the log has it), and no assignee change
         async def boom(data):
             raise RuntimeError("Claude is unavailable\nsecond line")
 
@@ -286,7 +286,8 @@ async def main():
         hass.services.handler = boom
         t = await ask(base["id"])
         last = [e for e in t["events"] if e["kind"] == "comment"][-1]
-        assert last["actor"] == "Home Desk" and "unavailable" in last["body"] and "second line" not in last["body"]
+        assert last["actor"] == "Home Desk" and "couldn't answer this time" in last["body"] and "Home Assistant log" in last["body"]
+        assert "unavailable" not in last["body"] and "second line" not in last["body"], "the raw error is not put on the ticket"
         assert t["assignee"] == "ai:AI" and "agent_state" not in t
         print("failure ok")
 

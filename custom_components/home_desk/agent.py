@@ -124,10 +124,12 @@ async def _turn(hass: HomeAssistant, ticket_id: int, entity_id: str, name: str, 
         raise  # Stop: async_stop_turn tidies up
     except TimeoutError:
         await _say(hass, ticket_id, f"{name} didn't answer in time. Ask again to retry.")
-    except Exception as err:  # noqa: BLE001 - whatever went wrong, the person is told
+    except TicketError as err:  # our own message ("an empty answer"), written to be read
+        await _say(hass, ticket_id, f"{name} couldn't answer this time ({err}).")
+    except Exception:  # noqa: BLE001 - whatever went wrong, the person is told
         _LOGGER.warning("The AI could not give hints on ticket %s", ticket_id, exc_info=True)
-        reason = str(err).strip().splitlines()[0][:200] if str(err).strip() else err.__class__.__name__
-        await _say(hass, ticket_id, f"{name} couldn't answer this time ({reason}).")
+        # The reason can hold entity ids, addresses or payloads, and a ticket is read by others: the log has it, the ticket does not.
+        await _say(hass, ticket_id, f"{name} couldn't answer this time. See the Home Assistant log for details.")
     finally:
         _runs(hass).pop(ticket_id, None)
 

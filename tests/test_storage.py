@@ -771,6 +771,16 @@ async def main():
         s._now = real_now
     print("unread ok")
 
+    # ---- a ticket file written by a newer Home Desk is refused, never read and rewritten
+    store = s._store(FakeHass())
+    assert await store._async_migrate_func(1, 0, {"tickets": {}}) == {"tickets": {}}, "the current format passes through untouched"
+    try:
+        await store._async_migrate_func(s._STORE_VERSION + 1, 0, {"tickets": {}})
+        raise SystemExit("read a newer ticket file")
+    except NotImplementedError as err:
+        assert "newer Home Desk" in str(err) and "left untouched" in str(err)
+    print("newer file refused ok")
+
 
 asyncio.run(main())
 
