@@ -354,6 +354,25 @@ claim_run:
       name: "Actor"
       description: "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
       selector: {"text": {}}
+note_run:
+  name: "Note run"
+  description: "The runner says what it is doing right now, shown in the ticket's working indicator (for example \"Using get_ticket\"). Only while it is running the ticket. Pass `actor` with the runner's name."
+  fields:
+    ticket_id:
+      name: "Ticket ID"
+      description: "The ticket's number."
+      required: true
+      selector: {"number": {"min": 1, "mode": "box"}}
+    note:
+      name: "Note"
+      description: "A few words about the current step, at most 120 characters."
+      required: true
+      example: "Using get_ticket"
+      selector: {"text": {}}
+    actor:
+      name: "Actor"
+      description: "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+      selector: {"text": {}}
 finish_run:
   name: "Finish run"
   description: "The runner reports back on a claimed run, as a comment from the agent. `proposed`: what it found and what it would change, which waits for a person to press Proceed. `done`: the approved change was made. `failed`: why it could not. Fails if the run was stopped."

@@ -903,6 +903,19 @@ async def async_claim_run(hass: HomeAssistant, ticket_id: int, *, agent: str) ->
     return ticket
 
 
+async def async_note_run(hass: HomeAssistant, ticket_id: int, *, agent: str, note: str) -> dict[str, Any]:
+    """The runner says what it is doing right now (shown in the working indicator, e.g. "Using get_ticket"). Only while it runs it."""
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _get(data, ticket_id)
+        if _run_state(ticket) != "running" or not ticket.get("agent_state"):
+            raise TicketError("This run is not running")
+        ticket["agent_state"]["note"] = _limit(note.strip(), 120, "The note") or ticket["agent_state"].get("note", "")
+        await _save(hass, data)
+    _fire(hass, ticket, "agent", f"ai:{agent}")
+    return ticket
+
+
 async def async_finish_run(hass: HomeAssistant, ticket_id: int, *, agent: str, state: str, body: str) -> dict[str, Any]:
     """The runner reports back: its findings and what it would change ("proposed", waiting for Proceed), the change done
     ("done"), or why it could not ("failed"). Its words are a comment from the agent, which hands the ticket back."""

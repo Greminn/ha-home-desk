@@ -628,6 +628,41 @@ export class TicketDetail extends LitElement {
         flex: 1;
         min-width: 0;
       }
+      .ev.working .bubble {
+        position: relative;
+        overflow: hidden;
+      }
+      .ev.working .elapsed {
+        font-variant-numeric: tabular-nums;
+      }
+      /* A thin bar sliding along the bottom of the bubble, so waiting and working both look alive. */
+      .ev.working .progress {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 3px;
+        background: color-mix(in srgb, var(--st-accent) 18%, transparent);
+        overflow: hidden;
+      }
+      .ev.working .progress::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 35%;
+        border-radius: 3px;
+        background: var(--st-accent);
+        animation: slide 1.6s ease-in-out infinite;
+      }
+      @keyframes slide {
+        from {
+          left: -35%;
+        }
+        to {
+          left: 100%;
+        }
+      }
       .ev.working .what .note {
         color: var(--st-fg-secondary);
       }
@@ -637,7 +672,8 @@ export class TicketDetail extends LitElement {
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        .ev.working .bubble > ha-icon {
+        .ev.working .bubble > ha-icon,
+        .ev.working .progress::after {
           animation: none;
         }
       }
@@ -962,6 +998,9 @@ export class TicketDetail extends LitElement {
   @state() private _expanded = false;
   /** Status changes and other system lines are tucked away; the history button brings them back. */
   @state() private _showHistory = false;
+  /** Bumped each second while the AI Agent's working indicator is showing, so its elapsed time ticks. */
+  @state() private _tick = 0;
+  private _clock: number | undefined = undefined;
   /**
    * The "Queue for AI Agent" choice beside the priority icons: null while untouched (so it follows the ticket), then true or
    * false once the admin clicks it. Like a priority, nothing is sent until the main button is pressed.
@@ -1048,10 +1087,17 @@ export class TicketDetail extends LitElement {
   override disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener("keydown", this._hotkey, true);
+    if (this._clock !== undefined) window.clearInterval(this._clock);
     this._resizer?.disconnect();
   }
 
   override updated() {
+    // The elapsed time on the working indicator needs a clock, but only while there is one on show.
+    if (this.ticket?.agent_state && this._clock === undefined) this._clock = window.setInterval(() => this._tick++, 1000);
+    else if (!this.ticket?.agent_state && this._clock !== undefined) {
+      window.clearInterval(this._clock);
+      this._clock = undefined;
+    }
     // The text can change (another ticket, an agent's edit) or wrap differently (a resize).
     const box = this.renderRoot.querySelector<HTMLTextAreaElement>("textarea.title-edit");
     if (box) this._fitTitle(box);
@@ -1391,6 +1437,13 @@ export class TicketDetail extends LitElement {
   }
 
   /** While the AI Agent works, a comment from it says so and what it is doing; its reply takes its place. */
+  /** How long the agent has been at it (or waiting), ticking each second while a working indicator is on show. */
+  private _elapsed(since: string): string {
+    void this._tick; // re-rendered every second by the clock below
+    const seconds = Math.max(0, Math.round((Date.now() - new Date(since).getTime()) / 1000));
+    return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
+  }
+
   private _workingComment(t: Ticket) {
     const state = t.agent_state!;
     const who = `ai:${state.agent}`;
@@ -1400,8 +1453,9 @@ export class TicketDetail extends LitElement {
         <div class="who"><b>${state.kind === "run" ? runLabel(who) : reviewLabel(who)}</b> · <span class="when">now</span></div>
         <div class="bubble">
           <ha-icon icon="mdi:star-four-points"></ha-icon>
-          <span class="what">working on this${state.note ? html` <span class="note">· ${state.note}</span>` : nothing}</span>
+          <span class="what">${state.note?.startsWith("Waiting") ? state.note : html`working on this${state.note ? html` <span class="note">· ${state.note}</span>` : nothing}`}<span class="note elapsed"> · ${this._elapsed(state.since)}</span></span>
           ${this.isAdmin && this.client ? html`<button class="plain" @click=${() => void this.client!.stopAgent(t.id)}>Stop</button>` : nothing}
+          <span class="progress" aria-hidden="true"></span>
         </div>
       </div>
     </div>`;

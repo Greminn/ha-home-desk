@@ -26,6 +26,7 @@ from .storage import (
     async_add_comment,
     async_claim_run,
     async_finish_run,
+    async_note_run,
     async_get_settings,
     async_close_ticket,
     async_create_category,
@@ -155,6 +156,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         actor = await _actor(hass, call)
         return await async_claim_run(hass, call.data["ticket_id"], agent=actor.removeprefix("ai:"))
 
+    async def note_run(call: ServiceCall) -> dict[str, Any]:
+        actor = await _actor(hass, call)
+        return await async_note_run(hass, call.data["ticket_id"], agent=actor.removeprefix("ai:"), note=call.data["note"])
+
     async def finish_run(call: ServiceCall) -> dict[str, Any]:
         actor = await _actor(hass, call)
         return await async_finish_run(
@@ -278,7 +283,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     # create, link, close, and the two calls that run it. Merging, labels and categories, and import stay with administrators.
     agent_services = {
         "get_ticket", "list_tickets", "get_stats", "list_labels", "list_categories", "create_ticket", "update_ticket",
-        "add_comment", "close_ticket", "link_tickets", "claim_run", "finish_run",
+        "add_comment", "close_ticket", "link_tickets", "claim_run", "note_run", "finish_run",
     }
 
     def s(domain, name, handler, schema, supports_response=SupportsResponse.NONE):
@@ -357,6 +362,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         **_ACTOR,
     }), supports_response=both)
     s(DOMAIN, "claim_run", _wrap(claim_run), vol.Schema({**_ID, **_ACTOR}), supports_response=both)
+    s(DOMAIN, "note_run", _wrap(note_run), vol.Schema({**_ID, vol.Required("note"): cv.string, **_ACTOR}), supports_response=both)
     s(DOMAIN, "finish_run", _wrap(finish_run), vol.Schema({
         **_ID,
         vol.Required("state"): vol.In(["proposed", "done", "failed"]),

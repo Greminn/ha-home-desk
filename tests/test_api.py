@@ -443,6 +443,8 @@ async def main():
     waiting = await ADMIN_SERVICES["list_tickets"][0](ServiceCall({"run_state": "requested"}, user_id="u-agent"))
     assert [x["id"] for x in waiting["tickets"]] == [rt["id"]], waiting
     claimed = await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))
+    noted = await ADMIN_SERVICES["note_run"][0](ServiceCall({"ticket_id": rt["id"], "note": "Using get_ticket", "actor": "claude-ha"}, user_id="u-agent"))
+    assert noted["agent_state"]["note"] == "Using get_ticket", "the working indicator says what the runner is doing"
     assert claimed["agent_run"]["state"] == "running" and claimed["agent_run"]["mode"] == "review" and claimed["agent_run"]["claimed_by"] == "claude-ha"
     try:
         await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "other-runner"}, user_id="u-agent"))

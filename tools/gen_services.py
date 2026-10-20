@@ -112,6 +112,10 @@ SERVICES = {
     "claim_run": ("Claim run", "The runner takes a run that a person asked for (Run AI Agent Now, a read-only review) or approved (Proceed, the change). Only one runner can take it; a second call fails. Pass `actor` with the runner's name.", {
         "ticket_id": TID,
         "actor": ACTOR}),
+    "note_run": ("Note run", "The runner says what it is doing right now, shown in the ticket's working indicator (for example \"Using get_ticket\"). Only while it is running the ticket. Pass `actor` with the runner's name.", {
+        "ticket_id": TID,
+        "note": ("Note", "A few words about the current step, at most 120 characters.", TEXT, True, "Using get_ticket"),
+        "actor": ACTOR}),
     "finish_run": ("Finish run", "The runner reports back on a claimed run, as a comment from the agent. `proposed`: what it found and what it would change, which waits for a person to press Proceed. `done`: the approved change was made. `failed`: why it could not. Fails if the run was stopped.", {
         "ticket_id": TID,
         "state": ("State", "proposed, done or failed.", sel(["proposed", "done", "failed"]), True, "proposed"),
