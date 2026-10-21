@@ -62,7 +62,7 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 
 ## 4. Git
 
-- Branch `main`, **local commits only, nothing pushed**. Nothing is pushed to GitHub until the author says it is **Beta v1**.
+- Branch `main`, **local commits only, nothing pushed**. Nothing is pushed to GitHub until the author says it is **Beta v1**. Pushing, repo settings, releases and issue comments each need the author's explicit approval; show the draft first.
 - Commit messages end with the attribution lines the tooling asks for. Every user-visible change gets a `CHANGELOG.md` entry (under Unreleased); a repair or service change that agents need to know about is marked **Action:** or **Breaking:**.
 - `home_desk_brand*.zip` is ignored (the extracted `brand/` is the kept copy).
 
@@ -96,10 +96,16 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 
 ## 7. Next steps, in order
 
-*Saved 2026-10-20; state of play updated 2026-10-21. Everything below is built, tested and committed locally.*
+*Saved 2026-10-20; state of play updated 2026-10-21 (end of session). Everything below is built, tested and committed locally.*
 
 **State of play**
 - **Deployed to the real install** (2026-10-21, after a Home Assistant restart): all of the panel and backend work, including the staged AI Action bar, the Home page, the list sort, search and filters, Ideas, preview chips, and the Settings notice for an edited Review prompt (`agent_prompt_outdated`). The restart log showed no Home Desk errors.
+- 9 Python suites pass (`./tests/run_all.sh`, now including `test_backup.py` and the static `test_security.py`), plus `npm test` (vitest, 12 tests), pyflakes and `tools/check_versions.py`. CI is `.github/workflows/validate.yml`.
+- **Not yet deployed:** the `1.0.0-beta.1` manifest, changelog and rebuilt panel (the real install still reports 0.1.0). Deploying needs a restart, which makes the first `1.0.0-beta.1` backup of the tickets (`home_desk.tickets.backup-<version>`, keeps 3). Ask first.
+
+**Release readiness (session of 2026-10-21, checklist taken from the Spatial Design project's briefing; that project is read-only for us)**
+- Done: security hardening (bounded websocket schemas, admin-only commands except four, fixed client error messages), data safety (once-per-version backup, refusal of a newer storage format), CI, README restructured to match Spatial Design's, MIT `LICENSE`, Buy Me a Coffee in the README and Settings → About, tagline "A smart home ticket system for Home Assistant, with AI to help.", new social-preview images, version `1.0.0-beta.1` (manifest, `package.json`, build info agree; the changelog sorts a beta below its final), docs site brought up to date with the panel (builds clean) and install via a HACS custom repository.
+- **Then, each with the author's approval:** re-run the pre-push sweep (no tokens, no private address, no stray files); push `main`; read the CI results (hassfest, HACS) and fix; set the repo description and topics, upload the social preview, enable GitHub Pages, branch protection; point the manifest `documentation` URL at the docs site once Pages is live; tag and release `1.0.0-beta.1` with drafted notes.
 
 **Next, in order**
 2. **Decide the MCP servers** (parked 2026-10-20). Leaning: the **Home Desk bridge** (`mcp/server.py`) plus **Home Assistant's built-in MCP Server (Assist API)**. The Assist endpoint works with a non-admin token, only reaches entities exposed to Assist, and can **control** them (not read-only), so the review allow-list is just `GetLiveContext` and the change allow-list adds only the specific control tools you accept. It gives no history, logs, traces or config, so reviews may be shallow; add the community `ha-mcp` with a read-only allow-list later if so. Never put the `ha-mcp` URL or a token in the repository. Next action: draft `mcp.json` and the `extra_tools_review` and `extra_tools_change` lists, if not already done on the LXC.
