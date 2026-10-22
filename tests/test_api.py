@@ -451,6 +451,21 @@ async def main():
         raise SystemExit("two runners took one ticket")
     except HomeAssistantError as err:
         assert "already" in str(err)
+    # read-only until a person presses Proceed: during the review the agent user can comment, but not change, close, link or create
+    other = await svc("create_ticket", title="An unrelated ticket", actor="Simon")
+    async def as_agent(name, **data):
+        return await ADMIN_SERVICES[name][0](ServiceCall({"actor": "claude-ha", **data}, user_id="u-agent"))
+    async def refused(name, **data):
+        try:
+            await as_agent(name, **data)
+        except HomeAssistantError as err:
+            return str(err)
+        raise SystemExit(f"the agent user could {name} when it should not")
+    await as_agent("add_comment", ticket_id=rt["id"], body="looking at it")
+    for name, data in (("update_ticket", {"ticket_id": rt["id"], "priority": "high"}), ("close_ticket", {"ticket_id": rt["id"], "resolution": "x"}),
+                       ("link_tickets", {"ticket_id": rt["id"], "other_id": other["id"]}), ("create_ticket", {"title": "x"})):
+        assert "Proceed" in await refused(name, **data), name
+    assert "ask" in (await refused("add_comment", ticket_id=other["id"], body="x")), "it may comment only on the ticket it was asked to work"
     # what the agent user may not do
     for name, data in (("merge_tickets", {"ticket_id": rt["id"], "merge_ids": [1]}), ("create_label", {"name": "x"}), ("delete_category", {"category": "x"})):
         try:
@@ -473,6 +488,10 @@ async def main():
     assert twice.error and "already" in twice.error[1]
     do = await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))
     assert do["agent_run"]["mode"] == "change" and do["agent_state"]["note"] == "Carrying out the approved change"
+    # the approved change run can change this ticket, and only this one
+    await as_agent("update_ticket", ticket_id=rt["id"], priority="high")
+    assert "Proceed" in await refused("update_ticket", ticket_id=other["id"], priority="high")
+    await as_agent("create_ticket", title="Raised by the approved change")
     # Stop while it works: the runner then can't finish
     stopped = (await call(hass, "agent_stop", ADMIN(), ticket_id=rt["id"])).result
     assert stopped == {"stopped": rt["id"]} and (await s.async_get_ticket(hass, rt["id"]))["agent_run"]["state"] == "stopped"
@@ -491,6 +510,9 @@ async def main():
     await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))
     f3 = await ADMIN_SERVICES["finish_run"][0](ServiceCall({"ticket_id": rt["id"], "state": "done", "body": "Done.", "actor": "claude-ha"}, user_id="u-agent"))
     assert f3["agent_run"]["state"] == "done"
+    # once the run is over the agent user is read-only again
+    assert "Proceed" in await refused("update_ticket", ticket_id=rt["id"], priority="low")
+    assert "ask" in await refused("add_comment", ticket_id=rt["id"], body="more")
     # "What I would change: Nothing" has no go-ahead to give
     await call(hass, "agent_run_now", ADMIN(), ticket_id=rt["id"])
     await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))

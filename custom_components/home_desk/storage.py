@@ -1016,6 +1016,22 @@ async def async_decide_run(hass: HomeAssistant, ticket_id: int, event_id: int, *
     return ticket
 
 
+async def async_agent_run_allows(hass: HomeAssistant, ticket_id: int | None, *, writing: bool) -> bool:
+    """May the AI Agent's own user act on this ticket right now? Only while a run is working it: any run for a comment, and for
+    changing the ticket only the change run, which exists only after a person pressed Proceed. With no ticket (creating one),
+    only while some change run is working."""
+    data = await _load(hass)
+
+    def working(ticket: dict[str, Any]) -> bool:
+        run = ticket.get("agent_run") or {}
+        return run.get("state") == "running" and (not writing or run.get("mode") == "change")
+
+    if ticket_id is None:
+        return writing and any(working(t) for t in data["tickets"].values())
+    ticket = data["tickets"].get(str(ticket_id))
+    return bool(ticket) and working(ticket)
+
+
 async def async_stop_run(hass: HomeAssistant, ticket_id: int, *, actor: str) -> bool:
     """Stop a run that is wanted or going: the runner finds out when it tries to finish. Returns whether there was one."""
     async with _lock(hass):

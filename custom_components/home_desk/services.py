@@ -27,6 +27,7 @@ from .storage import (
     async_claim_run,
     async_finish_run,
     async_note_run,
+    async_agent_run_allows,
     async_get_settings,
     async_close_ticket,
     async_create_category,
@@ -60,6 +61,27 @@ _LEGACY = {
     vol.Optional("type"): vol.In(list(LEGACY_TYPE_LABELS)),
     vol.Optional("tags"): _LABELS,
 }
+
+
+# What the AI Agent's own user may do to a ticket depends on its run, so it is read-only until a person presses Proceed: it can
+# comment while any run is working the ticket, but changing, closing, linking or creating tickets only while the approved change run is.
+_AGENT_COMMENTS = {"add_comment"}
+_AGENT_WRITES = {"update_ticket", "close_ticket", "link_tickets", "create_ticket"}
+
+
+async def _check_agent_run(hass: HomeAssistant, name: str, call: ServiceCall) -> None:
+    if name in _AGENT_COMMENTS:
+        writing = False
+    elif name in _AGENT_WRITES:
+        writing = True
+    else:
+        return  # reading, and the run's own calls (claim, note, finish)
+    ticket_id = None if name == "create_ticket" else call.data.get("ticket_id")
+    if not await async_agent_run_allows(hass, ticket_id, writing=writing):
+        raise HomeAssistantError(
+            "The AI Agent can change tickets only while a change run, approved by a person pressing Proceed, is working on that ticket"
+            if writing else "The AI Agent can comment only on a ticket it has been asked to work"
+        )
 
 
 async def _is_agent_user(hass: HomeAssistant, call: ServiceCall) -> bool:
@@ -275,8 +297,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 user = await hass.auth.async_get_user(user_id)
                 if user is None or not user.is_active:
                     raise Unauthorized(context=call.context)
-                if not user.is_admin and not (name in agent_services and await _is_agent_user(hass, call)):
-                    raise Unauthorized(context=call.context, permission="admin")
+                if not user.is_admin:
+                    if not (name in agent_services and await _is_agent_user(hass, call)):
+                        raise Unauthorized(context=call.context, permission="admin")
+                    await _check_agent_run(hass, name, call)
             return await handler(call)
 
         open_register(domain, name, checked, schema, supports_response=supports_response)
