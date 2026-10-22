@@ -991,10 +991,13 @@ export class TicketDetail extends LitElement {
           flex: 1 1 100%;
           border-color: transparent;
         }
-        /* Start Working (an Idea) is a full-width line above AI Action. */
+        /* Start Working (an Idea) is a solid, full-width line above AI Action. */
         .composer .acts button.start {
           order: -1;
           flex: 1 1 100%;
+          border-color: transparent;
+          background: var(--st-accent);
+          color: var(--text-primary-color, #fff);
         }
       }
       /* On a phone an open comment box can't grow past the screen: it scrolls inside itself instead. */
