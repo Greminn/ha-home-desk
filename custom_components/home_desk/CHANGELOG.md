@@ -11,7 +11,7 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 - **A dismissed or approved go-ahead card drops its "Waiting for your go-ahead" heading.** It shows only who dismissed or approved it.
 - **The Review With AI and Run AI Agent confirmations are shorter and have their own headings** ("Review With AI?", "Run AI Agent?"), and the buttons are Title Case ("Yes, Go Ahead", "Yes, Test It").
 - **Settings is never restored when you come back to the panel**, so the sidebar icon opens Home.
-- **On a phone** the ticket header puts the title across the full width with one row of buttons under it (back, then previous, next, merge and history); the comment box is tidier when open (AI Action across the width, the priority icons and Resolve on one row, Comment on its own row below), and the comment bar now stays at the bottom of the screen: a short ticket used to end mid-screen with the bar floating in the middle, and a long one pushed it off the bottom.
+- **On a phone** the ticket header puts the title across the full width with one row of buttons under it (back, then previous, next, merge and history); the comment box is tidier when open (AI Action across the width, the priority icons and Resolve on one row, Comment on its own row below), and the comment bar now stays at the bottom of the screen on every phone size (a short ticket used to end mid-screen with the bar floating in the middle, and a long one pushed it off the bottom; the panel is now as tall as the visible screen below where it starts, which in the phone app is under the status bar). On a phone held on its side the header scrolls instead of taking the screen.
 
 ### Fixed
 - **"Could not load tickets: [object Object]"** now shows the real message from Home Assistant.

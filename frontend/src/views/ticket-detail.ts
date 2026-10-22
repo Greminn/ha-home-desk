@@ -999,6 +999,16 @@ export class TicketDetail extends LitElement {
           overflow-y: auto;
         }
       }
+      /* A short screen (a phone on its side): the header scrolls instead of taking the screen, and the open box stays smaller. */
+      @media (max-width: 870px) and (max-height: 560px) {
+        .top {
+          max-height: 42%;
+          overflow-y: auto;
+        }
+        .dock .dock-in {
+          max-height: 62dvh;
+        }
+      }
       .empty {
         display: flex;
         flex-direction: column;

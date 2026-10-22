@@ -207,15 +207,47 @@ export class HomeDeskPanel extends LitElement {
     this._compact = this._mq.matches;
   };
 
+  /**
+   * The panel is as tall as the visible screen below wherever it starts. In the phone app the page begins under the status bar,
+   * so a plain 100dvh is taller than what can be seen and the comment bar hangs off the bottom. Where it starts can change while
+   * the page settles (and when the keyboard opens), so it is measured again on every change rather than once.
+   */
+  private _fitFrame = 0;
+  private _fit = () => {
+    window.cancelAnimationFrame(this._fitFrame);
+    this._fitFrame = window.requestAnimationFrame(() => {
+      const top = Math.max(0, this.getBoundingClientRect().top);
+      const view = window.visualViewport?.height ?? window.innerHeight;
+      this.style.height = `${Math.max(240, Math.floor(view - top))}px`;
+    });
+  };
+  private _fitTimers: number[] = [];
+
   override connectedCallback() {
     super.connectedCallback();
+    this._fit();
+    this._fitTimers = [300, 1000, 2500].map((ms) => window.setTimeout(this._fit, ms));
+    window.addEventListener("resize", this._fit);
+    window.addEventListener("orientationchange", this._fit);
+    window.visualViewport?.addEventListener("resize", this._fit);
+    window.visualViewport?.addEventListener("scroll", this._fit);
     this._mq.addEventListener("change", this._onCompact);
     document.addEventListener("visibilitychange", this._onVisible);
     if (this._client && !this._unsub) this._subscribe(); // reattached after being removed
   }
 
+  override updated() {
+    this._fit(); // where the panel starts can shift as the page above it settles
+  }
+
   override disconnectedCallback() {
     super.disconnectedCallback();
+    window.cancelAnimationFrame(this._fitFrame);
+    this._fitTimers.forEach((id) => window.clearTimeout(id));
+    window.removeEventListener("resize", this._fit);
+    window.removeEventListener("orientationchange", this._fit);
+    window.visualViewport?.removeEventListener("resize", this._fit);
+    window.visualViewport?.removeEventListener("scroll", this._fit);
     this._mq.removeEventListener("change", this._onCompact);
     document.removeEventListener("visibilitychange", this._onVisible);
     window.clearInterval(this._pollTimer);
