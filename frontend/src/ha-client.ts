@@ -179,6 +179,11 @@ export class HaClient {
     return this.send("merge", { ticket_id: ticketId, merge_ids: mergeIds });
   }
 
+  /** Remove a ticket and its attachments for good (not resolved: it leaves the history). Administrators only; there is no service for it. */
+  deleteTicket(ticketId: number): Promise<{ deleted: number }> {
+    return this.send("delete", { ticket_id: ticketId });
+  }
+
   comment(ticketId: number, body: string, internal: boolean): Promise<Ticket> {
     return this.send("comment", { ticket_id: ticketId, body, internal });
   }

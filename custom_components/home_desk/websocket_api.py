@@ -36,6 +36,7 @@ from .storage import (
     async_mark_read,
     async_get_ticket,
     async_link_tickets,
+    async_delete_ticket,
     async_merge_tickets,
     async_list_categories,
     async_list_labels,
@@ -327,6 +328,19 @@ async def ws_merge(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
         _fail(connection, msg, "invalid", str(err))
         return
     connection.send_result(msg["id"], ticket)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "home_desk/delete", vol.Required("ticket_id"): int})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Remove a ticket and its attachments for good. Panel only: there is deliberately no service, so an AI agent can't do it."""
+    try:
+        await async_delete_ticket(hass, msg["ticket_id"], actor=_actor(connection))
+    except TicketError as err:
+        _fail(connection, msg, "invalid", str(err))
+        return
+    connection.send_result(msg["id"], {"deleted": msg["ticket_id"]})
 
 
 @websocket_api.websocket_command({vol.Required("type"): "home_desk/labels"})
@@ -627,7 +641,7 @@ async def ws_agent_test(hass: HomeAssistant, connection: websocket_api.ActiveCon
 
 def async_register_commands(hass: HomeAssistant) -> None:
     for command in (
-        ws_list, ws_get, ws_mark_read, ws_stats, ws_create, ws_update, ws_comment, ws_close, ws_link, ws_merge,
+        ws_list, ws_get, ws_mark_read, ws_stats, ws_create, ws_update, ws_comment, ws_close, ws_link, ws_merge, ws_delete,
         ws_labels, ws_label_create, ws_label_update, ws_label_delete,
         ws_categories, ws_category_create, ws_category_update, ws_category_delete,
         ws_settings, ws_settings_save, ws_proposal, ws_agent_run, ws_agent_stop, ws_agent_test, ws_suggest,

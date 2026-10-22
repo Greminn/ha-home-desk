@@ -197,7 +197,7 @@ async def main():
     hass = FakeHass()
     wsapi.async_register_commands(hass)
     # The decorators wrap each handler, so they are matched to names by registration order (see async_register_commands).
-    names = ["list", "get", "mark_read", "stats", "create", "update", "comment", "close", "link", "merge", "labels", "label_create", "label_update",
+    names = ["list", "get", "mark_read", "stats", "create", "update", "comment", "close", "link", "merge", "delete", "labels", "label_create", "label_update",
              "label_delete", "categories", "category_create", "category_update", "category_delete", "settings", "settings_save", "proposal", "agent_run", "agent_stop", "agent_test", "suggest", "agent_run_now", "proceed", "users"]
     assert len(REGISTERED) == len(names), (len(REGISTERED), "commands registered")
     HANDLERS.update(dict(zip(names, REGISTERED)))
@@ -496,6 +496,16 @@ async def main():
     await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))
     f4 = await ADMIN_SERVICES["finish_run"][0](ServiceCall({"ticket_id": rt["id"], "state": "proposed", "body": "What I found\n\nAll fine.\n\n**What I would change:**\n\nNothing. Dismiss this.", "actor": "claude-ha"}, user_id="u-agent"))
     assert f4["agent_run"]["state"] == "done" and not [e for e in f4["events"] if (e.get("data") or {}).get("proceed") and e["id"] == f4["agent_run"]["event"]]
+    # deleting a ticket is for administrators in the panel only (there is no service), and takes it out of the history
+    doomed = await svc("create_ticket", title="Created by mistake", actor="Simon")
+    deny = await call(hass, "delete", HOUSEHOLD(), ticket_id=doomed["id"])
+    assert deny.error and deny.error[0] == "unauthorized", "a household user deleted a ticket"
+    assert "delete_ticket" not in ADMIN_SERVICES, "there must be no delete service: an agent could use it"
+    gone = (await call(hass, "delete", ADMIN(), ticket_id=doomed["id"])).result
+    assert gone == {"deleted": doomed["id"]}
+    again = await call(hass, "delete", ADMIN(), ticket_id=doomed["id"])
+    assert again.error and again.error[0] == "invalid"
+    print("delete ok")
     print("agent run ok")
 
     print("services ok")

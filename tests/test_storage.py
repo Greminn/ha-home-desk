@@ -727,6 +727,62 @@ async def main():
     assert sorted(await s.async_open_repair_keys(hass8)) == []
     print("merge ok")
 
+    # deleting a ticket: it leaves the history, and everything pointing at it is tidied
+    hass9 = FakeHass()
+    FakeStore.saved = {}
+    x1 = await s.async_create_ticket(hass9, title="Keep", actor="Simon")
+    x2 = await s.async_create_ticket(hass9, title="Remove", actor="Simon")
+    x3 = await s.async_create_ticket(hass9, title="Merged away", actor="Simon")
+    await s.async_link_tickets(hass9, x1["id"], x2["id"], actor="Simon")
+    await s.async_merge_tickets(hass9, x2["id"], [x3["id"]], actor="Simon")
+    await s.async_mark_read(hass9, "u1", [x2["id"]])  # a person's read mark for it
+    gone2 = await s.async_delete_ticket(hass9, x2["id"], actor="Simon")
+    assert x2["id"] not in (await s.async_list_tickets(hass9, status="all"))["tickets"] and "u1" in FakeStore.saved["seen"]
+    assert str(x2["id"]) not in FakeStore.saved["seen"]["u1"]["tickets"], "its read mark goes"
+    assert gone2["id"] == x2["id"] and hass9.bus.events[-1][1]["kind"] == "deleted" and hass9.bus.events[-1][1]["ticket_id"] == x2["id"]
+    assert (await s.async_list_tickets(hass9, status="all"))["total"] == 2
+    try:
+        await s.async_get_ticket(hass9, x2["id"])
+        raise SystemExit("a deleted ticket can still be read")
+    except s.TicketError:
+        pass
+    assert (await s.async_get_ticket(hass9, x1["id"]))["links"] == [], "the link to a deleted ticket goes"
+    assert (await s.async_get_ticket(hass9, x3["id"]))["merged_into"] is None, "a ticket merged into a deleted one is no longer 'merged'"
+    try:
+        await s.async_delete_ticket(hass9, 999, actor="Simon")
+        raise SystemExit("deleted an unknown ticket")
+    except s.TicketError:
+        pass
+    # not while the AI Agent is working on it
+    await s.async_set_agent_state(hass9, x1["id"], {"state": "working", "agent": "AI Agent", "since": "2026-01-01T00:00:00+00:00", "note": "x"})
+    try:
+        await s.async_delete_ticket(hass9, x1["id"], actor="Simon")
+        raise SystemExit("deleted a ticket the AI Agent is working on")
+    except s.TicketError as err:
+        assert "AI Agent" in str(err)
+    # a deleted repair's ticket isn't made again while the repair is still there
+    await s.async_sync_repair(hass9, domain="hacs", issue_id="restart_x", active=True, title="Restart")
+    rep = (await s.async_list_tickets(hass9, status="all", q="Restart"))["tickets"][0]
+    await s.async_delete_ticket(hass9, rep["id"], actor="Simon")
+    before = (await s.async_list_tickets(hass9, status="all"))["total"]
+    assert await s.async_sync_repair(hass9, domain="hacs", issue_id="restart_x", active=True, title="Restart") is None
+    assert (await s.async_list_tickets(hass9, status="all"))["total"] == before, "the repair opened another ticket"
+    await s.async_sync_repair(hass9, domain="hacs", issue_id="other", active=True, title="Another")
+    assert (await s.async_list_tickets(hass9, status="all"))["total"] == before + 1, "other repairs still open tickets"
+    # attachment files: only the deleted ticket's own, and the folder goes once empty
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "5").mkdir()
+        (root / "5" / "a.jpg").write_bytes(b"1")
+        (root / "5" / "keep.jpg").write_bytes(b"2")
+        (root / "6").mkdir()
+        (root / "6" / "b.jpg").write_bytes(b"3")
+        s._remove_files(root, 6, [(5, "a.jpg"), (6, "b.jpg")])
+        assert not (root / "5" / "a.jpg").exists() and (root / "5" / "keep.jpg").exists(), "another ticket's file must stay"
+        assert not (root / "6").exists(), "an empty folder is removed"
+    print("delete ok")
+
     # Unread marks: per person, nothing unread at first, other people's changes count, one's own don't.
     FakeStore.saved = {}
     hass9 = FakeHass()

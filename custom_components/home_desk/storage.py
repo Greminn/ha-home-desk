@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,7 @@ import re
 
 from .const import (
     ACTIVE_STATUSES,
+    ATTACHMENT_DIR,
     AUTO_CLOSE_SECONDS,
     BLOCKED_LABEL_ID,
     ENHANCEMENT_LABEL_ID,
@@ -1199,6 +1201,52 @@ async def async_merge_tickets(hass: HomeAssistant, target_id: int, source_ids: l
     return target
 
 
+def _remove_files(root: Path, ticket_id: int, files: list[tuple[int, str]]) -> None:
+    """Delete a ticket's attachment files (each is in the folder of the ticket it was first added to), then its folder if empty."""
+    for folder, name in files:
+        try:
+            (root / str(folder) / name).unlink(missing_ok=True)
+        except OSError:
+            pass
+    for folder in {f for f, _ in files} | {ticket_id}:
+        try:
+            (root / str(folder)).rmdir()  # only succeeds when nothing is left in it
+        except OSError:
+            pass
+
+
+async def async_delete_ticket(hass: HomeAssistant, ticket_id: int, *, actor: str) -> dict[str, Any]:
+    """Remove a ticket and its attachments for good (it is not resolved: it leaves the history). Returns the removed ticket.
+
+    The ticket's links to others, other tickets' read marks for it, and the "merged into" mark on tickets merged into it are
+    cleaned up. A repair's ticket also puts its repairs on a list Home Assistant's sync skips, so deleting it isn't undone at
+    the next start while the repair is still there. It can't be deleted while the AI Agent is working on it."""
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _get(data, ticket_id)
+        if _run_state(ticket) in RUN_OPEN or ticket.get("agent_state"):
+            raise TicketError("Stop the AI Agent first: it is working on this ticket")
+        skip = data.setdefault("deleted_repairs", [])
+        for key in _members_of(ticket):
+            if key not in skip:
+                skip.append(key)
+        del skip[:-500]
+        del data["tickets"][str(ticket_id)]
+        for other in data["tickets"].values():
+            if ticket_id in other.get("links", ()):
+                other["links"] = [i for i in other["links"] if i != ticket_id]
+            if other.get("merged_into") == ticket_id:
+                other["merged_into"] = None
+        for marks in data.get("seen", {}).values():
+            marks.get("tickets", {}).pop(str(ticket_id), None)
+        files = [(int(a.get("ticket", ticket_id)), f"{a['id']}.{a['ext']}") for a in ticket.get("attachments", []) if a.get("id") and a.get("ext")]
+        await _save(hass, data)
+    if files:
+        await hass.async_add_executor_job(_remove_files, Path(hass.config.path(ATTACHMENT_DIR)), ticket_id, files)
+    _fire(hass, ticket, "deleted", actor)
+    return ticket
+
+
 async def async_stats(hass: HomeAssistant) -> dict[str, Any]:
     async with _lock(hass):
         data = await _load(hass)
@@ -1459,6 +1507,8 @@ async def async_sync_repair(
     kind: str | None = None
     async with _lock(hass):
         data = await _load(hass)
+        if _member_key(domain, issue_id) in data.get("deleted_repairs", ()):
+            return None  # its ticket was deleted on purpose: don't make another
         ticket = _find_by_source_key(data, key)
         if ticket is None and not group:
             ticket = _find_by_member(data, domain, issue_id)  # a clear: found through the group it joined

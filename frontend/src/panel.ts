@@ -88,6 +88,7 @@ export class HomeDeskPanel extends LitElement {
   /** The "add label" popup, opened from the + in the ticket header. */
   /** Merging the open ticket into another: first the picker (anchored at the button), then a confirmation. */
   @state() private _merging: { rect: DOMRect; ids?: number[] } | null = null;
+  @state() private _deleting: Ticket | null = null;
   @state() private _mergeConfirm: { from: TicketSummary[]; into: TicketSummary } | null = null;
   /** Tickets ticked in the list (admins), and whether checkboxes show on every row. */
   /** Something that uses the AI plan, waiting for "yes" before it runs: asking now, or an assignment that starts the agent. */
@@ -621,6 +622,23 @@ export class HomeDeskPanel extends LitElement {
     }
   }
 
+  /** Delete the open ticket for good, after the confirmation: it leaves the history, with its comments and files. */
+  private async _doDelete() {
+    const t = this._deleting;
+    this._deleting = null;
+    if (!t || !this._client) return;
+    try {
+      await this._client.deleteTicket(t.id);
+      this._error = "";
+      this._tabs = this._tabs.filter((x) => x.id !== t.id);
+      this._saveTabs();
+      if (this._selectedId === t.id) this._close();
+      await this._refresh();
+    } catch (err) {
+      this._error = this._message(err);
+    }
+  }
+
   private get _labelPickerItems(): PickerItem[] {
     const have = new Set(this._pickingLabel?.ticket.labels ?? []);
     return this._labelList
@@ -895,6 +913,7 @@ export class HomeDeskPanel extends LitElement {
           @remove-label=${(e: CustomEvent<{ ticket: TicketSummary; label: Label }>) => (this._removing = e.detail)}
           @pick-label=${(e: CustomEvent<{ ticket: TicketSummary; rect: DOMRect }>) => (this._pickingLabel = e.detail)}
           @pick-merge=${(e: CustomEvent<{ rect: DOMRect }>) => (this._merging = e.detail)}
+          @delete-ticket=${() => (this._deleting = this._selected)}
           @back=${() => this._close()}
           @open-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
           .hass=${this.hass}
@@ -936,6 +955,12 @@ export class HomeDeskPanel extends LitElement {
             body="Merge ${this._mergeConfirm.from.map((t) => "#" + t.id).join(", ")} into #${this._mergeConfirm.into.id} (${this._mergeConfirm.into.title})? The comments, labels and files of ${this._mergeConfirm.from.length > 1 ? "the others" : "#" + this._mergeConfirm.from[0]!.id} move to #${this._mergeConfirm.into.id}, and ${this._mergeConfirm.from.length > 1 ? "they are" : "it is"} closed. This can't be undone."
             @cancel=${() => (this._mergeConfirm = null)}
             @confirm=${() => void this._doMerge()}></st-confirm-dialog>`
+        : nothing}
+      ${this._deleting
+        ? html`<st-confirm-dialog heading="Delete Ticket?" confirmLabel="Delete" danger
+            body="Delete #${this._deleting.id} (${this._deleting.title}) for good? It is not resolved: it is removed from the history, with its comments and files. This can't be undone."
+            @cancel=${() => (this._deleting = null)}
+            @confirm=${() => void this._doDelete()}></st-confirm-dialog>`
         : nothing}
       ${this._closingTabs
         ? html`<st-confirm-dialog heading="Close All Tickets?" confirmLabel="Close All"

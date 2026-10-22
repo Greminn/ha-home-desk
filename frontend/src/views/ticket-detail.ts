@@ -165,10 +165,11 @@ export class TicketDetail extends LitElement {
         position: relative;
         display: flex;
         align-items: flex-start;
-        padding-right: 44px;
+        padding-right: calc(44px + var(--del, 0px));
       }
       .head.admin {
-        padding-right: 176px;
+        --del: 44px; /* the Delete button takes the far right, so every other button moves one place in */
+        padding-right: calc(176px + var(--del, 0px));
       }
       h1 {
         flex: 1;
@@ -235,7 +236,7 @@ export class TicketDetail extends LitElement {
         position: absolute;
         /* Centred on the title's first line (30px tall), however many lines the title wraps to. */
         top: -9px;
-        right: 0;
+        right: var(--del, 0px);
         width: var(--st-h-bar);
         height: var(--st-h-bar);
         color: var(--st-fg-secondary);
@@ -251,52 +252,58 @@ export class TicketDetail extends LitElement {
       }
       /* The merge button sits just left of the history button. */
       .hist.merge {
-        right: 44px;
+        right: calc(var(--del, 0px) + 44px);
       }
       /* Previous and next ticket, in the order of the list, to the left of those. */
       .hist.next {
-        right: 88px;
+        right: calc(var(--del, 0px) + 88px);
       }
       .hist.prev {
-        right: 132px;
+        right: calc(var(--del, 0px) + 132px);
       }
       /* With the full width button at the far right, the others each move over one place. */
       .head.has-wide {
-        padding-right: 88px;
+        padding-right: calc(88px + var(--del, 0px));
       }
       .head.admin.has-wide {
-        padding-right: 220px;
+        padding-right: calc(220px + var(--del, 0px));
       }
       .head.has-wide .hist {
-        right: 44px;
+        right: calc(var(--del, 0px) + 44px);
       }
       .head.has-wide .hist.merge {
-        right: 88px;
+        right: calc(var(--del, 0px) + 88px);
       }
       .head.has-wide .hist.next {
-        right: 132px;
+        right: calc(var(--del, 0px) + 132px);
       }
       .head.has-wide .hist.prev {
-        right: 176px;
+        right: calc(var(--del, 0px) + 176px);
       }
       .head.has-wide .hist.wide-toggle {
-        right: 0;
+        right: var(--del, 0px);
       }
       /* In the full width view there is no history button (the history is always listed in the left panel), so the others close up. */
       .head.in-wide {
-        padding-right: 44px;
+        padding-right: calc(44px + var(--del, 0px));
       }
       .head.admin.in-wide {
-        padding-right: 176px;
+        padding-right: calc(176px + var(--del, 0px));
       }
       .head.in-wide .hist.merge {
-        right: 44px;
+        right: calc(var(--del, 0px) + 44px);
       }
       .head.in-wide .hist.next {
-        right: 88px;
+        right: calc(var(--del, 0px) + 88px);
       }
       .head.in-wide .hist.prev {
-        right: 132px;
+        right: calc(var(--del, 0px) + 132px);
+      }
+      .head.admin .hist.del {
+        right: 0;
+      }
+      .hist.del:hover {
+        color: var(--st-danger);
       }
       .hist[disabled] {
         opacity: 0.35;
@@ -1708,6 +1715,9 @@ export class TicketDetail extends LitElement {
           @click=${(e: Event) => this._fire("pick-merge", { rect: (e.currentTarget as HTMLElement).getBoundingClientRect() })}>
           <ha-icon icon="mdi:call-merge"></ha-icon></button>`
       : nothing;
+    const deleteBtn = this.isAdmin
+      ? html`<button class="icon hist del" title="Delete ticket" aria-label="Delete ticket" @click=${() => this._fire("delete-ticket")}><ha-icon icon="mdi:close"></ha-icon></button>`
+      : nothing;
     const historyBtn = this.wide
       ? nothing
       : html`<button class="icon hist" aria-pressed=${this._showHistory ? "true" : "false"}
@@ -1715,10 +1725,10 @@ export class TicketDetail extends LitElement {
           @click=${() => (this._showHistory = !this._showHistory)}><ha-icon icon="mdi:history"></ha-icon></button>`;
     // A phone: the title has the whole width, and the buttons are one row under it (back on the left, the rest on the right).
     const headRow = this.narrow
-      ? html`<div class="head phone">${titleEl}<div class="phone-nav">${backBtn}<span class="gap"></span>${stepBtns}${historyBtn}</div></div>`
+      ? html`<div class="head phone">${titleEl}<div class="phone-nav">${backBtn}<span class="gap"></span>${stepBtns}${historyBtn}${deleteBtn}</div></div>`
       : html`
 <div class="head ${this.isAdmin ? "admin" : ""} ${canWide ? "has-wide" : ""} ${this.wide ? "in-wide" : ""}">
-  ${titleEl}${stepBtns}${historyBtn}
+  ${titleEl}${stepBtns}${historyBtn}${deleteBtn}
 ${canWide
   ? html`<button class="icon hist wide-toggle" title=${this.wide ? "Exit full width view" : "Full width view"} aria-label=${this.wide ? "Exit full width view" : "Full width view"}
       @click=${() => this._fire("toggle-wide")}><ha-icon icon=${this.wide ? "mdi:arrow-collapse-horizontal" : "mdi:arrow-expand-horizontal"}></ha-icon></button>`
