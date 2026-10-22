@@ -168,3 +168,10 @@
     line-height: 54px;
   }
 }
+
+/* Spatial Context's tall hero artwork pushes its title down from the navigation bar; this gives a shorter picture the same room, so the title sits at the same height. */
+@media (min-width: 960px) {
+  .VPHero.has-image .container {
+    min-height: 442px;
+  }
+}
