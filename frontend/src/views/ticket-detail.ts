@@ -995,7 +995,7 @@ export class TicketDetail extends LitElement {
       /* On a phone an open comment box can't grow past the screen: it scrolls inside itself instead. */
       @media (max-width: 870px) {
         .dock .dock-in {
-          max-height: 75dvh;
+          max-height: calc(var(--hd-view, 100dvh) * 0.75);
           overflow-y: auto;
         }
       }
@@ -1006,7 +1006,7 @@ export class TicketDetail extends LitElement {
           overflow-y: auto;
         }
         .dock .dock-in {
-          max-height: 62dvh;
+          max-height: calc(var(--hd-view, 100dvh) * 0.62);
         }
       }
       .empty {

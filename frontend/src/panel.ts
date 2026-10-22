@@ -216,9 +216,13 @@ export class HomeDeskPanel extends LitElement {
   private _fit = () => {
     window.cancelAnimationFrame(this._fitFrame);
     this._fitFrame = window.requestAnimationFrame(() => {
-      const top = Math.max(0, this.getBoundingClientRect().top);
-      const view = window.visualViewport?.height ?? window.innerHeight;
-      this.style.height = `${Math.max(240, Math.floor(view - top))}px`;
+      const vv = window.visualViewport;
+      const view = vv?.height ?? window.innerHeight;
+      // The bottom edge of what can be seen. With the keyboard open iOS slides the visible area up inside the page (offsetTop),
+      // so the panel has to end where that area ends, not just be as tall as it.
+      const bottom = (vv?.offsetTop ?? 0) + view;
+      this.style.height = `${Math.max(240, Math.floor(bottom - this.getBoundingClientRect().top))}px`;
+      this.style.setProperty("--hd-view", `${Math.floor(view)}px`);
     });
   };
   private _fitTimers: number[] = [];
