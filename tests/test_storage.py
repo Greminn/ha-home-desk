@@ -141,23 +141,21 @@ async def expect_error(coro_fn, fragment=None, what="call"):
     raise SystemExit(f"{what} should have been refused")
 
 
-# A small made-up tracker, in the shape the importer produces.
-IMPORT = [
-    {"title": "Z2M devices time out overnight", "description": "Seen twice this week.", "type": "issue", "tags": ["zigbee", "needs-review"],
-     "status": "open", "source_key": "ops-1", "related_keys": ["ops-2"]},
-    {"title": "Replace hallway sensor battery", "type": "task", "status": "closed", "source_key": "ops-2", "related_keys": ["ops-1"]},
-    {"title": "Add a bedtime scene", "type": "idea", "source_key": "ops-3"},
-    {"title": "2026-10-01 Router firmware", "type": "log", "status": "closed", "source_key": "log-1"},
+# A small made-up set of tickets, made the ordinary way (the old bulk importer is gone).
+SAMPLE = [
+    {"title": "Z2M devices time out overnight", "description": "Seen twice this week.", "labels": ["zigbee", "needs-review"], "status": "in_progress"},
+    {"title": "Replace hallway sensor battery", "labels": ["task"], "status": "closed"},
+    {"title": "Add a bedtime scene", "labels": ["idea"]},
+    {"title": "2026-10-01 Router firmware", "labels": ["log"], "status": "closed"},
 ]
 
 
 async def main():
     hass = FakeHass()
 
-    # ---- import is idempotent, and links come in both ways
-    r = await s.async_import_tickets(hass, IMPORT, actor="import")
-    assert r == {"created": 4, "skipped": 0, "links": 2}, r
-    assert (await s.async_import_tickets(hass, IMPORT, actor="import"))["created"] == 0
+    # ---- a few tickets to search, count and filter
+    made = [await s.async_create_ticket(hass, actor="Simon", requester="Simon", **item) for item in SAMPLE]
+    await s.async_link_tickets(hass, made[0]["id"], made[1]["id"], actor="Simon")
     st = await s.async_stats(hass)
     assert st["total"] == 4 and st["by_status"] == {"in_progress": 1, "closed": 2, "new": 1}, st  # "open" became in_progress
     assert (await s.async_list_tickets(hass, status="active", label="needs-review"))["total"] == 1
@@ -169,9 +167,9 @@ async def main():
         assert [x["id"] for x in got] == [one], (q, [x["id"] for x in got])
     assert (await s.async_list_tickets(hass, status="all", q="99999"))["total"] == 0, "no such ticket: falls back to a text search"
     assert (await s.async_list_tickets(hass, status="active", include_history=False))["total"] == 2
-    imported = (await s.async_list_tickets(hass, status="all"))["tickets"]
-    assert all(t["category"] is None and "home-assistant" not in t["labels"] for t in imported), "imports are uncategorised"
-    print("import ok")
+    sampled = (await s.async_list_tickets(hass, status="all"))["tickets"]
+    assert all(t["category"] is None and "home-assistant" not in t["labels"] for t in sampled), "new tickets are uncategorised"
+    print("sample tickets ok")
 
     # ---- an Enhancement stays New while it is noted, and starts working only when told to
     enh = await s.async_create_ticket(hass, title="Whisper mode at night", description="idea", requester="Simon", labels=["Enhancement"])
@@ -185,7 +183,7 @@ async def main():
     print("enhancement workflow ok")
 
     # ---- a ticket's life
-    t = await s.async_create_ticket(hass, title="Hall light didn't come on", description="at 7am", requester="Qionne")
+    t = await s.async_create_ticket(hass, title="Hall light didn't come on", description="at 7am", requester="Alex")
     assert t["status"] == "new" and t["events"][0]["kind"] == "created" and t["labels"] == [] and t["category"] is None
     t = await s.async_update_ticket(hass, t["id"], actor="Simon", priority="high", add_labels=["lighting"])
     assert t["status"] == "in_progress", "the first action moves it out of New"
@@ -210,12 +208,12 @@ async def main():
     assert len((await s.async_update_ticket(hass, t["id"], actor="simon", status="in_progress"))["events"]) == n  # a no-op records nothing
     for bad in ({"status": "bogus"}, {"status": "waiting"}, {"nope": 1}):
         await expect_error(lambda bad=bad: s.async_update_ticket(hass, t["id"], actor="x", **bad), what=f"update {bad}")
-    other = imported[0]["id"]
+    other = sampled[0]["id"]
     await s.async_link_tickets(hass, t["id"], other, actor="claude")
     got = await s.async_get_ticket(hass, t["id"])
     assert got["related"] and got["related"][0]["id"] == other
     assert hass.bus.events and hass.bus.events[-1][0] == "home_desk_event"
-    assert (await s.async_list_tickets(hass, requester="Qionne", status="all"))["total"] == 1
+    assert (await s.async_list_tickets(hass, requester="Alex", status="all"))["total"] == 1
     n = str(t["id"])
     for q in (n, "#" + n):  # a ticket can be found by its number
         assert t["id"] in {x["id"] for x in (await s.async_list_tickets(hass, status="all", q=q))["tickets"]}
@@ -678,7 +676,7 @@ async def main():
     # ---- merging tickets by hand
     hass7 = FakeHass()
     FakeStore.saved = {}
-    a = await s.async_create_ticket(hass7, title="Kitchen light flickers", description="Flickers at night", actor="Qionne", requester="Qionne", labels=["bug"])
+    a = await s.async_create_ticket(hass7, title="Kitchen light flickers", description="Flickers at night", actor="Alex", requester="Alex", labels=["bug"])
     b = await s.async_create_ticket(hass7, title="Light in the kitchen blinks", description="Since Tuesday", actor="Jo", requester="Jo",
                                     labels=["bug", "blocked"], priority="high", entities=["light.kitchen"])
     c = await s.async_create_ticket(hass7, title="Unrelated", actor="Simon")

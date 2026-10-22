@@ -80,6 +80,6 @@ Found a bug, or have an idea? Please [open an issue](https://github.com/Greminn/
 
 ## Development and licence
 
-Building, testing, the mock preview and deploying are covered in [docs/development.md](docs/development.md), and the bigger vision is in [IDEA.md](IDEA.md). The panel is built from `frontend/` (Lit and TypeScript) and the output is committed, so HACS and a manual copy need no build step.
+Building, testing, the mock preview and deploying are covered in [docs/development.md](docs/development.md). The panel is built from `frontend/` (Lit and TypeScript) and the output is committed, so HACS and a manual copy need no build step.
 
 [MIT](LICENSE)

@@ -94,8 +94,8 @@ function seed() {
     [["claude", "Checked the device registry: the orphaned MQTT device is already gone.", 25 * MIN]]);
   add({ title: "Z-Wave door sensors dropping closed reports", status: "in_progress", labels: ["bug", "home-assistant"], ago: 3 * DAY, updated: 6 * HOUR });
   add({ title: "Add a presence-based hallway light scene", status: "open", labels: ["enhancement", "lighting", "presence"], ago: 6 * DAY, description: "Turn the hallway lights on at night only when someone is detected moving." });
-  add({ title: "Voice: let the kitchen satellite answer in a whisper at night", status: "new", labels: ["enhancement", "voice"], requester: "Qionne", ago: 20 * HOUR });
-  add({ title: "Could the dishwasher notify us when it finishes?", status: "new", labels: ["question"], requester: "Qionne", ago: 9 * HOUR });
+  add({ title: "Voice: let the kitchen satellite answer in a whisper at night", status: "new", labels: ["enhancement", "voice"], requester: "Alex", ago: 20 * HOUR });
+  add({ title: "Could the dishwasher notify us when it finishes?", status: "new", labels: ["question"], requester: "Alex", ago: 9 * HOUR });
   add({ title: "A very long title that goes on and on to show how a ticket list copes when someone writes a whole sentence instead of a short summary of the problem", status: "open", labels: ["task", "network", "zigbee", "lighting", "cameras", "home-assistant"], ago: 8 * DAY });
   add({ title: "Replace the batteries in the garage door sensor", status: "open", labels: ["task", "home-assistant"], priority: "low", ago: 12 * DAY, assignee: "Simon" });
   add({ title: "Wall tablet camera popups", status: "open", labels: ["bug", "cameras", "blocked", "home-assistant"], priority: "urgent", ago: 9 * DAY, description: "Waiting on the upstream fix for the camera card." });
@@ -112,15 +112,15 @@ function seed() {
   for (let i = 0; i < 5; i++) add({ title: `2026-08-${10 + i} log review`, status: "closed", labels: ["history", "home-assistant"], ago: (50 - i) * DAY, updated: (50 - i) * DAY, requester: "import" });
   tickets[1].links = [2];
   // A household member's ticket that nobody has sorted yet, newest of all.
-  const door = add({ title: "The front door code doesn't work", status: "new", priority: "high", requester: "Qionne", labels: ["bug"], ago: 12 * MIN,
+  const door = add({ title: "The front door code doesn't work", status: "new", priority: "high", requester: "Alex", labels: ["bug"], ago: 12 * MIN,
     description: "It beeped three times and stayed locked.\n\n> **Voice message** (transcribed by Home Assistant)\n>\n> I tried the new code a few times this morning and it just beeps." });
   door.attachments = [
-    { id: "aaaaaaaaaaa1", kind: "image", mime: "image/svg+xml", name: "keypad.jpg", size: 120000, by: "Qionne", created_at: iso(12 * MIN) },
-    { id: "aaaaaaaaaaa2", kind: "image", mime: "image/svg+xml", name: "door.jpg", size: 98000, by: "Qionne", created_at: iso(12 * MIN) },
-    { id: "aaaaaaaaaaa3", kind: "audio", mime: "audio/wav", name: "voice message", size: 96044, by: "Qionne", created_at: iso(12 * MIN), seconds: 3,
+    { id: "aaaaaaaaaaa1", kind: "image", mime: "image/svg+xml", name: "keypad.jpg", size: 120000, by: "Alex", created_at: iso(12 * MIN) },
+    { id: "aaaaaaaaaaa2", kind: "image", mime: "image/svg+xml", name: "door.jpg", size: 98000, by: "Alex", created_at: iso(12 * MIN) },
+    { id: "aaaaaaaaaaa3", kind: "audio", mime: "audio/wav", name: "voice message", size: 96044, by: "Alex", created_at: iso(12 * MIN), seconds: 3,
       transcript: "I tried the new code a few times this morning and it just beeps." },
   ];
-  door.events.push({ id: door.events.length + 1, actor: "Qionne", kind: "attachment", body: null, data: { field: "attachments", to: "2 photos and a voice message" }, created_at: iso(12 * MIN) });
+  door.events.push({ id: door.events.length + 1, actor: "Alex", kind: "attachment", body: null, data: { field: "attachments", to: "2 photos and a voice message" }, created_at: iso(12 * MIN) });
   // A ticket with a long description (paragraphs, lists, a quote and a code block) for the description's collapse and scrolling.
   const heating = add({ title: "Upstairs heating keeps overriding manual changes", status: "in_progress", priority: "high", requester: "Simon", labels: ["bug", "home-assistant"], ago: 5 * DAY, updated: 3 * HOUR,
     description: [
@@ -319,7 +319,7 @@ export function createMock() {
       }
       fire(t, "proceed", state.user.name); return t;
     },
-    users: () => ({ users: [{ id: "u-simon", name: "Simon", is_admin: true }, { id: "u-agent", name: "Claude Agent", is_admin: false }, { id: "u-qionne", name: "Qionne", is_admin: false }] }),
+    users: () => ({ users: [{ id: "u-simon", name: "Simon", is_admin: true }, { id: "u-agent", name: "Claude Agent", is_admin: false }, { id: "u-alex", name: "Alex", is_admin: false }] }),
     agent_test: () => ({ reply: "Hello! I'm ready to help with your smart home tickets." }),
     list: (m) => {
       const q = (m.q ?? "").toLowerCase();
@@ -507,7 +507,7 @@ export function createMock() {
       return { path: files.get(id) ?? picture(0, "Missing") };
     },
     get user() { return state.user; },
-    // HA's person entities: Simon has a profile picture, Qionne doesn't (so she gets the person icon).
+    // HA's person entities: Simon has a profile picture, Alex doesn't (so she gets the person icon).
     // The notify services and AI entities that Settings offers.
     services: { notify: { mobile_app_simons_iphone: {}, mobile_app_jos_pixel: {}, persistent_notification: {} } },
     states: {
@@ -521,7 +521,7 @@ export function createMock() {
       "lock.front_door": { state: "locked", attributes: { friendly_name: "Front door lock" } },
       "sensor.rack_temp": { state: "unavailable", attributes: { friendly_name: "Server rack temperature", unit_of_measurement: "°C" } },
       "person.simon": { state: "home", attributes: { friendly_name: "Simon", entity_picture: "/local/simon.jpg" } },
-      "person.qionne": { state: "home", attributes: { friendly_name: "Qionne" } },
+      "person.alex": { state: "home", attributes: { friendly_name: "Alex" } },
     },
     // Home Assistant's registries, as the panel reads them for names, areas and the picker.
     areas: {
@@ -548,7 +548,7 @@ export function createMock() {
 
   return {
     hass,
-    setUser: (admin) => { state.user = admin ? { id: "u1", name: "Simon", is_admin: true } : { id: "u2", name: "Qionne", is_admin: false }; },
+    setUser: (admin) => { state.user = admin ? { id: "u1", name: "Simon", is_admin: true } : { id: "u2", name: "Alex", is_admin: false }; },
     reset: () => { db = seed(); listeners.forEach((cb) => cb({ data: { ticket_id: 0 } })); },
     /** Make the panel re-read everything (after switching user, say). */
     refresh: () => listeners.forEach((cb) => cb({ data: { ticket_id: 0 } })),

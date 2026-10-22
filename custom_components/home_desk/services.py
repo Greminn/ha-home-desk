@@ -35,7 +35,6 @@ from .storage import (
     async_delete_category,
     async_delete_label,
     async_get_ticket,
-    async_import_tickets,
     async_list_categories,
     async_list_labels,
     async_link_tickets,
@@ -243,27 +242,6 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     async def stats(call: ServiceCall) -> dict[str, Any]:
         return await async_stats(hass)
 
-    async def import_file(call: ServiceCall) -> dict[str, Any]:
-        path = Path(call.data["path"])
-        if not path.is_absolute():
-            path = Path(hass.config.path(str(path)))
-        # Only files inside the config directory. Compare resolved paths: on HA OS
-        # /config is a symlink, which HA's own is_allowed_path() doesn't account for.
-        config_dir = Path(hass.config.config_dir).resolve()
-        if not path.resolve().is_relative_to(config_dir):
-            raise HomeAssistantError(f"{path} must be inside the config directory ({config_dir})")
-        try:
-            text = await hass.async_add_executor_job(path.read_text, "utf-8")
-            items = json.loads(text)
-        except (OSError, ValueError) as err:
-            raise HomeAssistantError(f"Could not read {path}: {err}") from err
-        if not isinstance(items, list):
-            raise HomeAssistantError("Import file must contain a JSON list of tickets")
-        try:
-            return await async_import_tickets(hass, items, actor=await _actor(hass, call))
-        except (TicketError, TypeError) as err:
-            raise HomeAssistantError(f"Import failed: {err}") from err
-
     async def get_guide(call: ServiceCall) -> dict[str, Any]:
         text = await hass.async_add_executor_job(GUIDE_PATH.read_text, "utf-8")
         return {"guide": text}
@@ -422,7 +400,3 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         **_ACTOR,
     }), supports_response=both)
     s(DOMAIN, "get_stats", _wrap(stats), vol.Schema({}), supports_response=SupportsResponse.ONLY)
-    s(DOMAIN, "import_file", _wrap(import_file), vol.Schema({
-        vol.Required("path"): cv.string,
-        **_ACTOR,
-    }), supports_response=SupportsResponse.OPTIONAL)

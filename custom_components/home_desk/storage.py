@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -1267,45 +1266,6 @@ async def async_stats(hass: HomeAssistant) -> dict[str, Any]:
         "labels": labels,
         "categories": _category_list(data),
     }
-
-
-async def async_import_tickets(
-    hass: HomeAssistant, items: list[dict[str, Any]], *, actor: str
-) -> dict[str, int]:
-    """Idempotent bulk import: an item whose `source_key` already exists is skipped.
-
-    Each item may carry `related_keys` (source_keys of other imported items) which
-    become ticket links once everything is in. Imported timestamps are preserved.
-    """
-    created = skipped = 0
-    async with _lock(hass):
-        data = await _load(hass)
-        by_key = {t["source_key"]: t for t in data["tickets"].values() if t.get("source_key")}
-        pending_links: list[tuple[dict[str, Any], list[str]]] = []
-        for item in items:
-            item = upgrade_legacy_fields(item, "create")
-            related = item.pop("related_keys", None) or []
-            key = item.get("source_key")
-            if key and key in by_key:
-                skipped += 1
-                continue
-            ticket = _new_ticket(data, actor=actor, **item)
-            if key:
-                by_key[key] = ticket
-            pending_links.append((ticket, related))
-            created += 1
-        linked = 0
-        for ticket, related in pending_links:
-            for key in related:
-                other = by_key.get(key)
-                if other is None or other is ticket:
-                    continue
-                for x, y in ((ticket, other), (other, ticket)):
-                    if y["id"] not in x["links"]:
-                        x["links"].append(y["id"])
-                        linked += 1
-        await _save(hass, data)
-    return {"created": created, "skipped": skipped, "links": linked}
 
 
 # ------------------------------------------------------------------ repairs

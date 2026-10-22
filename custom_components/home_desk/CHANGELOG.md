@@ -9,6 +9,9 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 ### Added
 - **Delete a ticket.** A **trash can** icon at the far right of the ticket's button row (on a phone, the end of the icon row) deletes the ticket for good after a confirmation ("Delete Ticket?"). It is not resolved: it leaves the history, with its comments, attachment files and read marks; links to it are removed, and tickets that were merged into it are no longer marked merged. A ticket can't be deleted while the AI Agent is working on it. Deleting a repair's ticket also stops Home Desk opening another for that same repair while it is still there. Administrators only, in the panel only: websocket `home_desk/delete`, and deliberately **no service**, so an AI agent can't delete tickets. The `home_desk_event` bus event fires with `kind: deleted`. **Action:** none
 
+### Removed
+- **The `import_file` service and the importer for the author's own `OPERATIONS.md` tracker.** They were only for moving the author's old notes in. **Action:** none unless something calls `home_desk.import_file`.
+
 ### Changed
 - **The AI Agent's "nothing to change" findings no longer ask for a go-ahead.** When a Run ends with "What I would change: Nothing", `finish_run` (state `proposed`) records the run as done and adds no Proceed and Dismiss. **Action:** none
 - **A dismissed or approved go-ahead card drops its "Waiting for your go-ahead" heading.** It shows only who dismissed or approved it.

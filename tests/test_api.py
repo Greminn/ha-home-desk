@@ -180,7 +180,7 @@ class Conn:
 
 
 ADMIN = lambda: Conn("Simon", True)  # noqa: E731
-HOUSEHOLD = lambda: Conn("Qionne", False)  # noqa: E731
+HOUSEHOLD = lambda: Conn("Alex", False)  # noqa: E731
 
 
 HANDLERS = {}
@@ -204,7 +204,7 @@ async def main():
 
     # ---- who may call which websocket command
     FakeStore.saved = {}
-    t = await s.async_create_ticket(hass, title="Qionne's ticket", requester="Qionne")
+    t = await s.async_create_ticket(hass, title="Alex's ticket", requester="Alex")
     mine, theirs = t["id"], (await s.async_create_ticket(hass, title="Someone else's", requester="Jo"))["id"]
     # What a household user may do: raise a ticket, and list their own. Everything else is for admins (they can't open a
     # ticket or comment on it, even their own: anything more is talked through in person).
@@ -227,14 +227,14 @@ async def main():
     assert (await call(hass, "get", ADMIN(), ticket_id=mine)).result["events"][-1]["kind"] in ("note", "status")
     # ...and can raise a ticket, but can't set what a manager sets
     conn = await call(hass, "list", HOUSEHOLD(), status="all")
-    assert [x["title"] for x in conn.result["tickets"]] == ["Qionne's ticket"], conn.result
+    assert [x["title"] for x in conn.result["tickets"]] == ["Alex's ticket"], conn.result
     assert (await call(hass, "list", ADMIN(), status="all")).result["total"] == 2, "a manager sees everyone's tickets"
     conn = await call(hass, "create", HOUSEHOLD(), title="Door code", priority="urgent", labels=["bug", "task", "garden"], category="home-assistant")
     made = conn.result
     assert made["priority"] == "normal", "a household user can't set the priority"
     assert made["labels"] == ["bug"], made["labels"]  # only Bug, Enhancement and Question are open to them
     assert made["category"] is None, "...or the category"
-    assert made["requester"] == "Qionne"
+    assert made["requester"] == "Alex"
     conn = await call(hass, "create", ADMIN(), title="Planned work", priority="urgent", labels=["task"], category="home-assistant")
     assert conn.result["priority"] == "urgent" and conn.result["category"] == "home-assistant" and conn.result["labels"] == ["task"]
     print("household create ok")
@@ -309,13 +309,13 @@ async def main():
     ADMIN_SERVICES.update({k: v for k, v in hass.services.open.items() if k not in ("get_guide", "get_changelog")})
     assert {"get_guide", "get_changelog"} <= set(hass.services.open)
     for name in ("create_ticket", "get_ticket", "list_tickets", "update_ticket", "add_comment", "close_ticket", "link_tickets",
-                 "merge_tickets", "list_labels", "create_label", "update_label", "delete_label", "list_categories", "create_category", "update_category", "delete_category", "get_stats", "import_file"):
+                 "merge_tickets", "list_labels", "create_label", "update_label", "delete_label", "list_categories", "create_category", "update_category", "delete_category", "get_stats"):
         assert name in ADMIN_SERVICES, f"{name} must need an administrator"
     # everything but the guide and the changelog refuses an ordinary (non-administrator) user, whoever asks
     ns = types.SimpleNamespace
     hass.users = {
         "u-admin": ns(id="u-admin", is_admin=True, is_active=True, name="Simon"),
-        "u-house": ns(id="u-house", is_admin=False, is_active=True, name="Qionne"),
+        "u-house": ns(id="u-house", is_admin=False, is_active=True, name="Alex"),
         "u-agent": ns(id="u-agent", is_admin=False, is_active=True, name="Claude Agent"),
     }
     for name, (handler, _schema) in ADMIN_SERVICES.items():
@@ -452,7 +452,7 @@ async def main():
     except HomeAssistantError as err:
         assert "already" in str(err)
     # what the agent user may not do
-    for name, data in (("merge_tickets", {"ticket_id": rt["id"], "merge_ids": [1]}), ("create_label", {"name": "x"}), ("delete_category", {"category": "x"}), ("import_file", {"path": "/x"})):
+    for name, data in (("merge_tickets", {"ticket_id": rt["id"], "merge_ids": [1]}), ("create_label", {"name": "x"}), ("delete_category", {"category": "x"})):
         try:
             await ADMIN_SERVICES[name][0](ServiceCall(data, user_id="u-agent"))
             raise SystemExit(f"the agent user could {name}")

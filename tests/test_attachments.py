@@ -181,7 +181,7 @@ async def main():
     tmp = tempfile.mkdtemp()
     hass = FakeHass(tmp)
     FakeStore.saved = {}
-    who = {"user": Person("Qionne")}
+    who = {"user": Person("Alex")}
 
     @web.middleware
     async def auth(request, handler):
@@ -207,10 +207,10 @@ async def main():
         assert r.status == 200 and body["photos"] == 2 and body["voice"] is True, (r.status, body)
         await asyncio.gather(*hass.tasks)  # the transcription runs after the answer
         t = await s.async_get_ticket(hass, body["id"])
-        assert t["requester"] == "Qionne" and t["labels"] == ["bug"] and t["priority"] == "normal" and t["category"] is None
+        assert t["requester"] == "Alex" and t["labels"] == ["bug"] and t["priority"] == "normal" and t["category"] is None
         assert [a["kind"] for a in t["attachments"]] == ["image", "image", "audio"], t["attachments"]
         audio = t["attachments"][2]
-        assert audio["mime"] == "audio/wav" and audio["seconds"] == 3 and audio["size"] == len(wav(3)) and audio["by"] == "Qionne"
+        assert audio["mime"] == "audio/wav" and audio["seconds"] == 3 and audio["size"] == len(wav(3)) and audio["by"] == "Alex"
         assert audio["transcript"] == FakeEngine.heard, "the words are kept on the recording"
         assert "Mostly at night" in t["description"] and "> " + FakeEngine.heard in t["description"] and "transcribed by Home Assistant" in t["description"]
         assert FakeEngine.calls[-1][0] == "en", "en-NZ is asked of an engine that offers en"
@@ -243,7 +243,7 @@ async def main():
         print("downloads ok")
 
         # ---- refused reports leave nothing behind
-        who["user"] = Person("Qionne")
+        who["user"] = Person("Alex")
         before = (await s.async_stats(hass))["total"]
         refusals = [
             (dict(kind="bug", title="", details="x"), 400, "no title"),
@@ -291,7 +291,7 @@ async def main():
             r = await post(kind="bug", title="again")
             sent += r.status == 200
         assert sent == const.MAX_REPORTS_PER_HOUR and r.status == 429, (sent, r.status)
-        who["user"] = Person("Qionne")
+        who["user"] = Person("Alex")
         assert (await post(kind="bug", title="a different person")).status == 200, "the limit is per person"
         print("rate limit ok")
 

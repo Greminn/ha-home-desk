@@ -456,17 +456,3 @@ merge_tickets:
       name: "Actor"
       description: "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
       selector: {"text": {}}
-import_file:
-  name: "Import file"
-  description: "Admin: bulk-import tickets from a JSON file inside the config directory. Idempotent: tickets whose source_key already exists are skipped."
-  fields:
-    path:
-      name: "Path"
-      description: "Path to the JSON file, inside the Home Assistant config directory."
-      required: true
-      example: "/config/home_desk_import.json"
-      selector: {"text": {}}
-    actor:
-      name: "Actor"
-      description: "Who is importing."
-      selector: {"text": {}}
