@@ -1390,7 +1390,7 @@ function _t(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e
           @click=${()=>this._fire("nav-ticket",1)}><ha-icon icon="mdi:chevron-right"></ha-icon></button>
         <button class="icon hist merge" title="Merge into another ticket" aria-label="Merge into another ticket"
           @click=${e=>this._fire("pick-merge",{rect:e.currentTarget.getBoundingClientRect()})}>
-          <ha-icon icon="mdi:call-merge"></ha-icon></button>`:G,c=this.isAdmin?F`<button class="icon hist del" title="Delete ticket" aria-label="Delete ticket" @click=${()=>this._fire("delete-ticket")}><ha-icon icon="mdi:close"></ha-icon></button>`:G,d=this.wide?G:F`<button class="icon hist" aria-pressed=${this._showHistory?"true":"false"}
+          <ha-icon icon="mdi:call-merge"></ha-icon></button>`:G,c=this.isAdmin?F`<button class="icon hist del" title="Delete ticket" aria-label="Delete ticket" @click=${()=>this._fire("delete-ticket")}><ha-icon icon="mdi:trash-can-outline"></ha-icon></button>`:G,d=this.wide?G:F`<button class="icon hist" aria-pressed=${this._showHistory?"true":"false"}
           title=${this._showHistory?"Hide history":"Show history"} aria-label="Show history"
           @click=${()=>this._showHistory=!this._showHistory}><ha-icon icon="mdi:history"></ha-icon></button>`,h=this.narrow?F`<div class="head phone">${r}<div class="phone-nav">${a}<span class="gap"></span>${l}${d}${c}</div></div>`:F`
 <div class="head ${this.isAdmin?"admin":""} ${s?"has-wide":""} ${this.wide?"in-wide":""}">

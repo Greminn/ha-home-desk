@@ -1716,7 +1716,7 @@ export class TicketDetail extends LitElement {
           <ha-icon icon="mdi:call-merge"></ha-icon></button>`
       : nothing;
     const deleteBtn = this.isAdmin
-      ? html`<button class="icon hist del" title="Delete ticket" aria-label="Delete ticket" @click=${() => this._fire("delete-ticket")}><ha-icon icon="mdi:close"></ha-icon></button>`
+      ? html`<button class="icon hist del" title="Delete ticket" aria-label="Delete ticket" @click=${() => this._fire("delete-ticket")}><ha-icon icon="mdi:trash-can-outline"></ha-icon></button>`
       : nothing;
     const historyBtn = this.wide
       ? nothing
