@@ -958,7 +958,7 @@ export class HomeDeskPanel extends LitElement {
         : nothing}
       ${this._deleting
         ? html`<st-confirm-dialog heading="Delete Ticket?" confirmLabel="Delete" danger
-            body="Delete #${this._deleting.id} (${this._deleting.title}) for good? It is not resolved: it is removed from the history, with its comments and files. This can't be undone."
+            body="Delete #${this._deleting.id} for good, with its comments and files? This can't be undone."
             @cancel=${() => (this._deleting = null)}
             @confirm=${() => void this._doDelete()}></st-confirm-dialog>`
         : nothing}

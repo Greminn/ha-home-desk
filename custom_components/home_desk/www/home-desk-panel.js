@@ -5711,7 +5711,7 @@ ${e.related?.length?F`<div class="chips"><span class="sect">Related</span>${e.re
             @cancel=${()=>this._mergeConfirm=null}
             @confirm=${()=>{this._doMerge()}}></st-confirm-dialog>`:G}
       ${this._deleting?F`<st-confirm-dialog heading="Delete Ticket?" confirmLabel="Delete" danger
-            body="Delete #${this._deleting.id} (${this._deleting.title}) for good? It is not resolved: it is removed from the history, with its comments and files. This can't be undone."
+            body="Delete #${this._deleting.id} for good, with its comments and files? This can't be undone."
             @cancel=${()=>this._deleting=null}
             @confirm=${()=>{this._doDelete()}}></st-confirm-dialog>`:G}
       ${this._closingTabs?F`<st-confirm-dialog heading="Close All Tickets?" confirmLabel="Close All"
