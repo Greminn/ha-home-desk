@@ -991,6 +991,11 @@ export class TicketDetail extends LitElement {
           flex: 1 1 100%;
           border-color: transparent;
         }
+        /* Start Working (an Idea) is a full-width line above AI Action. */
+        .composer .acts button.start {
+          order: -1;
+          flex: 1 1 100%;
+        }
       }
       /* On a phone an open comment box can't grow past the screen: it scrolls inside itself instead. */
       @media (max-width: 870px) {
@@ -1754,7 +1759,7 @@ ${t.related?.length
       </div>
       <div class="acts">
       ${this.isAdmin && !done && t.status === "new" && t.labels.includes(ENHANCEMENT)
-        ? html`<button title="Start work on this idea: it moves to Working. Anything typed above is posted as a comment first." @click=${() => this._startWorking()}><ha-icon icon="mdi:play-circle-outline"></ha-icon>Start Working</button>`
+        ? html`<button class="start" title="Start work on this idea: it moves to Working. Anything typed above is posted as a comment first." @click=${() => this._startWorking()}><ha-icon icon="mdi:play-circle-outline"></ha-icon>Start Working</button>`
         : nothing}
       ${this.isAdmin && !done
         ? html`<button title="Mark as resolved. Anything typed above is saved as the resolution." @click=${() => this._resolve()}><ha-icon icon="mdi:check-circle-outline"></ha-icon>Resolve</button>`

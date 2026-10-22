@@ -1451,7 +1451,7 @@ ${e.related?.length?F`<div class="chips"><span class="sect">Related</span>${e.re
         ${this.isAdmin?F`${i?G:F`<div class="assign prio-group" role="group" aria-label="Priority">${this._priorityPills(e)}</div>`}`:G}
       </div>
       <div class="acts">
-      ${this.isAdmin&&!i&&"new"===e.status&&e.labels.includes(_e)?F`<button title="Start work on this idea: it moves to Working. Anything typed above is posted as a comment first." @click=${()=>this._startWorking()}><ha-icon icon="mdi:play-circle-outline"></ha-icon>Start Working</button>`:G}
+      ${this.isAdmin&&!i&&"new"===e.status&&e.labels.includes(_e)?F`<button class="start" title="Start work on this idea: it moves to Working. Anything typed above is posted as a comment first." @click=${()=>this._startWorking()}><ha-icon icon="mdi:play-circle-outline"></ha-icon>Start Working</button>`:G}
       ${this.isAdmin&&!i?F`<button title="Mark as resolved. Anything typed above is saved as the resolution." @click=${()=>this._resolve()}><ha-icon icon="mdi:check-circle-outline"></ha-icon>Resolve</button>`:G}
       ${this.isAdmin&&i?F`<button title="Move this ticket back to In Progress. Anything typed above is posted as a comment first." @click=${()=>this._comment.trim()?this._commentAndReopen():this._patch({status:"in_progress"})}><ha-icon icon="mdi:restore"></ha-icon>Reopen</button>`:G}
       <button class="primary" ?disabled=${!this._canSubmit(e)} @click=${this._submitComment}
@@ -2425,6 +2425,11 @@ ${e.related?.length?F`<div class="chips"><span class="sect">Related</span>${e.re
         .composer .acts button.primary {
           flex: 1 1 100%;
           border-color: transparent;
+        }
+        /* Start Working (an Idea) is a full-width line above AI Action. */
+        .composer .acts button.start {
+          order: -1;
+          flex: 1 1 100%;
         }
       }
       /* On a phone an open comment box can't grow past the screen: it scrolls inside itself instead. */
