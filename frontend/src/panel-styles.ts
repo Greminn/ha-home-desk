@@ -64,6 +64,11 @@ export const panelStyles = css`
         main {
           grid-template-columns: minmax(0, 1fr);
         }
+        /* With a ticket open the list and the top bar are hidden, so the ticket is the only row and must fill it (otherwise it is
+           sized to its content: a short ticket ends mid-screen and a long one pushes the comment bar off the bottom). */
+        main.has-selection {
+          grid-template-rows: minmax(0, 1fr);
+        }
         main.has-selection .list-pane,
         main.has-selection st-top-bar,
         main:not(.has-selection) st-ticket-detail,

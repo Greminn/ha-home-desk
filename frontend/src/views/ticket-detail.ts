@@ -963,13 +963,13 @@ export class TicketDetail extends LitElement {
       }
       @container (max-width: 560px) {
         .composer .bar {
-          flex-direction: column;
-          align-items: stretch;
-          gap: 10px;
+          justify-content: flex-start;
+          gap: 10px 8px;
         }
         /* AI Action is one full-width pill, its segments sharing the width, tall enough for a thumb. */
         .composer .ai-action {
           display: flex;
+          flex: 1 1 100%;
           margin-right: 0;
           height: 40px;
         }
@@ -978,12 +978,9 @@ export class TicketDetail extends LitElement {
           justify-content: center;
           padding: 0 8px;
         }
-        .composer .opts {
-          justify-content: flex-start;
-        }
-        /* Start Working and Resolve are real outlined buttons side by side; Comment is the one filled button, on its own row. */
+        /* The priority icons and Resolve (and Start Working) share a row; Comment, the one filled button, has its own below. */
         .composer .acts {
-          justify-content: stretch;
+          display: contents;
         }
         .composer .acts button {
           flex: 1 1 0;

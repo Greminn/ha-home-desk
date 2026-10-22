@@ -207,25 +207,8 @@ export class HomeDeskPanel extends LitElement {
     this._compact = this._mq.matches;
   };
 
-  /**
-   * The panel fills the screen below whatever sits above it. In the phone app the page starts under the status bar, so a plain
-   * 100dvh is taller than what is visible and the comment bar hangs off the bottom: measure from where the panel really starts.
-   */
-  private _fit = () => {
-    const top = Math.max(0, this.getBoundingClientRect().top);
-    const view = window.visualViewport?.height ?? window.innerHeight;
-    this.style.height = `${Math.floor(view - top)}px`;
-  };
-
-  override firstUpdated() {
-    this._fit();
-  }
-
   override connectedCallback() {
     super.connectedCallback();
-    this._fit();
-    window.addEventListener("resize", this._fit);
-    window.visualViewport?.addEventListener("resize", this._fit);
     this._mq.addEventListener("change", this._onCompact);
     document.addEventListener("visibilitychange", this._onVisible);
     if (this._client && !this._unsub) this._subscribe(); // reattached after being removed
@@ -233,8 +216,6 @@ export class HomeDeskPanel extends LitElement {
 
   override disconnectedCallback() {
     super.disconnectedCallback();
-    window.removeEventListener("resize", this._fit);
-    window.visualViewport?.removeEventListener("resize", this._fit);
     this._mq.removeEventListener("change", this._onCompact);
     document.removeEventListener("visibilitychange", this._onVisible);
     window.clearInterval(this._pollTimer);
