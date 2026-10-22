@@ -19,6 +19,10 @@
     .stage { flex: 1; min-height: 0; display: flex; justify-content: center; padding: 12px; }
     iframe { height: 100%; width: 100%; max-width: 100%; border: 1px solid #000; border-radius: 8px; background: #111; }
     .hint { margin-left: auto; opacity: .5; }
+    /* ?clean: only the panel, filling the window, for taking screenshots (see the script below for the options). */
+    body.clean .bar { display: none; }
+    body.clean .stage { padding: 0; }
+    body.clean iframe { border: 0; border-radius: 0; }
   </style>
 </head>
 <body>
@@ -36,6 +40,13 @@
     const defaults = { theme: "dark", width: "full", user: "admin" };
     let state = { ...defaults };
     try { state = { ...state, ...JSON.parse(localStorage.getItem("preview-state") ?? "{}") }; } catch {}
+    // Clean mode: /?clean, with optional theme=dark|light, width=390|768|1280|full (or any pixel width) and user=admin|household.
+    const params = new URLSearchParams(location.search);
+    const clean = params.has("clean");
+    if (clean) {
+      document.body.classList.add("clean");
+      for (const k of ["theme", "width", "user"]) if (params.has(k)) state[k] = params.get(k);
+    }
     const send = (m) => frame.contentWindow?.postMessage(m, "*");
     function apply() {
       for (const g of document.querySelectorAll(".group[data-name]"))
@@ -43,7 +54,7 @@
       frame.style.width = state.width === "full" ? "100%" : state.width + "px";
       send({ cmd: "theme", value: state.theme });
       send({ cmd: "user", admin: state.user === "admin" });
-      try { localStorage.setItem("preview-state", JSON.stringify(state)); } catch {}
+      if (!clean) try { localStorage.setItem("preview-state", JSON.stringify(state)); } catch {}
     }
     for (const g of document.querySelectorAll(".group[data-name]"))
       g.addEventListener("click", (e) => { const v = e.target.dataset?.v; if (v) { state[g.dataset.name] = v; apply(); } });

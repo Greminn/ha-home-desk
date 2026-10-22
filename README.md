@@ -7,7 +7,7 @@
 
 Something in the house stops working, a household member has a request, or you have an idea for later, and it lives in your head, a chat thread or a note on the fridge. Home Desk is a helpdesk that lives inside Home Assistant. You, your household, AI agents and Home Assistant itself raise tickets; you and your AI agents work them through to resolution, with the full history kept. Home Assistant is the heart of a smart home, so it's where tickets live, but they can be about anything around it too: the network, the servers, the media box.
 
-![Home Desk in Home Assistant: the Inbox beside an open ticket, with its priority, category and labels, and the reply bar below](site/public/screenshots/screenshot-main-v2.png)
+![Home Desk in Home Assistant: the Inbox beside an open ticket, with its priority, category and labels, and the reply bar below](site/public/screenshots/screenshot-main-v3.png)
 
 *A preview with sample tickets.*
 
