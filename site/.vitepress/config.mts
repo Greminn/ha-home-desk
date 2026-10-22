@@ -9,12 +9,12 @@ export default defineConfig({
   lastUpdated: false,
   head: [["link", { rel: "icon", href: "/ha-home-desk/favicon.ico" }]],
   themeConfig: {
-    logo: { light: "/home-desk-icon-black-512.png", dark: "/home-desk-icon-white-512.png" },
+    logo: { light: "/home-desk-icon.svg", dark: "/home-desk-icon-dark.svg" },
     nav: [
-      { text: "Install", link: "/guide/install" },
-      { text: "Using Home Desk", link: "/guide/using-the-panel" },
-      { text: "AI Agents", link: "/ai/using-ai" },
-      { text: "The Runner", link: "/runner/" },
+      { text: "Getting Started", link: "/guide/what-is-home-desk", activeMatch: "/guide/(what-is-home-desk|install|first-ticket)" },
+      { text: "Using Home Desk", link: "/guide/using-the-panel", activeMatch: "/guide/(using-the-panel|status|labels-categories|household-reports|repairs|events|settings|good-to-know)" },
+      { text: "AI Agents", link: "/ai/using-ai", activeMatch: "/ai/" },
+      { text: "The Runner", link: "/runner/", activeMatch: "/runner/" },
     ],
     sidebar: [
       { text: "Getting Started", items: [
@@ -44,10 +44,18 @@ export default defineConfig({
         { text: "Presets", link: "/runner/presets" },
         { text: "Watching and Troubleshooting", link: "/runner/running" },
       ] },
+      { text: "Support", items: [
+        { text: "Reporting a Problem", link: "/support/reporting-a-problem" },
+        { text: "Suggesting a Feature", link: "/support/suggesting-a-feature" },
+        { text: "Buy Me an Espresso", link: "https://buymeacoffee.com/greminn" },
+      ] },
     ],
     socialLinks: [{ icon: "github", link: "https://github.com/Greminn/ha-home-desk" }],
     search: { provider: "local" },
     editLink: { pattern: "https://github.com/Greminn/ha-home-desk/edit/main/site/:path", text: "Edit this page" },
-    footer: { message: "A personal project, shared as is. No warranty." },
+    footer: {
+      message: 'Released under the <a href="https://github.com/Greminn/ha-home-desk/blob/main/LICENSE">MIT License</a>. A personal project, shared as is.',
+      copyright: 'Made by <a href="https://github.com/Greminn">Greminn</a> · <a href="https://buymeacoffee.com/greminn">Buy me an espresso</a>',
+    },
   },
 });

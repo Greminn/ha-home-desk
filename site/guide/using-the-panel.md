@@ -6,7 +6,7 @@ title: Using the Panel
 
 The ticket list is on the left and the open ticket on the right. A phone shows one at a time. Every ticket has its own address, `/home-desk/<id>`, and a refresh keeps you on the page you were on, except Settings: coming back to Home Desk always opens Home.
 
-## The Home page
+## The Home Page
 
 The **Home Desk** title in the header opens the Home page. It shows:
 
@@ -29,7 +29,7 @@ Each open ticket is in exactly one tab, the first that fits.
 
 The first four show counts that add up to the open tickets. The last tab used is remembered per browser.
 
-## The list
+## The List
 
 Above the list:
 
@@ -40,17 +40,17 @@ Above the list:
 
 An empty list says why. If a search or filter is hiding tickets, **Clear Filters** brings them back.
 
-## Open tickets
+## Open Tickets
 
 Each ticket you open gets a chip under the header.
 
-- A ticket you only pass through (Previous and Next, a click in the list, a search result) shows as an *italic* chip with a dashed outline, a **preview**. The next ticket you pass through takes its place.
+- A ticket you only pass through (Previous and Next, a selection in the list, a search result) shows as an *italic* chip with a dashed outline, a **preview**. The next ticket you pass through takes its place.
 - A preview chip becomes a normal chip when you do something with the ticket, such as comment or change the priority, or when you select the chip.
 - Up to eight chips stay open. The **X** closes a chip, a middle click does too, and **Option-click** (**Alt-click** on Windows and Linux) on an **X** closes every chip, after a confirmation.
 
-## Working a ticket
+## Working a Ticket
 
-- **Title:** click to edit.
+- **Title:** select it to edit.
 - **Priority, category, labels:** pinned at the top of the ticket.
 - **Comment:** the strip at the bottom opens when pointed at. See below.
 - **Resolve:** text in the comment box is saved as the resolution. It is outlined, and fills blue when you point at it.
@@ -59,7 +59,7 @@ Each ticket you open gets a chip under the header.
 - **Merge:** beside History. Comments, labels, files and linked Repairs move to the kept ticket. The other closes as "Merged into #N".
 - **Delete:** the trash can at the far right of the buttons removes the ticket for good, after a confirmation. It is not resolved: it leaves the history, with its comments and files, and cannot be undone. It is refused while an AI agent is working on the ticket. A repair's ticket stays deleted: Home Desk does not open another for that repair while it is still there. Only administrators can delete, and only here: there is no service, so an AI agent cannot.
 
-### The reply bar
+### The Reply Bar
 
 Choices in the reply bar are picked first, then applied with the main button, which says what it will do:
 
@@ -71,7 +71,7 @@ Choices in the reply bar are picked first, then applied with the main button, wh
 
 The keyboard shortcuts are listed in Settings.
 
-## On a phone
+## On a Phone
 
 A phone shows one pane at a time, laid out for a thumb:
 

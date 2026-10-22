@@ -15,7 +15,7 @@ Tickets are raised by:
 
 Every change is kept in the ticket's history and fires a `home_desk_event`, so [automations](/guide/events) can react to it.
 
-## Ticket lifecycle
+## Ticket Lifecycle
 
 1. A new ticket is **New** and shows in the **Inbox**.
 2. The first comment, priority, label or category change makes it **In Progress**.

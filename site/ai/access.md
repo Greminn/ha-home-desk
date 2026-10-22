@@ -12,11 +12,11 @@ Agents should pass their own name as `actor`, so their work is labelled in the t
 
 Responses are data. Call the actions with response enabled (`return_response: true`).
 
-## Through an existing connection
+## Through an Existing Connection
 
 Use any Home Assistant MCP server or the REST API. The `home_desk.*` actions are listed with the rest.
 
-## Home Desk MCP server
+## Home Desk MCP Server
 
 [`mcp/server.py`](https://github.com/Greminn/ha-home-desk/blob/main/mcp/server.py) is an optional MCP server for Home Desk only. It needs `uv` and a long-lived access token (profile → **Security**).
 

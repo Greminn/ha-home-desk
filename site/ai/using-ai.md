@@ -19,7 +19,7 @@ Both are choices in the **AI Action** pill in the reply bar. You pick one, then 
 2. On a ticket, pick **Review** in the **AI Action** pill. Type a question in the comment box if you want to steer it. The main button now reads **Review With AI Now**.
 3. Press it and confirm. It uses your AI plan.
 
-Home Desk gives the AI the ticket, its comments and what Settings allows (entity states, automation and script configuration, related tickets), with secrets removed. The reply is posted as a comment signed **AI Review**, with a working indicator while it runs, a **Stop** button and one-click proposed changes.
+Home Desk gives the AI the ticket, its comments and what Settings allows (entity states, automation and script configuration, related tickets), with secrets removed. The reply is posted as a comment signed **AI Review**, with a working indicator while it runs, a **Stop** button and proposed changes you can apply in one step.
 
 It cannot change anything and never touches the assignment. The instructions it is given are editable in Settings.
 
@@ -31,7 +31,7 @@ An agent's comments are marked **AI Agent** with the spark icon.
 
 When a **Run** finds nothing to change (its findings end in "What I would change: Nothing"), the run simply finishes: there is no **Proceed** to press.
 
-## Running the work
+## Running the Work
 
 To have an agent work queued tickets for you, see the optional [AI Agent Runner](/runner/). Setup is technical, and it carries a warning. Once it is set up and switched on in Settings, **Run** appears in the **AI Action** pill and the main button reads **Run AI Agent Now**.
 

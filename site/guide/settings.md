@@ -19,13 +19,13 @@ The cog in the panel header opens Settings. Administrators only. Changes save im
 
 **Manage Labels** and **Manage Categories** are in the **⋮** menu.
 
-## Review instructions
+## Review Instructions
 
 The instructions tell the AI what its job is and how to write. Home Desk adds the ticket, its comments and what you allowed above, along with a fixed part it needs in order to read proposed changes. The fixed part is shown under **Always added after your text** and cannot be edited.
 
 If you edit the instructions, your text is kept even when a new version of Home Desk improves the default. When that happens, a notice says **The default has changed since you edited this**. Choose **Keep Mine** to hide the notice and keep your text, or **Reset to Default** to go back to the current default. Nothing changes until you choose.
 
-## Keyboard shortcuts and About
+## Keyboard Shortcuts and About
 
 **Keyboard Shortcuts** lists every key. **About** shows the version and links to the release notes, this documentation, the issue tracker and the repository, and to the author's page for anyone who wants to say thanks.
 

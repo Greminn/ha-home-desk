@@ -6,7 +6,7 @@ title: Automations and Notifications
 
 Home Desk fires `home_desk_event` on the event bus for every ticket change. Built-in push notifications are not available yet. Use an automation.
 
-## Event data
+## Event Data
 
 | Field | Value |
 |---|---|
@@ -16,7 +16,7 @@ Home Desk fires `home_desk_event` on the event bus for every ticket change. Buil
 | `requester`, `actor` | Who raised it, and who made this change. |
 | `assignee`, `with_agent` | Whether an AI agent has it. |
 
-## Example: notify on a new ticket
+## Example: Notify on a New Ticket
 
 ```yaml
 alias: Home Desk - new ticket
@@ -34,6 +34,6 @@ actions:
 
 Replace the `notify` action with your own. The `triggers:` syntax needs Home Assistant 2024.10 or newer.
 
-## Starting an AI agent
+## Starting an AI Agent
 
 Trigger on `kind: assigned` to start an agent when a ticket is queued. See [AI Agents](/ai/using-ai).

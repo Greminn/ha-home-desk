@@ -39,7 +39,7 @@ The panel is already built and committed, so there is nothing to compile.
 
 3. Restart Home Assistant. A full restart is required. Reloading is not enough.
 
-## Add the integration
+## Add the Integration
 
 1. Go to **Settings → Devices & Services → Add Integration**.
 2. Select **Home Desk**. It is added with nothing to fill in.

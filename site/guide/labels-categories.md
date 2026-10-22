@@ -8,7 +8,7 @@ A **category** is the part of the home a ticket concerns. A **label** says what 
 
 ## Categories
 
-A ticket has one category or none. Select **Add Category** on a ticket, or click its category pill to change it.
+A ticket has one category or none. Select **Add Category** on a ticket, or select its category pill to change it.
 
 **Manage Categories** (the **⋮** menu, administrators only) creates, renames, changes the icon of and deletes categories. Deleting a category leaves its tickets uncategorised. **Home Assistant** is built in and locked.
 
