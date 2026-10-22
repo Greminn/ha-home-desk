@@ -10,9 +10,9 @@ hero:
     alt: The Home Desk panel in Home Assistant, with the Inbox beside an open ticket and its reply bar
   tagline: Raise, track and resolve tickets in a panel in Home Assistant's own style, with AI to help.
   actions:
-    - { theme: brand, text: Install, link: /guide/install }
-    - { theme: alt, text: What Is Home Desk?, link: /guide/what-is-home-desk }
-    - { theme: alt, text: Using the Panel, link: /guide/using-the-panel }
+    - { theme: brand, text: What Is Home Desk?, link: /guide/what-is-home-desk }
+    - { theme: alt, text: Install, link: /guide/install }
+    - { theme: alt, text: First Ticket, link: /guide/first-ticket }
     - { theme: alt, text: GitHub, link: "https://github.com/Greminn/ha-home-desk" }
 features:
   - { icon: { src: /icons/panel.svg, alt: "", width: 28, height: 28 }, title: Native Panel, details: "Built with Home Assistant's own theme: a ticket list, a full-width ticket page, labels and categories." }
