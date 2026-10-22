@@ -29,6 +29,8 @@ Type the instruction in the comment box, pick **Queue** in the **AI Action** pil
 
 An agent's comments are marked **AI Agent** with the spark icon.
 
+When a **Run** finds nothing to change (its findings end in "What I would change: Nothing"), the run simply finishes: there is no **Proceed** to press.
+
 ## Running the work
 
 To have an agent work queued tickets for you, see the optional [AI Agent Runner](/runner/). Setup is technical, and it carries a warning. Once it is set up and switched on in Settings, **Run** appears in the **AI Action** pill and the main button reads **Run AI Agent Now**.

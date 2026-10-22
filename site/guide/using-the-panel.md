@@ -4,7 +4,7 @@ title: Using the Panel
 
 # Using the Panel
 
-The ticket list is on the left and the open ticket on the right. A phone shows one at a time. Every ticket has its own address, `/home-desk/<id>`, and a refresh keeps you on the page you were on.
+The ticket list is on the left and the open ticket on the right. A phone shows one at a time. Every ticket has its own address, `/home-desk/<id>`, and a refresh keeps you on the page you were on, except Settings: coming back to Home Desk always opens Home.
 
 ## The Home page
 
@@ -53,10 +53,11 @@ Each ticket you open gets a chip under the header.
 - **Title:** click to edit.
 - **Priority, category, labels:** pinned at the top of the ticket.
 - **Comment:** the strip at the bottom opens when pointed at. See below.
-- **Resolve:** text in the comment box is saved as the resolution.
-- **Start Working:** on an idea, moves it to **Working**. **Reopen:** on a resolved or closed ticket.
+- **Resolve:** text in the comment box is saved as the resolution. It is outlined, and fills blue when you point at it.
+- **Start Working:** on an idea, a solid blue button that moves it to **Working**. **Reopen:** on a resolved or closed ticket.
 - **History:** the clock icon lists each change with its exact time.
 - **Merge:** beside History. Comments, labels, files and linked Repairs move to the kept ticket. The other closes as "Merged into #N".
+- **Delete:** the trash can at the far right of the buttons removes the ticket for good, after a confirmation. It is not resolved: it leaves the history, with its comments and files, and cannot be undone. It is refused while an AI agent is working on the ticket. A repair's ticket stays deleted: Home Desk does not open another for that repair while it is still there. Only administrators can delete, and only here: there is no service, so an AI agent cannot.
 
 ### The reply bar
 
@@ -69,6 +70,16 @@ Choices in the reply bar are picked first, then applied with the main button, wh
 **Resolve**, **Start Working** and **Reopen** act straight away.
 
 The keyboard shortcuts are listed in Settings.
+
+## On a phone
+
+A phone shows one pane at a time, laid out for a thumb:
+
+- **Tabs** are one drop-down in the header, showing the list you are on and its count. Choosing a tab shows that list, even if a ticket was open. **Settings** is in the three-dot menu.
+- **Search** is a magnifying glass beside the three dots while a ticket is open. It goes to the list and puts the cursor in the search box.
+- **The ticket header** is the title across the full width, then one row of buttons: back, then previous, next, merge, history and delete.
+- **The reply bar** is pinned to the bottom of the screen, above the keyboard when it is open. Tap it to open it: **Start Working** (on an idea) is a full-width line at the top, then **AI Action** across the width, then the priority icons and **Resolve** on one row, then **Comment**.
+- Open chips and the full width view are not offered.
 
 ## Permissions
 

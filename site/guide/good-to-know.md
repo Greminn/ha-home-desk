@@ -6,6 +6,7 @@ title: Good to Know
 
 - Services other than `get_guide` and `get_changelog`, and the Settings, need an administrator.
 - Non-administrators see only the report form.
+- Deleting a ticket is for administrators in the panel only. There is no service for it, so an AI agent cannot delete tickets.
 - Notifications are not built yet, so their settings are hidden. Use an [automation](/guide/events).
 - Label colours are limited to Home Assistant's theme colour names, not arbitrary hex values.
 - Home Desk never starts an AI agent itself. **Queue for AI Agent** only marks the ticket. The [runner](/runner/) is a separate, optional program.
