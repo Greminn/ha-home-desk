@@ -6,7 +6,16 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+- **The AI Agent's "nothing to change" findings no longer ask for a go-ahead.** When a Run ends with "What I would change: Nothing", `finish_run` (state `proposed`) records the run as done and adds no Proceed and Dismiss. **Action:** none
+- **A dismissed or approved go-ahead card drops its "Waiting for your go-ahead" heading.** It shows only who dismissed or approved it.
+- **The Review With AI and Run AI Agent confirmations are shorter and have their own headings** ("Review With AI?", "Run AI Agent?"), and the buttons are Title Case ("Yes, Go Ahead", "Yes, Test It").
+- **Settings is never restored when you come back to the panel**, so the sidebar icon opens Home.
+- **On a phone** the ticket header puts the title across the full width with one row of buttons under it (back, then previous, next, merge and history); the comment box is tidier when open (AI Action across the width, Resolve and Start Working as outlined buttons, Comment on its own row) and the panel is sized from where it starts, so the comment bar is no longer pushed off the bottom of the screen in the phone app.
+
+### Fixed
+- **"Could not load tickets: [object Object]"** now shows the real message from Home Assistant.
+- **A one-line title could be two lines tall** until the font loaded.
 
 ## [1.0.0-beta.1] - 2026-10-21
 

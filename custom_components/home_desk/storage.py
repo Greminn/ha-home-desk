@@ -888,6 +888,12 @@ _RUN_WAITING = {
 }
 
 
+def _proposes_nothing(body: str) -> bool:
+    """True when the last "What I would change" section starts with "Nothing": there is no go-ahead to ask for."""
+    found = list(re.finditer(r"what i would change:?\**\s*:?\s*\**\s*(\w+)", body, re.IGNORECASE))
+    return bool(found) and found[-1].group(1).lower() in ("nothing", "none")
+
+
 def _run_state(ticket: dict[str, Any]) -> str:
     return (ticket.get("agent_run") or {}).get("state") or ""
 
@@ -965,7 +971,9 @@ async def async_finish_run(hass: HomeAssistant, ticket_id: int, *, agent: str, s
             raise TicketError("This run was stopped or is not running, so there is nothing to finish")
         ts = _now()
         event_data: dict[str, Any] = {"run": True}
-        if state == "proposed":
+        if state == "proposed" and _proposes_nothing(body):
+            state = "done"  # nothing to approve: the findings are the whole result
+        elif state == "proposed":
             event_data["proceed"] = {"state": "pending"}
         ev = _event(ticket, actor, "comment", body, event_data, ts)
         run.update(state=state, finished_at=ts, event=ev["id"])

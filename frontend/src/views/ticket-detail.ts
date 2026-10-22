@@ -380,6 +380,41 @@ export class TicketDetail extends LitElement {
           --mdc-icon-size: 24px;
         }
       }
+      /* The phone header: the title across the full width, then the icon row (back, then previous, next, merge and history). */
+      .head.phone {
+        display: block;
+        padding: 0;
+      }
+      .head.phone textarea.title-edit,
+      .head.phone h1 {
+        width: calc(100% + 18px);
+      }
+      .head.phone h1 {
+        width: 100%;
+      }
+      .phone-nav {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin: 8px 0 0 -8px;
+      }
+      .phone-nav .gap {
+        flex: 1;
+      }
+      .phone-nav .back,
+      .phone-nav .hist {
+        position: static;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        margin: 0;
+      }
+      .phone-nav .back ha-icon,
+      .phone-nav .hist ha-icon {
+        --mdc-icon-size: 24px;
+      }
       .sub {
         display: flex;
         flex-direction: column;
@@ -930,10 +965,41 @@ export class TicketDetail extends LitElement {
         .composer .bar {
           flex-direction: column;
           align-items: stretch;
+          gap: 10px;
+        }
+        /* AI Action is one full-width pill, its segments sharing the width, tall enough for a thumb. */
+        .composer .ai-action {
+          display: flex;
+          margin-right: 0;
+          height: 40px;
+        }
+        .composer .ai-action button {
+          flex: 1;
+          justify-content: center;
+          padding: 0 8px;
+        }
+        .composer .opts {
+          justify-content: flex-start;
+        }
+        /* Start Working and Resolve are real outlined buttons side by side; Comment is the one filled button, on its own row. */
+        .composer .acts {
+          justify-content: stretch;
         }
         .composer .acts button {
-          flex: 1 1 100%;
+          flex: 1 1 0;
           justify-content: center;
+          border: 1px solid var(--st-outline);
+        }
+        .composer .acts button.primary {
+          flex: 1 1 100%;
+          border-color: transparent;
+        }
+      }
+      /* On a phone an open comment box can't grow past the screen: it scrolls inside itself instead. */
+      @media (max-width: 870px) {
+        .dock .dock-in {
+          max-height: 75dvh;
+          overflow-y: auto;
         }
       }
       .empty {
@@ -1065,6 +1131,11 @@ export class TicketDetail extends LitElement {
       if (box) this._fitTitle(box);
     });
     this._resizer.observe(this);
+    // The heading font can arrive after the first fit, and a wider font would have left the box two lines tall.
+    void document.fonts?.ready.then(() => {
+      const box = this.renderRoot.querySelector<HTMLTextAreaElement>("textarea.title-edit");
+      if (box) this._fitTitle(box);
+    });
     window.addEventListener("keydown", this._hotkey, true); // capture: nothing else on the page can swallow it first
   }
 
@@ -1513,7 +1584,7 @@ export class TicketDetail extends LitElement {
     const open = p.state === "pending" && newest && this.isAdmin;
     const fire = (action: "approve" | "dismiss") => this._fire("proceed", { eventId: e.id, action });
     return html`<div class="proposal">
-      <div class="p-head"><ha-icon icon="mdi:star-four-points"></ha-icon>Waiting for your go-ahead</div>
+      ${open ? html`<div class="p-head"><ha-icon icon="mdi:star-four-points"></ha-icon>Waiting for your go-ahead</div>` : nothing}
       ${open
         ? html`<div class="p-note">Nothing has been changed. Proceed lets the AI Agent do what it describes above, and only that.</div>
             <div class="p-acts"><button class="primary" @click=${() => fire("approve")}>Proceed</button><button @click=${() => fire("dismiss")}>Dismiss</button></div>`
@@ -1567,32 +1638,34 @@ export class TicketDetail extends LitElement {
       <h2>History</h2>
       ${t.events.filter((e) => e.kind !== "comment" && e.kind !== "note").map((e) => this._eventTemplate(e))}
     </div>`;
-    const headRow = html`
+    const backBtn = html`<button class="icon back" title="Back" aria-label="Back" @click=${() => this._fire("back")}><ha-icon icon="mdi:arrow-left"></ha-icon></button>`;
+    const titleEl = this.isAdmin
+      ? html`<textarea class="title-edit" rows="1" aria-label="Title" spellcheck="false" .value=${t.title}
+          @input=${(e: Event) => this._fitTitle(e.target as HTMLTextAreaElement)}
+          @keydown=${this._titleKey}
+          @blur=${(e: Event) => this._saveTitle(e.target as HTMLTextAreaElement)}></textarea>`
+      : html`<h1>${t.title}</h1>`;
+    const stepBtns = this.isAdmin
+      ? html`<button class="icon hist prev" title="Previous ticket" aria-label="Previous ticket" ?disabled=${!this.navPos || this.navPos.index <= 0}
+          @click=${() => this._fire("nav-ticket", -1)}><ha-icon icon="mdi:chevron-left"></ha-icon></button>
+        <button class="icon hist next" title=${this.navPos ? `Next ticket (${this.navPos.index + 1} of ${this.navPos.total})` : "Next ticket"} aria-label="Next ticket"
+          ?disabled=${!this.navPos || this.navPos.index >= this.navPos.total - 1}
+          @click=${() => this._fire("nav-ticket", 1)}><ha-icon icon="mdi:chevron-right"></ha-icon></button>
+        <button class="icon hist merge" title="Merge into another ticket" aria-label="Merge into another ticket"
+          @click=${(e: Event) => this._fire("pick-merge", { rect: (e.currentTarget as HTMLElement).getBoundingClientRect() })}>
+          <ha-icon icon="mdi:call-merge"></ha-icon></button>`
+      : nothing;
+    const historyBtn = this.wide
+      ? nothing
+      : html`<button class="icon hist" aria-pressed=${this._showHistory ? "true" : "false"}
+          title=${this._showHistory ? "Hide history" : "Show history"} aria-label="Show history"
+          @click=${() => (this._showHistory = !this._showHistory)}><ha-icon icon="mdi:history"></ha-icon></button>`;
+    // A phone: the title has the whole width, and the buttons are one row under it (back on the left, the rest on the right).
+    const headRow = this.narrow
+      ? html`<div class="head phone">${titleEl}<div class="phone-nav">${backBtn}<span class="gap"></span>${stepBtns}${historyBtn}</div></div>`
+      : html`
 <div class="head ${this.isAdmin ? "admin" : ""} ${canWide ? "has-wide" : ""} ${this.wide ? "in-wide" : ""}">
-  ${this.narrow
-    ? html`<button class="icon back" title="Back" aria-label="Back" @click=${() => this._fire("back")}><ha-icon icon="mdi:arrow-left"></ha-icon></button>`
-    : nothing}
-  ${this.isAdmin
-    ? html`<textarea class="title-edit" rows="1" aria-label="Title" spellcheck="false" .value=${t.title}
-        @input=${(e: Event) => this._fitTitle(e.target as HTMLTextAreaElement)}
-        @keydown=${this._titleKey}
-        @blur=${(e: Event) => this._saveTitle(e.target as HTMLTextAreaElement)}></textarea>`
-    : html`<h1>${t.title}</h1>`}
-  ${this.isAdmin
-    ? html`<button class="icon hist prev" title="Previous ticket" aria-label="Previous ticket" ?disabled=${!this.navPos || this.navPos.index <= 0}
-        @click=${() => this._fire("nav-ticket", -1)}><ha-icon icon="mdi:chevron-left"></ha-icon></button>
-      <button class="icon hist next" title=${this.navPos ? `Next ticket (${this.navPos.index + 1} of ${this.navPos.total})` : "Next ticket"} aria-label="Next ticket"
-        ?disabled=${!this.navPos || this.navPos.index >= this.navPos.total - 1}
-        @click=${() => this._fire("nav-ticket", 1)}><ha-icon icon="mdi:chevron-right"></ha-icon></button>
-      <button class="icon hist merge" title="Merge into another ticket" aria-label="Merge into another ticket"
-        @click=${(e: Event) => this._fire("pick-merge", { rect: (e.currentTarget as HTMLElement).getBoundingClientRect() })}>
-        <ha-icon icon="mdi:call-merge"></ha-icon></button>`
-    : nothing}
-  ${this.wide
-    ? nothing
-    : html`<button class="icon hist" aria-pressed=${this._showHistory ? "true" : "false"}
-        title=${this._showHistory ? "Hide history" : "Show history"} aria-label="Show history"
-        @click=${() => (this._showHistory = !this._showHistory)}><ha-icon icon="mdi:history"></ha-icon></button>`}
+  ${titleEl}${stepBtns}${historyBtn}
 ${canWide
   ? html`<button class="icon hist wide-toggle" title=${this.wide ? "Exit full width view" : "Full width view"} aria-label=${this.wide ? "Exit full width view" : "Full width view"}
       @click=${() => this._fire("toggle-wide")}><ha-icon icon=${this.wide ? "mdi:arrow-collapse-horizontal" : "mdi:arrow-expand-horizontal"}></ha-icon></button>`

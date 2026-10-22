@@ -564,7 +564,7 @@ export class SettingsPage extends LitElement {
         ${this._linkRow("mdi:coffee-outline", "Support the Project", "Home Desk is free. If it's useful, you can buy me an espresso. It's never expected.", "https://buymeacoffee.com/greminn")}
       </div>
       ${this._confirmTest
-        ? html`<st-confirm-dialog heading="Use your AI plan?" confirmLabel="Yes, test it"
+        ? html`<st-confirm-dialog heading="Use your AI plan?" confirmLabel="Yes, Test It"
             body="This sends one short question, with nothing from your home, to the AI Agent. It uses a very small amount of your AI plan."
             @cancel=${() => (this._confirmTest = false)}
             @confirm=${() => {

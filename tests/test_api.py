@@ -491,6 +491,11 @@ async def main():
     await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))
     f3 = await ADMIN_SERVICES["finish_run"][0](ServiceCall({"ticket_id": rt["id"], "state": "done", "body": "Done.", "actor": "claude-ha"}, user_id="u-agent"))
     assert f3["agent_run"]["state"] == "done"
+    # "What I would change: Nothing" has no go-ahead to give
+    await call(hass, "agent_run_now", ADMIN(), ticket_id=rt["id"])
+    await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))
+    f4 = await ADMIN_SERVICES["finish_run"][0](ServiceCall({"ticket_id": rt["id"], "state": "proposed", "body": "What I found\n\nAll fine.\n\n**What I would change:**\n\nNothing. Dismiss this.", "actor": "claude-ha"}, user_id="u-agent"))
+    assert f4["agent_run"]["state"] == "done" and not [e for e in f4["events"] if (e.get("data") or {}).get("proceed") and e["id"] == f4["agent_run"]["event"]]
     print("agent run ok")
 
     print("services ok")

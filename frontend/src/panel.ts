@@ -90,7 +90,7 @@ export class HomeDeskPanel extends LitElement {
   @state() private _mergeConfirm: { from: TicketSummary[]; into: TicketSummary } | null = null;
   /** Tickets ticked in the list (admins), and whether checkboxes show on every row. */
   /** Something that uses the AI plan, waiting for "yes" before it runs: asking now, or an assignment that starts the agent. */
-  @state() private _confirmCost: { text: string; run: () => Promise<void> } | null = null;
+  @state() private _confirmCost: { heading: string; text: string; run: () => Promise<void> } | null = null;
   @state() private _checked = new Set<number>();
   @state() private _ticking = false;
   private _lastChecked: number | null = null;
@@ -207,8 +207,25 @@ export class HomeDeskPanel extends LitElement {
     this._compact = this._mq.matches;
   };
 
+  /**
+   * The panel fills the screen below whatever sits above it. In the phone app the page starts under the status bar, so a plain
+   * 100dvh is taller than what is visible and the comment bar hangs off the bottom: measure from where the panel really starts.
+   */
+  private _fit = () => {
+    const top = Math.max(0, this.getBoundingClientRect().top);
+    const view = window.visualViewport?.height ?? window.innerHeight;
+    this.style.height = `${Math.floor(view - top)}px`;
+  };
+
+  override firstUpdated() {
+    this._fit();
+  }
+
   override connectedCallback() {
     super.connectedCallback();
+    this._fit();
+    window.addEventListener("resize", this._fit);
+    window.visualViewport?.addEventListener("resize", this._fit);
     this._mq.addEventListener("change", this._onCompact);
     document.addEventListener("visibilitychange", this._onVisible);
     if (this._client && !this._unsub) this._subscribe(); // reattached after being removed
@@ -216,6 +233,8 @@ export class HomeDeskPanel extends LitElement {
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+    window.removeEventListener("resize", this._fit);
+    window.visualViewport?.removeEventListener("resize", this._fit);
     this._mq.removeEventListener("change", this._onCompact);
     document.removeEventListener("visibilitychange", this._onVisible);
     window.clearInterval(this._pollTimer);
@@ -236,7 +255,7 @@ export class HomeDeskPanel extends LitElement {
     }
     try {
       const page = localStorage.getItem("home-desk-page");
-      if (page !== null && ["", "home", "report", "labels", "categories", "settings"].includes(page)) this._page = page as Page; // a ticket's own address still wins
+      if (page !== null && ["", "home", "report", "labels", "categories"].includes(page)) this._page = page as Page; // a ticket's own address still wins; Settings is never restored, so the sidebar icon opens Home
     } catch {
       // Fall through to Home.
     }
@@ -395,8 +414,8 @@ export class HomeDeskPanel extends LitElement {
   }
 
   /** Ask before anything that costs: the person sees what will happen, and "Cancel" does nothing. */
-  private _askCost(text: string, run: () => Promise<void>) {
-    this._confirmCost = { text, run };
+  private _askCost(heading: string, text: string, run: () => Promise<void>) {
+    this._confirmCost = { heading, text, run };
   }
 
   /** Run AI Agent Now: post the comment (the instruction), then ask the runner; see docs/agent-runs.md. */
@@ -404,7 +423,8 @@ export class HomeDeskPanel extends LitElement {
     const ticket = this._selected;
     if (!ticket) return;
     this._askCost(
-      `Run the AI Agent on ticket #${ticket.id} now? It reads the ticket${detail.body ? ", with your comment," : ""} and works on it read-only, then says what it found and what it would change. Nothing is changed until you press Proceed. It uses your AI plan.`,
+      "Run AI Agent?",
+      `Run the AI Agent on ticket #${ticket.id}? It reads the ticket${detail.body ? " and your comment" : ""} and looks at it read-only, then says what it found and what it would change. Nothing changes until you press Proceed. It uses your AI plan.`,
       async () => {
         if (detail.body) await this._client?.comment(ticket.id, detail.body, false);
         detail.done();
@@ -418,7 +438,8 @@ export class HomeDeskPanel extends LitElement {
     if (!ticket || !this._client) return;
     const name = this._agentLabel;
     this._askCost(
-      `Review ticket #${ticket.id} with ${name}? The ticket${detail.body ? ", with your comment," : ""} is sent to the AI chosen in Settings through Home Assistant, which uses your AI plan and may cost money. It says what it thinks is going on and what to try, and may propose changes for you to apply. It can't change anything itself, and Queue for AI Agent is left as it is. You can stop it from the ticket while it works.`,
+      "Review With AI?",
+      `Review ticket #${ticket.id} with ${name}? It uses your AI plan and may cost money. It can only suggest changes for you to apply, and Queue for AI Agent stays as it is.`,
       async () => {
         const client = this._client!;
         if (detail.body) await client.comment(ticket.id, detail.body, false);
@@ -452,8 +473,22 @@ export class HomeDeskPanel extends LitElement {
   }
 
   private _message(err: unknown): string {
-    if (err && typeof err === "object" && "message" in err) return String((err as { message: unknown }).message);
-    return String(err);
+    // Home Assistant rejects with {code, message}; a message can itself be an object, so never print one raw.
+    const text = (v: unknown): string => {
+      if (typeof v === "string") return v;
+      if (v && typeof v === "object") {
+        const o = v as { message?: unknown; code?: unknown };
+        if (o.message !== undefined) return text(o.message);
+        if (o.code !== undefined) return text(o.code);
+        try {
+          return JSON.stringify(v);
+        } catch {
+          return "Something went wrong";
+        }
+      }
+      return String(v);
+    };
+    return text(err);
   }
 
   private async _act(fn: (client: HaClient) => Promise<Ticket>) {
@@ -889,7 +924,7 @@ export class HomeDeskPanel extends LitElement {
             }}></st-confirm-dialog>`
         : nothing}
       ${this._confirmCost
-        ? html`<st-confirm-dialog heading="Use your AI plan?" confirmLabel="Yes, go ahead" body=${this._confirmCost.text}
+        ? html`<st-confirm-dialog heading=${this._confirmCost.heading} confirmLabel="Yes, Go Ahead" body=${this._confirmCost.text}
             @cancel=${() => (this._confirmCost = null)}
             @confirm=${() => {
               const run = this._confirmCost!.run;
