@@ -18,7 +18,7 @@ features:
   - { icon: { src: /icons/tickets.svg, alt: "", width: 28, height: 28 }, title: Tickets for Your Home, details: "Something needs attention, so you open a ticket, work it through with comments, and resolve it. Everything that happened stays on the ticket." }
   - { icon: { src: /icons/repairs.svg, alt: "", width: 28, height: 28 }, title: Repairs as Tickets, details: "Each Home Assistant Repair becomes a ticket, grouped by kind. It resolves when the Repair clears and reopens if it returns." }
   - { icon: { src: /icons/reports.svg, alt: "", width: 28, height: 28 }, title: Household Reports, details: "Everyone at home can report an issue or make a suggestion, with a line of detail, photos and a voice message. It arrives as a ticket for you to pick up." }
-  - { icon: { src: /icons/ai-agents.svg, alt: "", width: 28, height: 28 }, title: AI Agents, details: "Review With AI advises and cannot change anything. Queue tickets for your own AI agent, or use the optional runner so your own Claude looks first and acts only after you press Proceed." }
+  - { icon: { src: /icons/ai-agents.svg, alt: "", width: 28, height: 28 }, title: AI Agents, details: "Ask an AI to review a ticket and suggest what to do, or queue it for your own AI agent. The AI replies on the ticket, and you decide what happens." }
 ---
 
 <div class="other-projects">
