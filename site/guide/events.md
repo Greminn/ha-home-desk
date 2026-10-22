@@ -1,8 +1,8 @@
 ---
-title: Automations and Notifications
+title: Events and Automations
 ---
 
-# Automations and Notifications
+# Events and Automations
 
 Home Desk fires `home_desk_event` on the event bus for every ticket change. Built-in push notifications are not available yet. Use an automation.
 

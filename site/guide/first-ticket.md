@@ -18,4 +18,4 @@ The **clock** icon on a ticket shows its full history. The search box in the hea
 - [Using the Panel](/guide/using-the-panel)
 - [Household Reports](/guide/household-reports)
 - [Home Assistant Repairs](/guide/repairs)
-- [Automations and Notifications](/guide/events)
+- [Events and Automations](/guide/events)

@@ -35,4 +35,4 @@ When a **Run** finds nothing to change (its findings end in "What I would change
 
 To have an agent work queued tickets for you, see the optional [AI Agent Runner](/runner/). Setup is technical, and it carries a warning. Once it is set up and switched on in Settings, **Run** appears in the **AI Action** pill and the main button reads **Run AI Agent Now**.
 
-To connect an agent you already run, see [Connect Your Own AI Agent](/ai/access).
+To connect an agent you already run, see [Connect Your AI Agent](/ai/access).

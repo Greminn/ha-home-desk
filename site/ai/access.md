@@ -1,8 +1,8 @@
 ---
-title: Connect Your Own AI Agent
+title: Connect Your AI Agent
 ---
 
-# Connect Your Own AI Agent
+# Connect Your AI Agent
 
 An agent already connected to Home Assistant can work tickets with no further setup. Home Desk registers `home_desk.*` actions that list, read, create, update, comment on, link and close tickets, and manage labels and categories. Their descriptions say what each is for.
 

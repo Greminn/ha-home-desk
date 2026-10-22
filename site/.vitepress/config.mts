@@ -32,17 +32,17 @@ export default defineConfig({
       ] },
       { text: "AI Agents", items: [
         { text: "Using AI with Home Desk", link: "/ai/using-ai" },
-        { text: "Connect Your Own AI Agent", link: "/ai/access" },
+        { text: "Connect Your AI Agent", link: "/ai/access" },
       ] },
       { text: "Advanced", items: [
-        { text: "Automations and Notifications", link: "/guide/events" },
-        { text: "The AI Agent Runner (Optional)", collapsed: true, items: [
+        { text: "Events and Automations", link: "/guide/events" },
+        { text: "AI Agent Runner", collapsed: true, items: [
           { text: "Overview", link: "/runner/" },
           { text: "How It Is Built", link: "/runner/overview" },
           { text: "Setup", link: "/runner/setup" },
-          { text: "Letting It Look at Your Home", link: "/runner/mcp" },
+          { text: "Looking at Your Home", link: "/runner/mcp" },
           { text: "Presets", link: "/runner/presets" },
-          { text: "Watching and Troubleshooting", link: "/runner/running" },
+          { text: "Troubleshooting", link: "/runner/running" },
         ] },
       ] },
       { text: "Support", items: [
