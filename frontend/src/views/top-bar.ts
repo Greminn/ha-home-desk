@@ -471,6 +471,11 @@ export class TopBar extends LitElement {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
   }
 
+  /** Put the cursor in the search box (the header's search button on a phone, once the list is showing). */
+  focusSearch() {
+    this.renderRoot.querySelector<HTMLInputElement>("input[type=search]")?.focus();
+  }
+
   override render() {
     return html`<div class="bar squeeze-${this._squeeze}">
       <span class="add-slot">

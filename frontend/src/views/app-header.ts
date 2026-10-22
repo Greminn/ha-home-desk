@@ -262,6 +262,8 @@ export class AppHeader extends LitElement {
   @property({ attribute: false }) tickets: TicketSummary[] = [];
   @property({ type: Boolean }) narrow = false;
   @property({ type: Boolean }) admin = false;
+  /** A ticket is open on a phone, where the search bar is hidden: the header then offers a search button. */
+  @property({ type: Boolean }) ticketOpen = false;
   @state() private _menuOpen = false;
   /** On a phone the tabs are one drop down: whether its list is open. */
   @state() private _viewsOpen = false;
@@ -332,6 +334,9 @@ export class AppHeader extends LitElement {
         <div class="side end">
           ${this.admin && !this.narrow
             ? html`<button class="icon" title="Settings" aria-label="Settings" @click=${() => this._choose("settings")}><ha-icon icon="mdi:cog-outline"></ha-icon></button>`
+            : nothing}
+          ${this.admin && this.narrow && this.ticketOpen
+            ? html`<button class="icon" title="Search" aria-label="Search tickets" @click=${() => this._fire("search-open")}><ha-icon icon="mdi:magnify"></ha-icon></button>`
             : nothing}
           ${this.admin
             ? html`<button class="icon" title="More options" aria-label="More options" aria-haspopup="menu" aria-expanded=${this._menuOpen}

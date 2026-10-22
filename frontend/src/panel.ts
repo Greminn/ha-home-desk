@@ -18,6 +18,7 @@ import "./views/category-manager";
 import "./views/settings-page";
 import "./views/app-header";
 import "./views/list-toolbar";
+import type { TopBar } from "./views/top-bar";
 import "./views/top-bar";
 import "./views/report-form";
 import type { Page } from "./views/app-header";
@@ -794,12 +795,19 @@ export class HomeDeskPanel extends LitElement {
     const lang = this.hass.language;
     const selecting = this._selectedId !== null;
     return html`
-      <st-app-header .page=${this._page === "home" ? "" : this._page} .view=${this._page === "home" ? "" : this._view} .tickets=${this._tickets} .narrow=${this.narrow} .admin=${this._admin}
+      <st-app-header .page=${this._page === "home" ? "" : this._page} .view=${this._page === "home" ? "" : this._view} .tickets=${this._tickets} .narrow=${this.narrow} .admin=${this._admin} .ticketOpen=${this._selectedId !== null}
         @page-change=${(e: CustomEvent<Page>) => (this._page = e.detail)}
         @view-change=${(e: CustomEvent<string>) => {
           this._page = "";
           this._setWide(false); // a tab means the list: back out of the full width view
           this._setView(e.detail);
+          if (this._compact) this._close(); // one pane at a time: a tab shows its list, not the ticket that was open
+        }}
+        @search-open=${async () => {
+          this._page = "";
+          this._close(); // the search box is above the list
+          await this.updateComplete;
+          this.renderRoot.querySelector<TopBar>("st-top-bar")?.focusSearch();
         }}
         @go-home=${() => {
           this._page = "home";
