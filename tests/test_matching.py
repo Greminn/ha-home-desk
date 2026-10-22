@@ -63,3 +63,6 @@ assert p.clean([{"action": "close", "status": "weird"}], labels=set(), categorie
 assert p.clean([{"action": "close"}], labels=set(), categories=set())[0]["status"] == "resolved"
 assert len(p.clean([{"action": "set_priority", "priority": "high"}] * 9, labels=set(), categories=set())) == p.MAX_ACTIONS
 print("proposals ok")
+assert m.tokens(object()) == set() and m.tokens(None) == set(), "a non-text alias must not crash the matcher"
+assert m._candidate_tokens({"name": "Hall light", "aliases": [object(), "hall lamp"]})[0] >= {"hall", "light", "lamp"}
+print("non-text aliases ok")

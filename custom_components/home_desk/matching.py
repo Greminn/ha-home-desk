@@ -44,7 +44,9 @@ MIN_SCORE = 3.0
 def tokens(text: str) -> set[str]:
     """The meaningful lower-case words of some text, with simple plurals folded in ("lights" is "light")."""
     out: set[str] = set()
-    for word in re.findall(r"[a-z0-9]+", (text or "").lower().replace("'", "").replace("’", "")):
+    if not isinstance(text, str):
+        return out  # not text (for example Home Assistant's COMPUTED_NAME alias marker): nothing to match on
+    for word in re.findall(r"[a-z0-9]+", text.lower().replace("'", "").replace("’", "")):
         if len(word) < 3 or word in STOP or word.isdigit():
             continue
         if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):

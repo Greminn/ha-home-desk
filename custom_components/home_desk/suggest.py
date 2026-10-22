@@ -37,13 +37,19 @@ def _exposed(hass: HomeAssistant, entity_id: str) -> bool:
         return False
 
 
+def _aliases(values: Any) -> list[str]:
+    """The text aliases of an entity or area. Home Assistant also puts a COMPUTED_NAME marker in an entity's aliases (it stands
+    for the entity's own computed name, which is matched through its friendly name already); it is not a string, so it is left out."""
+    return sorted(a for a in (values or []) if isinstance(a, str))
+
+
 def async_candidates(hass: HomeAssistant) -> list[dict[str, Any]]:
     """Everything a ticket could be about: entities, devices and areas, each with its names and where it is."""
     ent_reg, dev_reg, area_reg = _registries(hass)
     area_names = {a.id: a.name for a in area_reg.async_list_areas()}
     out: list[dict[str, Any]] = []
     for area in area_reg.async_list_areas():
-        out.append({"kind": "area", "id": area.id, "name": area.name, "aliases": sorted(area.aliases or [])})
+        out.append({"kind": "area", "id": area.id, "name": area.name, "aliases": _aliases(area.aliases)})
     for device in _device_entries(dev_reg):
         if device.disabled_by:
             continue
@@ -62,7 +68,7 @@ def async_candidates(hass: HomeAssistant) -> list[dict[str, Any]]:
         area_id = (entry.area_id if entry else None) or (device.area_id if device else None)
         out.append({
             "kind": "entity", "id": state.entity_id, "name": str(state.attributes.get("friendly_name") or state.entity_id),
-            "aliases": sorted(entry.aliases or []) if entry else [], "area": area_names.get(area_id, ""), "domain": domain,
+            "aliases": _aliases(entry.aliases) if entry else [], "area": area_names.get(area_id, ""), "domain": domain,
             "device_id": entry.device_id if entry else None, "exposed": _exposed(hass, state.entity_id),
         })
     return out

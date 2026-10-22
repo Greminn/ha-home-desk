@@ -467,6 +467,10 @@ async def main():
                                                        manufacturer="Sonoff", model="Basic")
         FAKE_ENTRIES["light.front_deck"] = FakeEntry("light.front_deck", device_id="dev1", area_id="deck")
         FAKE_ENTRIES["binary_sensor.front_door"] = FakeEntry("binary_sensor.front_door", area_id=None)
+        class ComputedName:  # Home Assistant's COMPUTED_NAME marker: an alias that stands for the entity's own computed name, not a string
+            pass
+        FAKE_ENTRIES["light.hall"] = FakeEntry("light.hall", area_id="deck", aliases=[ComputedName(), "hall lamp"])
+        hass.states.items["light.hall"] = FakeState("off", friendly_name="Hall light")
         hass.states.items["light.front_deck"] = FakeState("off", friendly_name="Front deck lights")
         hass.states.items["binary_sensor.front_door"] = FakeState("on", friendly_name="Front door")
         hass.services.handler = answer

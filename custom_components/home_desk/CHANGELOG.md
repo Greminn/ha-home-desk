@@ -25,6 +25,7 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 ### Fixed
 - **"Could not load tickets: [object Object]"** now shows the real message from Home Assistant.
 - **A one-line title could be two lines tall** until the font loaded.
+- **Entity suggestions failed on newer Home Assistant versions** ("The suggestion lookup failed" in the log, `'ComputedNameType' object has no attribute 'lower'`). An entity's aliases can include Home Assistant's `COMPUTED_NAME` marker, which is not text; it is now left out of the matching. (Found by an AI agent's log check, ticket #260.)
 - **Scrolling to the bottom of a ticket could jump back a few lines and hide the end of the last comment.** The title box was re-measured on every redraw, which briefly changed the scrolling area's height and nudged the scroll position; it is now measured only when the title or width changes.
 
 ## [1.0.0-beta.1] - 2026-10-21
