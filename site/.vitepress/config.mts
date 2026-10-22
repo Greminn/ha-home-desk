@@ -27,7 +27,6 @@ export default defineConfig({
         { text: "Labels and Categories", link: "/guide/labels-categories" },
         { text: "Household Reports", link: "/guide/household-reports" },
         { text: "Home Assistant Repairs", link: "/guide/repairs" },
-        { text: "Automations and Notifications", link: "/guide/events" },
         { text: "Settings", link: "/guide/settings" },
         { text: "Good to Know", link: "/guide/good-to-know" },
       ] },
@@ -35,13 +34,16 @@ export default defineConfig({
         { text: "Using AI with Home Desk", link: "/ai/using-ai" },
         { text: "Connect Your Own AI Agent", link: "/ai/access" },
       ] },
-      { text: "The AI Agent Runner (Optional)", items: [
-        { text: "Overview", link: "/runner/" },
-        { text: "How It Is Built", link: "/runner/overview" },
-        { text: "Setup", link: "/runner/setup" },
-        { text: "Letting It Look at Your Home", link: "/runner/mcp" },
-        { text: "Presets", link: "/runner/presets" },
-        { text: "Watching and Troubleshooting", link: "/runner/running" },
+      { text: "Advanced", items: [
+        { text: "Automations and Notifications", link: "/guide/events" },
+        { text: "The AI Agent Runner (Optional)", collapsed: true, items: [
+          { text: "Overview", link: "/runner/" },
+          { text: "How It Is Built", link: "/runner/overview" },
+          { text: "Setup", link: "/runner/setup" },
+          { text: "Letting It Look at Your Home", link: "/runner/mcp" },
+          { text: "Presets", link: "/runner/presets" },
+          { text: "Watching and Troubleshooting", link: "/runner/running" },
+        ] },
       ] },
       { text: "Support", items: [
         { text: "Reporting a Problem", link: "/support/reporting-a-problem" },

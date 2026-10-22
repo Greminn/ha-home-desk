@@ -103,3 +103,10 @@
   display: block;
   --sidebar-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M2%2C21V19H20V21H2M20%2C8V5H18V8H20M20%2C3A2%2C2%200%200%2C1%2022%2C5V8A2%2C2%200%200%2C1%2020%2C10H18V13A4%2C4%200%200%2C1%2014%2C17H8A4%2C4%200%200%2C1%204%2C13V3H20M16%2C5H6V13A2%2C2%200%200%2C0%208%2C15H14A2%2C2%200%200%2C0%2016%2C13V5Z%22%2F%3E%3C%2Fsvg%3E");
 }
+
+/* The support link keeps ordinary text and carries the Buy Me a Coffee yellow in its icon only. */
+.VPSidebarItem .link[href*="buymeacoffee.com"]::before {
+  opacity: 1;
+  background-color: #ffdd00;
+  filter: drop-shadow(0 0 0.5px rgb(0 0 0 / 0.6));
+}
