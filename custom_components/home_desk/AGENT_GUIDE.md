@@ -70,6 +70,30 @@ There is no service to delete a ticket, on purpose: a ticket is removed only by 
 11. **Raising your own tickets:** when you notice a real problem while doing something else (a failing automation, an unavailable device), create a ticket with a clear title, evidence in the description, the affected `entities`, and a fair `priority`. Don't raise tickets for noise.
 12. **Internal notes** (`internal: true`) are for working notes the requester need not see. Findings that the requester would want go in normal comments.
 
+## Writing comments people can read
+
+A comment is read by a person on a ticket, usually in a hurry. Make it easy to scan without losing the facts.
+
+- **Lead with the point.** The first line is the answer, the recommendation, or what changed. A reader who stops there should still know where things stand.
+- **Then short bullets, one point each.** Never one long paragraph. Put the evidence in the bullets: what you checked, with the entity ids, times and values. Shorten the words, not the facts.
+- **Use a bold label for each group** when there is more than one (for example **What I found**, **What I would change**, **Needs your OK**), with a blank line between groups.
+- **Steps are a numbered list**, in the order a person would do them.
+- **Corrections and updates:** say what changed first (one line), then bullet the changed points. Do not retell the whole story.
+- **Ask last.** If you need the person's answer or approval, put it in its own short line at the end, so it is not buried.
+
+Example:
+
+```
+**Recommendation:** leave it open until Monday's run.
+
+**What I found**
+- `last_triggered` is empty, and there are 0 saved traces for this automation.
+- The "Condition did not pass" screenshot is the editor's Test-condition button, which cannot see the automation's variables, so it proves nothing.
+
+**Needs your OK**
+- A temporary copy that fires in a few minutes with a notification only, then deleted.
+```
+
 ## Merging duplicates
 
 If two tickets are really the same problem, fold one into the other with `merge_tickets` (`ticket_id` is the one to keep, `merge_ids` the others). Their comments, labels, files and any repairs they stand for move to the kept ticket and they close as "Merged into #N". It can't be undone, so be sure, and say in a comment on the kept ticket why you merged. Don't merge tickets that merely look alike: two devices failing for different reasons are two tickets.
