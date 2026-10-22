@@ -1117,11 +1117,26 @@ export class TicketDetail extends LitElement {
 
   // ---- the title edits in place
 
-  /** Make the title box exactly as tall as its text. */
-  private _fitTitle(box: HTMLTextAreaElement) {
+  /** The text and width the title box was last fitted for: nothing to do (and no layout to disturb) until one of them changes. */
+  private _titleFit = "";
+
+  /**
+   * Make the title box exactly as tall as its text. Measuring shrinks the box for a moment, which makes the scrolling area
+   * beside it taller and nudges a scrolled-to-the-bottom thread up; so it is only done when the text or width changed, and
+   * the scroll positions are put back afterwards.
+   */
+  private _fitTitle(box: HTMLTextAreaElement, force = false) {
+    const key = `${box.value}|${box.clientWidth}`;
+    if (!force && key === this._titleFit && box.style.height) return;
+    this._titleFit = key;
+    const areas = [...this.renderRoot.querySelectorAll<HTMLElement>(".scroll, .side")];
+    const saved = areas.map((a) => a.scrollTop);
     box.style.height = "auto";
     // scrollHeight leaves out the box's own border, so add it back
     box.style.height = `${box.scrollHeight + (box.offsetHeight - box.clientHeight)}px`;
+    areas.forEach((a, i) => {
+      if (a.scrollTop !== saved[i]) a.scrollTop = saved[i]!;
+    });
   }
 
   private _titleKey = (e: KeyboardEvent) => {
@@ -1156,7 +1171,7 @@ export class TicketDetail extends LitElement {
     // The heading font can arrive after the first fit, and a wider font would have left the box two lines tall.
     void document.fonts?.ready.then(() => {
       const box = this.renderRoot.querySelector<HTMLTextAreaElement>("textarea.title-edit");
-      if (box) this._fitTitle(box);
+      if (box) this._fitTitle(box, true);
     });
     window.addEventListener("keydown", this._hotkey, true); // capture: nothing else on the page can swallow it first
   }
@@ -1663,7 +1678,7 @@ export class TicketDetail extends LitElement {
     const backBtn = html`<button class="icon back" title="Back" aria-label="Back" @click=${() => this._fire("back")}><ha-icon icon="mdi:arrow-left"></ha-icon></button>`;
     const titleEl = this.isAdmin
       ? html`<textarea class="title-edit" rows="1" aria-label="Title" spellcheck="false" .value=${t.title}
-          @input=${(e: Event) => this._fitTitle(e.target as HTMLTextAreaElement)}
+          @input=${(e: Event) => this._fitTitle(e.target as HTMLTextAreaElement, true)}
           @keydown=${this._titleKey}
           @blur=${(e: Event) => this._saveTitle(e.target as HTMLTextAreaElement)}></textarea>`
       : html`<h1>${t.title}</h1>`;
