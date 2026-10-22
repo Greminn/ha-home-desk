@@ -934,6 +934,15 @@ export class TicketDetail extends LitElement {
       .composer button.primary ha-icon {
         --mdc-icon-size: 18px;
       }
+      /* Start Working is a solid blue button wherever it shows: it is always ready to press, unlike Comment, which waits for text. */
+      .composer button.start {
+        background: var(--st-accent);
+        color: var(--text-primary-color, #fff);
+      }
+      .composer button.start:hover:not(:disabled) {
+        filter: brightness(1.08);
+        background-image: none;
+      }
       .composer .opts,
       .composer .acts {
         display: flex;
@@ -991,13 +1000,11 @@ export class TicketDetail extends LitElement {
           flex: 1 1 100%;
           border-color: transparent;
         }
-        /* Start Working (an Idea) is a solid, full-width line above AI Action. */
+        /* On a phone Start Working (an Idea) is a full-width line above AI Action. */
         .composer .acts button.start {
           order: -1;
           flex: 1 1 100%;
           border-color: transparent;
-          background: var(--st-accent);
-          color: var(--text-primary-color, #fff);
         }
       }
       /* On a phone an open comment box can't grow past the screen: it scrolls inside itself instead. */
