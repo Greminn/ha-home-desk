@@ -113,6 +113,8 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
    - **First, restart Home Assistant, then check its log for Home Desk warnings and errors** (this session cannot read the Home Assistant log; the author's own Claude CLI can, with `ha_get_logs`). Expect no "The suggestion lookup failed" (fixed 2026-10-23, ticket #260: entity aliases can hold Home Assistant's `COMPUTED_NAME` marker, which is not text) and no `import_file` service. Then close ticket #260 in the live Home Desk. Repeat the log check at the end of the recheck: real data finds what the mock cannot.
 5. **Then, each with the author's approval:** the pre-push sweep again, push, CI, repo settings, release `1.0.0-beta.1`.
 
+- A pass with nothing queued ran cleanly. **Not yet proven:** a real run with the new split and with Home Desk's new server-side gating (the agent user is read-only until Proceed; needs the Home Assistant restart first). Test it in the recheck: queue a **Run** on a throwaway ticket, check the review posts, press Proceed, check the change step works.
+
 **Also pending or only local**
 - **Restart Home Assistant** once to drop the removed `import_file` service (the files are deployed; the service lingers until a restart). Everything else is live.
 - The docs, the demo (mock) changes and the issue templates under `.github/ISSUE_TEMPLATE/` are committed locally only.
