@@ -148,3 +148,23 @@
 .other-project-link:hover {
   color: var(--vp-c-brand-1);
 }
+
+/* The hero's second line, "A smart home ticket system for Home Assistant", is a little smaller than the name above it. */
+.VPHero .text {
+  font-size: 28px;
+  line-height: 36px;
+}
+
+@media (min-width: 640px) {
+  .VPHero .text {
+    font-size: 40px;
+    line-height: 48px;
+  }
+}
+
+@media (min-width: 960px) {
+  .VPHero .text {
+    font-size: 46px;
+    line-height: 54px;
+  }
+}

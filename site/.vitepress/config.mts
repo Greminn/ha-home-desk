@@ -14,7 +14,6 @@ export default defineConfig({
       { text: "Getting Started", link: "/guide/what-is-home-desk", activeMatch: "/guide/(what-is-home-desk|install|first-ticket)" },
       { text: "Using Home Desk", link: "/guide/using-the-panel", activeMatch: "/guide/(using-the-panel|status|labels-categories|household-reports|repairs|events|settings|good-to-know)" },
       { text: "AI Agents", link: "/ai/using-ai", activeMatch: "/ai/" },
-      { text: "The Runner", link: "/runner/", activeMatch: "/runner/" },
     ],
     sidebar: [
       { text: "Getting Started", items: [
