@@ -2369,6 +2369,22 @@ ${e.related?.length?F`<div class="chips"><span class="sect">Related</span>${e.re
       .composer button.primary ha-icon {
         --mdc-icon-size: 18px;
       }
+      /* Resolve and Reopen are outlined at rest and fill solid blue when pointed at (touch screens have no hover, so they stay outlined). */
+      .composer .acts button:not(.primary):not(.start) {
+        border: 1px solid var(--st-outline);
+        transition:
+          background-color 150ms ease-in-out,
+          color 150ms ease-in-out,
+          border-color 150ms ease-in-out;
+      }
+      @media (hover: hover) {
+        .composer .acts button:not(.primary):not(.start):hover:not(:disabled) {
+          background: var(--st-accent);
+          background-image: none;
+          border-color: transparent;
+          color: var(--text-primary-color, #fff);
+        }
+      }
       /* Start Working is a solid blue button wherever it shows: it is always ready to press, unlike Comment, which waits for text. */
       .composer button.start {
         background: var(--st-accent);

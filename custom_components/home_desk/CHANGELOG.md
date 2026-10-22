@@ -13,6 +13,7 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 - **Settings is never restored when you come back to the panel**, so the sidebar icon opens Home.
 - **On a phone, choosing a tab from the drop down shows that list** instead of leaving the open ticket on screen, and a ticket open on a phone has a **search button** next to the three dots (the search bar is hidden while a ticket is open): it goes to the list and puts the cursor in the search box.
 - **Start Working is a solid blue button** on an Idea.
+- **Resolve and Reopen are outlined buttons that fill solid blue when you point at them.**
 - **On a phone** the ticket header puts the title across the full width with one row of buttons under it (back, then previous, next, merge and history); the comment box is tidier when open (AI Action across the width, Start Working on its own line at the top, the priority icons and Resolve on one row, Comment on its own row below), and the comment bar now stays at the bottom of the screen on every phone size (a short ticket used to end mid-screen with the bar floating in the middle, and a long one pushed it off the bottom; the panel is now as tall as the visible screen below where it starts, which in the phone app is under the status bar, and it follows the keyboard: the comment box stays above it). On a phone held on its side the header scrolls instead of taking the screen.
 
 ### Fixed
