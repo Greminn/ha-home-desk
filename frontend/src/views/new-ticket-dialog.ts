@@ -1,19 +1,23 @@
-import { LitElement, html, css } from "lit";
+import { LitElement, html, css, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { safeCustomElement } from "../define";
 import "./ticket-things";
+import "./picker-popup";
 import { sharedStyles } from "../styles";
-import { PRIORITIES } from "../types";
 import type { Category, HomeAssistant, Priority } from "../types";
 import { PRIORITY_LABEL } from "../format";
+import type { PickerItem } from "./picker-popup";
 
-/** What kind of ticket this is: a built-in label. A household user can pick the first three. */
-const KINDS: { id: string; name: string; admin?: boolean }[] = [
-  { id: "bug", name: "Bug" },
-  { id: "enhancement", name: "Enhancement" },
-  { id: "question", name: "Question" },
-  { id: "task", name: "Task", admin: true },
+/** What kind of ticket this is: a built-in label, with the icon the label has everywhere else. A household user can pick the first three. */
+const KINDS: { id: string; name: string; icon: string; admin?: boolean }[] = [
+  { id: "bug", name: "Bug", icon: "mdi:bug-outline" },
+  { id: "enhancement", name: "Enhancement", icon: "mdi:lightbulb-on-outline" },
+  { id: "question", name: "Question", icon: "mdi:help-circle-outline" },
+  { id: "task", name: "Task", icon: "mdi:checkbox-marked-circle-outline", admin: true },
 ];
+
+/** Home Assistant is the built-in category, and where most tickets belong, so a new ticket starts in it. */
+const DEFAULT_CATEGORY = "home-assistant";
 
 /** "New Ticket" dialog, styled like HA's own dialogs. */
 @safeCustomElement("st-new-ticket-dialog")
@@ -58,13 +62,81 @@ export class NewTicketDialog extends LitElement {
       .field textarea {
         width: 100%;
       }
-      .pair {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
+      /* Kind and priority are round icon buttons, like the priority icons in the comment box. */
+      .choices {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
       }
-      .pair select {
+      .dots {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .dots .picked {
+        margin-left: 6px;
+        font-size: var(--st-fs-body);
+      }
+      .dot {
+        --c: var(--st-accent);
+        --fg: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        width: var(--st-h-bar);
+        height: var(--st-h-bar);
+        padding: 0;
+        border: 1px solid var(--st-outline);
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--st-fg) 12%, transparent);
+        color: var(--st-fg-secondary);
+        transition:
+          background-color 150ms ease-in-out,
+          color 150ms ease-in-out,
+          border-color 150ms ease-in-out;
+      }
+      .dot.high {
+        --c: var(--st-warning);
+        --fg: #000;
+        color: var(--c);
+      }
+      .dot.urgent {
+        --c: var(--st-danger);
+        color: var(--c);
+      }
+      .dot:hover,
+      .dot.on {
+        background: var(--c);
+        border-color: transparent;
+        color: var(--fg);
+      }
+      .dot ha-icon {
+        --mdc-icon-size: 18px;
+      }
+      /* The category looks like a field and opens the same search-and-pick popup the ticket's category pill uses. */
+      .pick {
+        display: flex;
+        align-items: center;
+        gap: 12px;
         width: 100%;
+        height: 48px;
+        padding: 0 12px;
+        border: 1px solid var(--st-outline);
+        background: transparent;
+        color: var(--st-fg);
+        font-weight: 400;
+        text-align: left;
+        justify-content: flex-start;
+      }
+      .pick ha-icon {
+        --mdc-icon-size: 20px;
+        color: var(--st-fg-secondary);
+      }
+      .pick .name {
+        flex: 1;
       }
       .actions {
         display: flex;
@@ -79,6 +151,7 @@ export class NewTicketDialog extends LitElement {
   @property({ attribute: false }) categories: Category[] = [];
   @property({ attribute: false }) hass!: HomeAssistant;
   @state() private _category = "";
+  @state() private _categoryRect: DOMRect | null = null;
   @state() private _entities: string[] = [];
   @state() private _devices: string[] = [];
   @state() private _areas: string[] = [];
@@ -86,6 +159,73 @@ export class NewTicketDialog extends LitElement {
   @state() private _description = "";
   @state() private _kind = "bug";
   @state() private _priority: Priority = "normal";
+
+  override willUpdate(changed: Map<string, unknown>) {
+    // Categories arrive after the dialog can open; start in Home Assistant unless someone has picked another.
+    if (changed.has("categories") && !this._categoryTouched && this.categories.some((c) => c.id === DEFAULT_CATEGORY)) {
+      this._category = DEFAULT_CATEGORY;
+    }
+  }
+  private _categoryTouched = false;
+
+  private get _categoryItems(): PickerItem[] {
+    return [
+      { id: "", primary: "No Category", icon: "mdi:shape-outline" },
+      ...this.categories.map((c) => ({ id: c.id, primary: c.name, icon: c.icon || "mdi:shape-outline" })),
+    ];
+  }
+
+  private _choices() {
+    const prio = { high: "mdi:alert-outline", urgent: "mdi:alert" } as const;
+    const kinds = KINDS.filter((k) => !k.admin || this.isAdmin);
+    const kind = kinds.find((k) => k.id === this._kind);
+    return html`<div class="field choices">
+      <div>
+        <label id="kind-label">Kind</label>
+        <div class="dots" role="radiogroup" aria-labelledby="kind-label">
+          ${kinds.map((k) => html`<button class="dot ${k.id === this._kind ? "on" : ""}" role="radio"
+            aria-checked=${k.id === this._kind ? "true" : "false"} aria-label=${k.name} title=${k.name}
+            @click=${() => (this._kind = k.id)}><ha-icon .icon=${k.icon}></ha-icon></button>`)}
+          <span class="picked">${kind?.name ?? ""}</span>
+        </div>
+      </div>
+      ${this.isAdmin
+        ? html`<div>
+            <label id="prio-label">Priority</label>
+            <div class="dots" role="group" aria-labelledby="prio-label">
+              ${(["high", "urgent"] as const).map((p) => {
+                const on = this._priority === p;
+                return html`<button class="dot ${p} ${on ? "on" : ""}" aria-pressed=${on ? "true" : "false"} aria-label=${PRIORITY_LABEL[p]}
+                  title=${on ? `Priority is ${PRIORITY_LABEL[p]}. Click to clear.` : `Set priority to ${PRIORITY_LABEL[p]}`}
+                  @click=${() => (this._priority = on ? "normal" : p)}><ha-icon .icon=${prio[p]}></ha-icon></button>`;
+              })}
+            </div>
+          </div>`
+        : nothing}
+    </div>`;
+  }
+
+  private _categoryField() {
+    const current = this.categories.find((c) => c.id === this._category);
+    return html`<div class="field">
+      <label id="cat-label">Category</label>
+      <button class="pick" aria-labelledby="cat-label" aria-haspopup="listbox"
+        @click=${(e: Event) => (this._categoryRect = (e.currentTarget as HTMLElement).getBoundingClientRect())}>
+        <ha-icon .icon=${current?.icon || "mdi:shape-outline"}></ha-icon>
+        <span class="name">${current?.name ?? "No Category"}</span>
+        <ha-icon icon="mdi:menu-down"></ha-icon>
+      </button>
+      ${this._categoryRect
+        ? html`<st-picker-popup .rect=${this._categoryRect} .items=${this._categoryItems} .value=${this._category} emptyLabel="Nothing matches"
+            @close=${() => (this._categoryRect = null)}
+            @pick=${(e: CustomEvent<{ id: string }>) => {
+              this._category = e.detail.id;
+              this._categoryTouched = true;
+              this._categoryRect = null;
+            }}></st-picker-popup>`
+        : nothing}
+    </div>`;
+  }
 
   private _fire(name: string, detail?: unknown) {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
@@ -122,34 +262,8 @@ export class NewTicketDialog extends LitElement {
             <textarea id="desc" rows="6" .value=${this._description}
               @input=${(e: Event) => (this._description = (e.target as HTMLTextAreaElement).value)}></textarea>
           </div>
-          <div class="pair field">
-            <div>
-              <label for="kind">Kind</label>
-              <select id="kind" .value=${this._kind}
-                @change=${(e: Event) => (this._kind = (e.target as HTMLSelectElement).value)}>
-                ${KINDS.filter((k) => !k.admin || this.isAdmin).map((k) => html`<option value=${k.id} ?selected=${k.id === this._kind}>${k.name}</option>`)}
-              </select>
-            </div>
-            ${this.isAdmin
-              ? html`<div>
-                  <label for="prio">Priority</label>
-                  <select id="prio" .value=${this._priority}
-                    @change=${(e: Event) => (this._priority = (e.target as HTMLSelectElement).value as Priority)}>
-                    ${PRIORITIES.filter((p) => p !== "low").map((p) => html`<option value=${p} ?selected=${p === this._priority}>${PRIORITY_LABEL[p]}</option>`)}
-                  </select>
-                </div>`
-              : ""}
-          </div>
-          ${this.isAdmin
-            ? html`<div class="field">
-                <label for="cat">Category</label>
-                <select id="cat" .value=${this._category}
-                  @change=${(e: Event) => (this._category = (e.target as HTMLSelectElement).value)}>
-                  <option value="" ?selected=${!this._category}>No Category</option>
-                  ${this.categories.map((c) => html`<option value=${c.id} ?selected=${c.id === this._category}>${c.name}</option>`)}
-                </select>
-              </div>`
-            : ""}
+          ${this._choices()}
+          ${this.isAdmin ? this._categoryField() : nothing}
           ${this.isAdmin
             ? html`<div class="field">
                 <label>What is it about?</label>
