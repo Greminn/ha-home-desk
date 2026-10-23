@@ -4,7 +4,7 @@ title: AI Agents
 
 # AI Agents
 
-Home Desk has two separate AI actions. Neither lets an AI change Home Assistant on its own.
+Home Desk has two separate AI actions. **Review** only advises. **Queue** hands the ticket to an agent that you run, and what that agent can do depends on the access you give it.
 
 | Action | What it does | Runs |
 |---|---|---|
