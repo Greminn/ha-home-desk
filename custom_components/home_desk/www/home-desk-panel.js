@@ -2495,25 +2495,19 @@ ${e.related?.length?F`<div class="chips"><span class="sect">Related</span>${e.re
         --mdc-icon-size: 48px;
         opacity: 0.5;
       }
-    `],e([pe({attribute:!1})],lo.prototype,"ticket",void 0),e([pe({attribute:!1})],lo.prototype,"client",void 0),e([pe()],lo.prototype,"seenAt",void 0),e([pe()],lo.prototype,"me",void 0),e([pe({type:Boolean})],lo.prototype,"isAdmin",void 0),e([pe({type:Boolean})],lo.prototype,"narrow",void 0),e([pe({attribute:!1})],lo.prototype,"navPos",void 0),e([pe()],lo.prototype,"language",void 0),e([pe()],lo.prototype,"agentName",void 0),e([pe({attribute:!1})],lo.prototype,"hass",void 0),e([pe({type:Boolean})],lo.prototype,"canAsk",void 0),e([pe({type:Boolean,reflect:!0})],lo.prototype,"wide",void 0),e([pe({type:Boolean})],lo.prototype,"canRun",void 0),e([pe({attribute:!1})],lo.prototype,"labelMap",void 0),e([pe({attribute:!1})],lo.prototype,"people",void 0),e([pe({attribute:!1})],lo.prototype,"categoryMap",void 0),e([ue()],lo.prototype,"_expanded",void 0),e([ue()],lo.prototype,"_showHistory",void 0),e([ue()],lo.prototype,"_tick",void 0),e([ue()],lo.prototype,"_agentToggle",void 0),e([ue()],lo.prototype,"_composerMode",void 0),e([ue()],lo.prototype,"_priorityTo",void 0),e([ue()],lo.prototype,"_aiPick",void 0),e([ue()],lo.prototype,"_comment",void 0),e([ue()],lo.prototype,"_copied",void 0),lo=e([ge("st-ticket-detail")],lo);const co=[{id:"bug",name:"Bug",icon:"mdi:bug-outline"},{id:"enhancement",name:"Enhancement",icon:"mdi:lightbulb-on-outline"},{id:"question",name:"Question",icon:"mdi:help-circle-outline"},{id:"task",name:"Task",icon:"mdi:checkbox-marked-circle-outline",admin:!0}],ho="home-assistant";let po=class extends le{constructor(){super(...arguments),this.isAdmin=!1,this.categories=[],this._category="",this._categoryRect=null,this._entities=[],this._devices=[],this._areas=[],this._title="",this._description="",this._kind="bug",this._priority="normal",this._categoryTouched=!1}willUpdate(e){e.has("categories")&&!this._categoryTouched&&this.categories.some(e=>e.id===ho)&&(this._category=ho)}get _categoryItems(){return[{id:"",primary:"No Category",icon:"mdi:shape-outline"},...this.categories.map(e=>({id:e.id,primary:e.name,icon:e.icon||"mdi:shape-outline"}))]}_choices(){const e={high:"mdi:alert-outline",urgent:"mdi:alert"},t=co.filter(e=>!e.admin||this.isAdmin),i=t.find(e=>e.id===this._kind);return F`<div class="field choices">
-      <div>
-        <label id="kind-label">Kind</label>
-        <div class="dots" role="radiogroup" aria-labelledby="kind-label">
-          ${t.map(e=>F`<button class="dot ${e.id===this._kind?"on":""}" role="radio"
-            aria-checked=${e.id===this._kind?"true":"false"} aria-label=${e.name} title=${e.name}
-            @click=${()=>this._kind=e.id}><ha-icon .icon=${e.icon}></ha-icon></button>`)}
-          <span class="picked">${i?.name??""}</span>
-        </div>
+    `],e([pe({attribute:!1})],lo.prototype,"ticket",void 0),e([pe({attribute:!1})],lo.prototype,"client",void 0),e([pe()],lo.prototype,"seenAt",void 0),e([pe()],lo.prototype,"me",void 0),e([pe({type:Boolean})],lo.prototype,"isAdmin",void 0),e([pe({type:Boolean})],lo.prototype,"narrow",void 0),e([pe({attribute:!1})],lo.prototype,"navPos",void 0),e([pe()],lo.prototype,"language",void 0),e([pe()],lo.prototype,"agentName",void 0),e([pe({attribute:!1})],lo.prototype,"hass",void 0),e([pe({type:Boolean})],lo.prototype,"canAsk",void 0),e([pe({type:Boolean,reflect:!0})],lo.prototype,"wide",void 0),e([pe({type:Boolean})],lo.prototype,"canRun",void 0),e([pe({attribute:!1})],lo.prototype,"labelMap",void 0),e([pe({attribute:!1})],lo.prototype,"people",void 0),e([pe({attribute:!1})],lo.prototype,"categoryMap",void 0),e([ue()],lo.prototype,"_expanded",void 0),e([ue()],lo.prototype,"_showHistory",void 0),e([ue()],lo.prototype,"_tick",void 0),e([ue()],lo.prototype,"_agentToggle",void 0),e([ue()],lo.prototype,"_composerMode",void 0),e([ue()],lo.prototype,"_priorityTo",void 0),e([ue()],lo.prototype,"_aiPick",void 0),e([ue()],lo.prototype,"_comment",void 0),e([ue()],lo.prototype,"_copied",void 0),lo=e([ge("st-ticket-detail")],lo);const co=[{id:"bug",name:"Bug",icon:"mdi:bug-outline"},{id:"enhancement",name:"Enhancement",icon:"mdi:lightbulb-on-outline"},{id:"question",name:"Question",icon:"mdi:help-circle-outline"},{id:"task",name:"Task",icon:"mdi:checkbox-marked-circle-outline",admin:!0}],ho="home-assistant";let po=class extends le{constructor(){super(...arguments),this.isAdmin=!1,this.categories=[],this._category="",this._categoryRect=null,this._entities=[],this._devices=[],this._areas=[],this._title="",this._description="",this._kind="bug",this._priority="normal",this._categoryTouched=!1}willUpdate(e){e.has("categories")&&!this._categoryTouched&&this.categories.some(e=>e.id===ho)&&(this._category=ho)}get _categoryItems(){return[{id:"",primary:"No Category",icon:"mdi:shape-outline"},...this.categories.map(e=>({id:e.id,primary:e.name,icon:e.icon||"mdi:shape-outline"}))]}_kinds(){return F`<div class="field">
+      <label id="kind-label">Kind</label>
+      <div class="kinds" role="radiogroup" aria-labelledby="kind-label">
+        ${co.filter(e=>!e.admin||this.isAdmin).map(e=>F`<button class="kind" role="radio"
+          aria-checked=${e.id===this._kind?"true":"false"} @click=${()=>this._kind=e.id}>
+          <ha-icon .icon=${e.icon}></ha-icon>${e.name}
+        </button>`)}
       </div>
-      ${this.isAdmin?F`<div>
-            <label id="prio-label">Priority</label>
-            <div class="dots" role="group" aria-labelledby="prio-label">
-              ${["high","urgent"].map(t=>{const i=this._priority===t;return F`<button class="dot ${t} ${i?"on":""}" aria-pressed=${i?"true":"false"} aria-label=${Re[t]}
-                  title=${i?`Priority is ${Re[t]}. Click to clear.`:`Set priority to ${Re[t]}`}
-                  @click=${()=>this._priority=i?"normal":t}><ha-icon .icon=${e[t]}></ha-icon></button>`})}
-            </div>
-          </div>`:G}
-    </div>`}_categoryField(){const e=this.categories.find(e=>e.id===this._category);return F`<div class="field">
+    </div>`}_priorityDots(){const e={high:"mdi:alert-outline",urgent:"mdi:alert"};return F`<span class="dots" role="group" aria-label="Priority">
+      ${["high","urgent"].map(t=>{const i=this._priority===t;return F`<button class="dot ${t} ${i?"on":""}" aria-pressed=${i?"true":"false"} aria-label=${Re[t]}
+          title=${i?`Priority is ${Re[t]}. Click to clear.`:`Set priority to ${Re[t]}`}
+          @click=${()=>this._priority=i?"normal":t}><ha-icon .icon=${e[t]}></ha-icon></button>`})}
+    </span>`}_categoryField(){const e=this.categories.find(e=>e.id===this._category);return F`<div class="field">
       <label id="cat-label">Category</label>
       <button class="pick" aria-labelledby="cat-label" aria-haspopup="listbox"
         @click=${e=>this._categoryRect=e.currentTarget.getBoundingClientRect()}>
@@ -2540,7 +2534,7 @@ ${e.related?.length?F`<div class="chips"><span class="sect">Related</span>${e.re
             <textarea id="desc" rows="6" .value=${this._description}
               @input=${e=>this._description=e.target.value}></textarea>
           </div>
-          ${this._choices()}
+          ${this._kinds()}
           ${this.isAdmin?this._categoryField():G}
           ${this.isAdmin?F`<div class="field">
                 <label>What is it about?</label>
@@ -2548,6 +2542,7 @@ ${e.related?.length?F`<div class="chips"><span class="sect">Related</span>${e.re
                   @change=${e=>{this._entities=e.detail.entities,this._devices=e.detail.devices,this._areas=e.detail.areas}}></st-ticket-things>
               </div>`:""}
           <div class="actions">
+            ${this.isAdmin?this._priorityDots():G}
             <button @click=${()=>this._fire("close")}>Cancel</button>
             <button class="primary" ?disabled=${!this._title.trim()} @click=${this._submit}>Create</button>
           </div>
@@ -2591,22 +2586,47 @@ ${e.related?.length?F`<div class="chips"><span class="sect">Related</span>${e.re
       .field textarea {
         width: 100%;
       }
-      /* Kind and priority are round icon buttons, like the priority icons in the comment box. */
-      .choices {
+      /* Kind is a row of full-size pills, one picked; priority is two round icons beside Create, as in the comment box. */
+      .kinds {
         display: flex;
         flex-wrap: wrap;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 16px;
+        gap: 8px;
+      }
+      .kind {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: var(--st-h-bar);
+        padding: 0 14px 0 10px;
+        border: 1px solid var(--st-outline);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--st-fg);
+        font-weight: 400;
+        transition:
+          background-color 150ms ease-in-out,
+          color 150ms ease-in-out,
+          border-color 150ms ease-in-out;
+      }
+      .kind ha-icon {
+        --mdc-icon-size: 18px;
+        color: var(--st-fg-secondary);
+      }
+      .kind:hover {
+        background: color-mix(in srgb, var(--st-fg) 8%, transparent);
+      }
+      .kind[aria-checked="true"] {
+        border-color: var(--st-accent);
+        background: color-mix(in srgb, var(--st-accent) 16%, transparent);
+        color: var(--st-accent);
+      }
+      .kind[aria-checked="true"] ha-icon {
+        color: var(--st-accent);
       }
       .dots {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-      }
-      .dots .picked {
-        margin-left: 6px;
-        font-size: var(--st-fs-body);
       }
       .dot {
         --c: var(--st-accent);
@@ -2669,9 +2689,13 @@ ${e.related?.length?F`<div class="chips"><span class="sect">Related</span>${e.re
       }
       .actions {
         display: flex;
+        align-items: center;
         justify-content: flex-end;
         gap: 8px;
         margin-top: 8px;
+      }
+      .actions .dots {
+        margin-right: auto;
       }
     `],e([pe({type:Boolean})],po.prototype,"isAdmin",void 0),e([pe({attribute:!1})],po.prototype,"categories",void 0),e([pe({attribute:!1})],po.prototype,"hass",void 0),e([ue()],po.prototype,"_category",void 0),e([ue()],po.prototype,"_categoryRect",void 0),e([ue()],po.prototype,"_entities",void 0),e([ue()],po.prototype,"_devices",void 0),e([ue()],po.prototype,"_areas",void 0),e([ue()],po.prototype,"_title",void 0),e([ue()],po.prototype,"_description",void 0),e([ue()],po.prototype,"_kind",void 0),e([ue()],po.prototype,"_priority",void 0),po=e([ge("st-new-ticket-dialog")],po);let uo=class extends le{constructor(){super(...arguments),this.labels=[],this._q="",this._draft=null,this._orig=null,this._shake=!1,this._toRemove=null,this._colorsOpen=!1,this._colorQ="",this._error=""}_fire(e){this.dispatchEvent(new CustomEvent(e,{bubbles:!0,composed:!0}))}_message(e){return String(e&&"object"==typeof e&&"message"in e?e.message:e)}get _shown(){const e=this._q.trim().toLowerCase();return e?this.labels.filter(t=>t.name.toLowerCase().includes(e)||t.description.toLowerCase().includes(e)):this.labels}_open(e){this._error="",this._colorsOpen=!1,this._draft=e?{id:e.id,name:e.name,icon:e.icon,color:e.color,description:e.description}:{id:null,name:"",icon:"",color:"",description:""},this._orig=this._draft}async _save(){const e=this._draft;if(e&&e.name.trim())try{e.id?await this.client.updateLabel(e.id,{name:e.name.trim(),icon:e.icon.trim(),description:e.description,...e.color?{color:e.color}:{}}):await this.client.createLabel({name:e.name.trim(),icon:e.icon.trim(),description:e.description,...e.color?{color:e.color}:{}}),this._draft=null,this._fire("labels-changed")}catch(e){this._error=this._message(e)}}_tryClose(){if(!this._toRemove)return this._dirty?(this._shake=!0,void window.setTimeout(()=>this._shake=!1,400)):void(this._draft=null)}get _dirty(){const e=this._draft,t=this._orig;return!(!e||!t)&&(e.name!==t.name||e.icon!==t.icon||e.color!==t.color||e.description!==t.description)}async _remove(){const e=this._toRemove;if(e)try{await this.client.deleteLabel(e.id),this._toRemove=null,this._draft=null,this._fire("labels-changed")}catch(e){this._toRemove=null,this._error=this._message(e)}}_row(e){return F`<div class="row ${e.builtin?"locked":""}" role="row"
       @click=${()=>!e.builtin&&this._open(e)}>

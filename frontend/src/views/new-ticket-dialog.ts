@@ -62,22 +62,47 @@ export class NewTicketDialog extends LitElement {
       .field textarea {
         width: 100%;
       }
-      /* Kind and priority are round icon buttons, like the priority icons in the comment box. */
-      .choices {
+      /* Kind is a row of full-size pills, one picked; priority is two round icons beside Create, as in the comment box. */
+      .kinds {
         display: flex;
         flex-wrap: wrap;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 16px;
+        gap: 8px;
+      }
+      .kind {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: var(--st-h-bar);
+        padding: 0 14px 0 10px;
+        border: 1px solid var(--st-outline);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--st-fg);
+        font-weight: 400;
+        transition:
+          background-color 150ms ease-in-out,
+          color 150ms ease-in-out,
+          border-color 150ms ease-in-out;
+      }
+      .kind ha-icon {
+        --mdc-icon-size: 18px;
+        color: var(--st-fg-secondary);
+      }
+      .kind:hover {
+        background: color-mix(in srgb, var(--st-fg) 8%, transparent);
+      }
+      .kind[aria-checked="true"] {
+        border-color: var(--st-accent);
+        background: color-mix(in srgb, var(--st-accent) 16%, transparent);
+        color: var(--st-accent);
+      }
+      .kind[aria-checked="true"] ha-icon {
+        color: var(--st-accent);
       }
       .dots {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-      }
-      .dots .picked {
-        margin-left: 6px;
-        font-size: var(--st-fs-body);
       }
       .dot {
         --c: var(--st-accent);
@@ -140,9 +165,13 @@ export class NewTicketDialog extends LitElement {
       }
       .actions {
         display: flex;
+        align-items: center;
         justify-content: flex-end;
         gap: 8px;
         margin-top: 8px;
+      }
+      .actions .dots {
+        margin-right: auto;
       }
     `,
   ];
@@ -175,34 +204,28 @@ export class NewTicketDialog extends LitElement {
     ];
   }
 
-  private _choices() {
-    const prio = { high: "mdi:alert-outline", urgent: "mdi:alert" } as const;
-    const kinds = KINDS.filter((k) => !k.admin || this.isAdmin);
-    const kind = kinds.find((k) => k.id === this._kind);
-    return html`<div class="field choices">
-      <div>
-        <label id="kind-label">Kind</label>
-        <div class="dots" role="radiogroup" aria-labelledby="kind-label">
-          ${kinds.map((k) => html`<button class="dot ${k.id === this._kind ? "on" : ""}" role="radio"
-            aria-checked=${k.id === this._kind ? "true" : "false"} aria-label=${k.name} title=${k.name}
-            @click=${() => (this._kind = k.id)}><ha-icon .icon=${k.icon}></ha-icon></button>`)}
-          <span class="picked">${kind?.name ?? ""}</span>
-        </div>
+  private _kinds() {
+    return html`<div class="field">
+      <label id="kind-label">Kind</label>
+      <div class="kinds" role="radiogroup" aria-labelledby="kind-label">
+        ${KINDS.filter((k) => !k.admin || this.isAdmin).map((k) => html`<button class="kind" role="radio"
+          aria-checked=${k.id === this._kind ? "true" : "false"} @click=${() => (this._kind = k.id)}>
+          <ha-icon .icon=${k.icon}></ha-icon>${k.name}
+        </button>`)}
       </div>
-      ${this.isAdmin
-        ? html`<div>
-            <label id="prio-label">Priority</label>
-            <div class="dots" role="group" aria-labelledby="prio-label">
-              ${(["high", "urgent"] as const).map((p) => {
-                const on = this._priority === p;
-                return html`<button class="dot ${p} ${on ? "on" : ""}" aria-pressed=${on ? "true" : "false"} aria-label=${PRIORITY_LABEL[p]}
-                  title=${on ? `Priority is ${PRIORITY_LABEL[p]}. Click to clear.` : `Set priority to ${PRIORITY_LABEL[p]}`}
-                  @click=${() => (this._priority = on ? "normal" : p)}><ha-icon .icon=${prio[p]}></ha-icon></button>`;
-              })}
-            </div>
-          </div>`
-        : nothing}
     </div>`;
+  }
+
+  private _priorityDots() {
+    const icon = { high: "mdi:alert-outline", urgent: "mdi:alert" } as const;
+    return html`<span class="dots" role="group" aria-label="Priority">
+      ${(["high", "urgent"] as const).map((p) => {
+        const on = this._priority === p;
+        return html`<button class="dot ${p} ${on ? "on" : ""}" aria-pressed=${on ? "true" : "false"} aria-label=${PRIORITY_LABEL[p]}
+          title=${on ? `Priority is ${PRIORITY_LABEL[p]}. Click to clear.` : `Set priority to ${PRIORITY_LABEL[p]}`}
+          @click=${() => (this._priority = on ? "normal" : p)}><ha-icon .icon=${icon[p]}></ha-icon></button>`;
+      })}
+    </span>`;
   }
 
   private _categoryField() {
@@ -262,7 +285,7 @@ export class NewTicketDialog extends LitElement {
             <textarea id="desc" rows="6" .value=${this._description}
               @input=${(e: Event) => (this._description = (e.target as HTMLTextAreaElement).value)}></textarea>
           </div>
-          ${this._choices()}
+          ${this._kinds()}
           ${this.isAdmin ? this._categoryField() : nothing}
           ${this.isAdmin
             ? html`<div class="field">
@@ -276,6 +299,7 @@ export class NewTicketDialog extends LitElement {
               </div>`
             : ""}
           <div class="actions">
+            ${this.isAdmin ? this._priorityDots() : nothing}
             <button @click=${() => this._fire("close")}>Cancel</button>
             <button class="primary" ?disabled=${!this._title.trim()} @click=${this._submit}>Create</button>
           </div>
