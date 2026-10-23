@@ -59,6 +59,9 @@ class ReportError(Exception):
         self.message = message
 
 
+_TITLE_CHARS = 80  # characters of the message that become the ticket title when it is longer than a line
+
+
 @dataclass
 class Upload:
     name: str
@@ -70,6 +73,8 @@ class Report:
     kind: str = "bug"
     title: str = ""
     details: str = ""
+    message: str = ""
+    by: str = ""
     images: list[Upload] = field(default_factory=list)
     audio: Upload | None = None
 
@@ -99,7 +104,7 @@ async def read_report(request: web.Request) -> Report:
         raise ReportError(400, "Send the report as a form") from err
     async for part in reader:
         name = part.name
-        if name in ("kind", "title", "details"):
+        if name in ("kind", "title", "details", "message"):
             text = (await _read_limited(part, MAX_TEXT)).decode("utf-8", "replace")
             setattr(report, name, text)
         elif name == "image":
@@ -123,11 +128,33 @@ def _check_rate(hass: HomeAssistant, user_id: str) -> None:
     times.append(now)
 
 
+def _title_from_message(report: Report) -> None:
+    """One box on the form: the first line of the message is the title and the rest, if any, the description.
+
+    A report with no words gets a plain title from what was added, so a photo or a voice message is enough on its own."""
+    report.title = report.title.strip()
+    message = report.message.strip()
+    if report.title or not message:
+        if not report.title:
+            if report.audio or report.images:
+                report.title = f"{report.by or 'Someone'} reported {'an idea' if report.kind == 'enhancement' else 'a problem'}"
+        return
+    first, _, rest = message.partition("\n")
+    first = first.strip()
+    if len(first) > _TITLE_CHARS:
+        cut = first[:_TITLE_CHARS].rsplit(" ", 1)[0] or first[:_TITLE_CHARS]
+        report.title = cut.rstrip(" ,.;:") + "…"
+        report.details = message
+    else:
+        report.title = first
+        report.details = rest.strip()
+
+
 def _validate(report: Report) -> list[dict[str, Any]]:
     """Check the form and what each file really is. Returns the attachments' details (without ids and paths)."""
-    report.title = report.title.strip()
+    _title_from_message(report)
     if not report.title:
-        raise ReportError(400, "Say what it is in a line")
+        raise ReportError(400, "Write a message, record one or add a photo")
     if len(report.title) > MAX_TITLE:
         raise ReportError(400, f"The title is too long (the limit is {MAX_TITLE} characters)")
     if len(report.details) > MAX_TEXT:
@@ -185,6 +212,7 @@ def _discard(staging: Path) -> None:
 
 async def async_handle_report(hass: HomeAssistant, user: Any, report: Report) -> dict[str, Any]:
     """Create the ticket and its attachments for a validated report. Returns what the form needs to say 'sent'."""
+    report.by = user.name or ""
     items = _validate(report)
     _check_rate(hass, user.id)  # after the checks, so a form that was sent back for fixing doesn't use up a send
     root = _root(hass)

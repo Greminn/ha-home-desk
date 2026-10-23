@@ -237,8 +237,7 @@ export class ReportForm extends LitElement {
 
   @property({ attribute: false }) client!: HaClient;
 
-  @state() private _title = "";
-  @state() private _details = "";
+  @state() private _message = "";
   @state() private _kind = "bug";
   @state() private _sending = false;
   @state() private _sent = false;
@@ -330,22 +329,26 @@ export class ReportForm extends LitElement {
     }
   }
 
+  /** A message, a voice recording or a photo is enough on its own. */
+  private get _canSend() {
+    const something = this._message.trim() || this._photos.length || this._voice;
+    return !!something && !this._sending && !this._busy && this._recording === null;
+  }
+
   private async _send() {
-    if (!this._title.trim() || this._sending || this._busy || this._recording !== null) return;
+    if (!this._canSend) return;
     this._sending = true;
     this._error = "";
     try {
       const form = new FormData();
       form.append("kind", this._kind);
-      form.append("title", this._title.trim());
-      form.append("details", this._details);
+      form.append("message", this._message.trim());
       this._photos.forEach((p, i) => form.append("image", p.blob, `photo-${i + 1}.${p.blob.type === "image/jpeg" ? "jpg" : "img"}`));
       if (this._voice) form.append("audio", this._voice.blob, "voice-message.wav");
       const sent = await this.client.report(form);
       this._sentWith = { photos: sent.photos, voice: sent.voice };
       this._sent = true;
-      this._title = "";
-      this._details = "";
+      this._message = "";
       this._kind = "bug";
       this._forget();
     } catch (err) {
@@ -368,7 +371,7 @@ export class ReportForm extends LitElement {
     }
     return html`<div class="page">
       <h2>Report a problem or an idea</h2>
-      <p class="lead">Tell us what happened or what you'd like. You don't need to know what's wrong.</p>
+      <p class="lead">Tell us what happened or what you'd like. Write it, record it or add a photo, whichever is easiest.</p>
 
       <div class="field">
         <label class="caption" id="kind-label">What is it?</label>
@@ -384,22 +387,16 @@ export class ReportForm extends LitElement {
       </div>
 
       <div class="field">
-        <label class="caption" for="title">${this._kind === "bug" ? "What went wrong?" : "What would you like?"}</label>
-        <input id="title" type="text" autofocus maxlength="300" .value=${this._title}
-          placeholder=${this._kind === "bug" ? "The lounge light didn't turn on" : "A bedtime scene for the kids' rooms"}
-          @input=${(e: Event) => (this._title = (e.target as HTMLInputElement).value)}
-          @keydown=${(e: KeyboardEvent) => e.key === "Enter" && void this._send()} />
+        <label class="caption" for="message">${this._kind === "bug" ? "What went wrong?" : "What would you like?"}</label>
+        <textarea id="message" rows="6" autofocus .value=${this._message}
+          placeholder=${this._kind === "bug"
+            ? "The lounge light didn't turn on. It happens most evenings."
+            : "A bedtime scene for the kids' rooms"}
+          @input=${(e: Event) => (this._message = (e.target as HTMLTextAreaElement).value)}></textarea>
       </div>
 
       <div class="field">
-        <label class="caption" for="details">More detail (optional)</label>
-        <textarea id="details" rows="6" .value=${this._details}
-          placeholder="When did it happen? Does it always happen? Anything else that might help."
-          @input=${(e: Event) => (this._details = (e.target as HTMLTextAreaElement).value)}></textarea>
-      </div>
-
-      <div class="field">
-        <label class="caption">Show or tell us (optional)</label>
+        <label class="caption">Or show or tell us</label>
         <div class="attach">
           <button ?disabled=${this._photos.length >= MAX_IMAGES || this._busy}
             @click=${() => this.renderRoot.querySelector<HTMLInputElement>("#photo-input")?.click()}>
@@ -450,7 +447,7 @@ export class ReportForm extends LitElement {
 
       ${this._error ? html`<div class="error">${this._error}</div>` : nothing}
       <div class="actions">
-        <button class="primary" ?disabled=${!this._title.trim() || this._sending || this._busy || this._recording !== null} @click=${() => void this._send()}>
+        <button class="primary" ?disabled=${!this._canSend} @click=${() => void this._send()}>
           ${this._sending ? "Sending…" : "Send"}
         </button>
       </div>

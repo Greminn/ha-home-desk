@@ -481,10 +481,14 @@ export function createMock() {
       const json = (status, body) => ({ ok: status < 400, status, json: async () => body });
       if (path !== "/api/home_desk/report") return json(404, { message: "Not found" });
       const form = init.body;
-      const title = String(form.get("title") ?? "").trim();
-      if (!title) return json(400, { message: "Say what it is in a line" });
+      // One box: the first line is the title, the rest the description; photos or a voice message alone are enough.
+      const message = String(form.get("message") ?? "").trim();
+      const [first, ...rest] = message.split("\n");
+      const title = first.length > 80 ? first.slice(0, 80).replace(/\s+\S*$/, "") + "…" : first.trim()
+        || (form.get("audio") || form.getAll("image").length ? `${state.user.name} reported ${form.get("kind") === "enhancement" ? "an idea" : "a problem"}` : "");
+      if (!title) return json(400, { message: "Write a message, record one or add a photo" });
       if (!["bug", "enhancement"].includes(form.get("kind"))) return json(400, { message: "Choose Problem or Suggestion" });
-      const t = handlers.create({ title, description: String(form.get("details") ?? ""), labels: [form.get("kind")] });
+      const t = handlers.create({ title, description: first.length > 80 ? message : rest.join("\n").trim(), labels: [form.get("kind")] });
       const made = [];
       for (const f of form.getAll("image")) {
         const id = Math.random().toString(16).slice(2, 14).padEnd(12, "0");

@@ -272,6 +272,24 @@ async def main():
         plain = await s.async_get_ticket(hass, (await r.json())["id"])
         assert plain["labels"] == ["enhancement"] and plain["attachments"] == [] and len(plain["description"]) == 5000
 
+        # ---- one box: the first line is the title, the rest the description; photos or a voice message alone are enough
+        r = await post(kind="bug", message="Lounge light flickers\nMostly at night")
+        one = await s.async_get_ticket(hass, (await r.json())["id"])
+        assert r.status == 200 and one["title"] == "Lounge light flickers" and one["description"] == "Mostly at night", one
+        r = await post(kind="bug", message="Kitchen light off")
+        one = await s.async_get_ticket(hass, (await r.json())["id"])
+        assert one["title"] == "Kitchen light off" and one["description"] == "", "a one-line message is only a title"
+        long = "The lounge light has started to flicker every evening when the heating comes on and it " * 2
+        r = await post(kind="bug", message=long)
+        one = await s.async_get_ticket(hass, (await r.json())["id"])
+        assert one["title"].endswith("…") and len(one["title"]) <= 81 and one["description"] == long.strip(), one["title"]
+        r = await post(kind="bug", message="", images=[JPEG, PNG])
+        assert r.status == 200 and (await s.async_get_ticket(hass, (await r.json())["id"]))["title"] == "Alex reported a problem"
+        r = await post(kind="bug", message="  ", audio=wav(2))
+        assert r.status == 200 and (await s.async_get_ticket(hass, (await r.json())["id"]))["title"] == "Alex reported a problem"
+        await asyncio.gather(*hass.tasks)
+        assert (await post(kind="bug", message="  ")).status == 400, "nothing at all is still refused"
+
         # ---- a voice message that isn't speech-ready is kept but not transcribed; an off switch is respected
         calls = len(FakeEngine.calls)
         r = await post(kind="bug", title="stereo", audio=wav(2, rate=44100, channels=2))
