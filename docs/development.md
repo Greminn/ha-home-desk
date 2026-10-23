@@ -106,7 +106,21 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 - 9 Python suites pass (`./tests/run_all.sh`, now including `test_backup.py` and the static `test_security.py`), plus `npm test` (vitest, 12 tests), pyflakes and `tools/check_versions.py`. CI is `.github/workflows/validate.yml`.
 - **Deployed (2026-10-22, after a restart):** `1.0.0-beta.1` and everything since: the phone layout (header order, comment box pinned to the screen bottom and following the keyboard, tab drop-down shows its list, search button), "nothing to change" findings with no Proceed, Delete Ticket (trash icon, admin and panel only, no service), solid Start Working, outlined Resolve. The first `1.0.0-beta.1` backup of the tickets was made. Walked through as a test list with the author (Home, list, chips, Ideas, ticket view, AI Action, Settings, phone, repairs): all passed.
 
-**Where we stopped (end of the session of 2026-10-22), in order**
+**Where we stopped (updated at the end of the session of 2026-10-23), in order**
+
+**The goal: release `1.0.0-beta.1` (the "Beta v1") this weekend (Sat 24 to Sun 25 October 2026).** Proposed pacing: docs review, history rewrite, restart and recheck on Friday evening and Saturday morning; push, CI fixes and repo settings on Saturday afternoon (leave a buffer, the first CI run on GitHub often finds something); release and a real HACS custom-repository install test on Sunday. Not needed for v1: the hero image (ship the placeholder screenshot; the author has not yet confirmed this), an outside-AI chip, `@` completion, the HACS default-list application. The author has not yet confirmed this pacing.
+
+**Done on 2026-10-23 (all committed locally, deployed to the integration, a Home Assistant restart still needed to activate it)**
+- Ticket #260 (found by the author's agent): entity suggestions crashed on Home Assistant's `COMPUTED_NAME` alias marker; fixed in `suggest.py` and `matching.py` with tests. Close #260 after the restart when the log shows no "suggestion lookup failed".
+- ha-mcp findings (from the author's Smart Home Claude, add-on v8.7.0): `/readonly` is enforced by the server (40 tools there, 77 on the normal address); `ha_get_app` leaks the add-on's secret path (removed from the review list on the LXC; warned about in the docs); `ha_eval_template` and the mixed `ha_manage_*` tools are not pure reads; the add-on runs with an administrator-level token over plain HTTP.
+- Market check (HACS default list and web): nothing does what Home Desk does; the nearest are chore and maintenance trackers (Home Keeper, Maintenance Supporter, Home Maintenance).
+
+**Waiting on the author**
+- Confirm the weekend pacing and that the placeholder hero image can ship.
+- Restart Home Assistant, check its log (the author's own Claude CLI can, with `ha_get_logs`), run the recheck including a real **Run** on a throwaway ticket (review posts in bullets, nothing changes before Proceed, the change step works after Proceed).
+- Delete `/private/tmp/claude-501/hd-cleanup/` (it holds the pre-rewrite backup bundle, which still contains the old private address) once the second history rewrite is done.
+
+
 1. **The author reviews the docs site** (preview: `cd site && npx vitepress dev --port 5174 --host 127.0.0.1`, then http://127.0.0.1:5174/ha-home-desk/). The **home page is signed off except the hero image**. The other pages are not yet reviewed by the author. While reviewing, also fix the wording that overclaims control: `site/ai/using-ai.md` ("Neither lets an AI change Home Assistant on its own" is true of Review only, not of an external agent the person runs) and the same kind of line in `README.md`.
 2. **Hero image** (to be built with the author): a Spatial Context style composite, a transparent PNG in light and dark, of the real panel with floating cards (for example a repair that became a ticket, an AI Review reply with Proceed, a household report with a photo). Build it from the preview's clean mode (below).
 4. **Recheck the whole app on the live install** as one list (Home page, tabs and list, chips, ticket view with delete, AI Action, Settings, report form, repairs, phone, a second phone size), the author approving each.
