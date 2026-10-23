@@ -66,6 +66,7 @@ export class NewTicketDialog extends LitElement {
       .kinds {
         display: flex;
         flex-wrap: wrap;
+        justify-content: center;
         gap: 8px;
       }
       .kind {
@@ -171,7 +172,7 @@ export class NewTicketDialog extends LitElement {
         margin-top: 8px;
       }
       .actions .dots {
-        margin-right: auto;
+        margin-right: 8px;
       }
     `,
   ];
@@ -206,8 +207,7 @@ export class NewTicketDialog extends LitElement {
 
   private _kinds() {
     return html`<div class="field">
-      <label id="kind-label">Kind</label>
-      <div class="kinds" role="radiogroup" aria-labelledby="kind-label">
+      <div class="kinds" role="radiogroup" aria-label="Kind">
         ${KINDS.filter((k) => !k.admin || this.isAdmin).map((k) => html`<button class="kind" role="radio"
           aria-checked=${k.id === this._kind ? "true" : "false"} @click=${() => (this._kind = k.id)}>
           <ha-icon .icon=${k.icon}></ha-icon>${k.name}
@@ -231,8 +231,7 @@ export class NewTicketDialog extends LitElement {
   private _categoryField() {
     const current = this.categories.find((c) => c.id === this._category);
     return html`<div class="field">
-      <label id="cat-label">Category</label>
-      <button class="pick" aria-labelledby="cat-label" aria-haspopup="listbox"
+      <button class="pick" aria-label="Category" aria-haspopup="listbox"
         @click=${(e: Event) => (this._categoryRect = (e.currentTarget as HTMLElement).getBoundingClientRect())}>
         <ha-icon .icon=${current?.icon || "mdi:shape-outline"}></ha-icon>
         <span class="name">${current?.name ?? "No Category"}</span>
