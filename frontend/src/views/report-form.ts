@@ -335,6 +335,22 @@ export class ReportForm extends LitElement {
     return !!something && !this._sending && !this._busy && this._recording === null;
   }
 
+  /**
+   * Sending with the keyboard open leaves iOS with the page scrolled up to keep the text box in view, which hides the app's back
+   * button once the short thank-you screen replaces the form. Close the keyboard and put the page back, again after the keyboard
+   * has finished sliding away.
+   */
+  private _settleScreen() {
+    ((this.renderRoot as ShadowRoot).activeElement as HTMLElement | null)?.blur();
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    const reset = () => {
+      window.scrollTo(0, 0);
+      this.scrollTop = 0;
+    };
+    reset();
+    [100, 350, 700].forEach((ms) => window.setTimeout(reset, ms));
+  }
+
   private async _send() {
     if (!this._canSend) return;
     this._sending = true;
@@ -348,6 +364,7 @@ export class ReportForm extends LitElement {
       const sent = await this.client.report(form);
       this._sentWith = { photos: sent.photos, voice: sent.voice };
       this._sent = true;
+      this._settleScreen();
       this._message = "";
       this._kind = "bug";
       this._forget();
