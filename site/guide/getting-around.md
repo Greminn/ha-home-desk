@@ -64,8 +64,8 @@ Each ticket you open gets a chip under the header.
 Choices in the reply bar are picked first, then applied with the main button, which says what it will do:
 
 - **Priority icons** (High, Urgent): the button reads **Set Priority** when that is all you chose.
-- **AI Action:** pick **Review** or **Queue**, and select it again to switch it off. The main button then reads **Review With AI Now** or **Queue for AI Agent**. Review asks you to confirm first, because it uses your AI plan. See [AI Agents](/ai/using-ai).
-- Text in the comment box is posted first, as your comment or as the instruction to the AI.
+- **AI Action** (only while [AI is on](/guide/settings)): pick **Review** or **Queue**, and select it again to switch it off. The main button then reads **Review With AI Now** or **Queue for AI Agent**. Review asks you to confirm first, because it uses your AI plan. See [AI Agents](/ai/using-ai).
+- Text in the comment box is posted first, as your comment (or, with AI on, as the instruction to the AI).
 
 **Resolve**, **Start Working** and **Reopen** act straight away.
 
@@ -78,7 +78,7 @@ A phone shows one pane at a time, laid out for a thumb:
 - **Tabs** are one drop-down in the header, showing the list you are on and its count. Choosing a tab shows that list, even if a ticket was open. **Settings** is in the three-dot menu.
 - **Search** is a magnifying glass beside the three dots while a ticket is open. It goes to the list and puts the cursor in the search box.
 - **The ticket header** is the title across the full width, then one row of buttons: back, then previous, next, merge, history and delete.
-- **The reply bar** is pinned to the bottom of the screen, above the keyboard when it is open. Tap it to open it: **Start Working** (on an idea) is a full-width line at the top, then **AI Action** across the width, then the priority icons and **Resolve** on one row, then **Comment**.
+- **The reply bar** is pinned to the bottom of the screen, above the keyboard when it is open. Tap it to open it: **Start Working** (on an idea) is a full-width line at the top, then **AI Action** across the width (when AI is on), then the priority icons and **Resolve** on one row, then **Comment**.
 - Open chips and the full width view are not offered.
 
 ## Permissions
