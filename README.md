@@ -3,7 +3,7 @@
   <img alt="Home Desk: a smart home ticket system for Home Assistant, with AI to help." src="brand/extras/social-preview-1280x640.png">
 </picture>
 
-![Beta](https://img.shields.io/badge/status-beta-orange)
+![Pre-release](https://img.shields.io/badge/status-pre--release-orange)
 
 Something in the house stops working, a household member has a request, or you have an idea for later, and it lives in your head, a chat thread or a note on the fridge. Home Desk is a helpdesk that lives inside Home Assistant. You, your household, AI agents and Home Assistant itself raise tickets; you and your AI agents work them through to resolution, with the full history kept. Home Assistant is the heart of a smart home, so it's where tickets live, but they can be about anything around it too: the network, the servers, the media box.
 
@@ -32,12 +32,12 @@ The full guide is at **<https://greminn.github.io/ha-home-desk/>**:
 
 ## Installation
 
-Needs **Home Assistant 2024.10** or newer. Home Desk is a **beta** and isn't in the HACS default repository yet, so it's added as a custom repository.
+Needs **Home Assistant 2024.10** or newer. Home Desk is a **pre-release** and isn't in the HACS default repository yet, so it's added as a custom repository.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Greminn&repository=ha-home-desk&category=integration)
 
 1. Click the button above, or in HACS choose **⋮ → Custom repositories**, paste `https://github.com/Greminn/ha-home-desk` and set **Type** to **Integration**.
-2. Install **Home Desk** (turn on **Show beta versions** if you don't see it).
+2. Install **Home Desk** (turn on **Show beta versions** if you don't see it; that is HACS's name for pre-releases).
 3. Restart Home Assistant, then **Settings → Devices & Services → Add Integration → Home Desk**.
 
 Prefer to copy files by hand? Put `custom_components/home_desk/` into your `/config/custom_components/`. The [install guide](https://greminn.github.io/ha-home-desk/guide/install) has the details.
@@ -75,7 +75,7 @@ Home Desk is a personal project, free and shared as is. If it's useful to you an
 
 ## Status
 
-**Beta.** Used daily on the author's own home, but the interface may still change between releases, and it hasn't yet been tested against the wide variety of Home Assistant setups a stable release should handle.
+**Pre-release.** Used daily on the author's own home, but the interface may still change between releases, and it hasn't yet been tested against the wide variety of Home Assistant setups a stable release should handle.
 
 Found a bug, or have an idea? Please [open an issue](https://github.com/Greminn/ha-home-desk/issues). Problems and feature ideas are equally welcome, not just polished bug reports.
 

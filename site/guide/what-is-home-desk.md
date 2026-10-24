@@ -29,8 +29,8 @@ See [Status](/guide/status).
 - Home Assistant 2024.10 or newer.
 - Access to the `config` folder, to copy the integration in. See [Install](/guide/install).
 
-::: warning Beta
-Home Desk is in beta. It runs daily on the author's own home, but the interface may still change between releases. Back up before installing. Home Desk also copies its ticket file before each new version first runs.
+::: warning Pre-Release
+Home Desk is a pre-release. It runs daily on the author's own home, but the interface may still change between releases. Back up before installing. Home Desk also copies its ticket file before each new version first runs.
 :::
 
 ::: tip Need help?

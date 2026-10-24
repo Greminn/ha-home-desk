@@ -8,12 +8,12 @@ Home Desk is a custom integration. Install it with HACS or copy it in from GitHu
 
 ## HACS
 
-Home Desk is a beta and is not in the HACS default list yet, so you add it as a custom repository.
+Home Desk is a pre-release and is not in the HACS default list yet, so you add it as a custom repository.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Greminn&repository=ha-home-desk&category=integration)
 
 1. Select the button above, or in **HACS** open **⋮ → Custom repositories**, paste `https://github.com/Greminn/ha-home-desk` and set **Type** to **Integration**.
-2. Install **Home Desk**. Turn on **Show beta versions** if you do not see it.
+2. Install **Home Desk**. Turn on **Show beta versions** if you do not see it (HACS's name for pre-releases).
 3. Restart Home Assistant, then continue at [Add the integration](#add-the-integration).
 
 ## GitHub
