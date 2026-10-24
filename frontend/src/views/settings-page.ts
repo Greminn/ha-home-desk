@@ -285,6 +285,7 @@ export class SettingsPage extends LitElement {
   @state() private _test: { busy: boolean; reply?: string; error?: string } | null = null;
   /** The Test button sends a (tiny) request to the AI provider, so it asks first. */
   @state() private _confirmTest = false;
+  @state() private _confirmAiOff = false;
   /** The Home Assistant users the runner could sign in as. */
   @state() private _users: { id: string; name: string }[] = [];
 
@@ -422,7 +423,7 @@ export class SettingsPage extends LitElement {
             <div class="name">Use AI</div>
             <div class="desc">The master switch. Off hides every AI control and setting in Home Desk, and Home Desk refuses Review, Run, Proceed, assigning a ticket to an AI agent and anything an AI agent sends it. Turning it off also takes every ticket off the AI queue and ends any run in progress; turning it on again does not put them back.</div>
           </div>
-          ${this._switch(aiOn, "Use AI", (v) => void this._save({ ai_enabled: v }))}
+          ${this._switch(aiOn, "Use AI", (v) => (v ? void this._save({ ai_enabled: true }) : (this._confirmAiOff = true)))}
         </div>
       </div>
 
@@ -577,6 +578,15 @@ export class SettingsPage extends LitElement {
         ${this._linkRow("mdi:github", "GitHub Repository", "Greminn/ha-home-desk", REPO)}
         ${this._linkRow("mdi:coffee-outline", "Support the Project", "Home Desk is free. If it's useful, you can buy me an espresso. It's never expected.", "https://buymeacoffee.com/greminn")}
       </div>
+      ${this._confirmAiOff
+        ? html`<st-confirm-dialog heading="Turn Off AI?" confirmLabel="Yes, Turn Off" danger
+            body="Every AI control and setting is hidden, and Home Desk refuses anything an AI agent tries to do. Every ticket assigned to an AI agent comes off the queue, and any run in progress stops. Turning AI back on does not put them back."
+            @cancel=${() => (this._confirmAiOff = false)}
+            @confirm=${() => {
+              this._confirmAiOff = false;
+              void this._save({ ai_enabled: false });
+            }}></st-confirm-dialog>`
+        : nothing}
       ${this._confirmTest
         ? html`<st-confirm-dialog heading="Use your AI plan?" confirmLabel="Yes, Test It"
             body="This sends one short question, with nothing from your home, to the AI Agent. It uses a very small amount of your AI plan."
