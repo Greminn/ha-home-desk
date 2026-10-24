@@ -892,6 +892,9 @@ async def async_set_agent_state(hass: HomeAssistant, ticket_id: int, state: dict
 
 # ---------------------------------------------------------------- AI Agent runs (Run AI Agent Now)
 #
+# Experimental: this is the Home Assistant half of an AI Agent runner, a separate program that is not part of the first release
+# (it is not documented or supported yet). Nothing here runs unless "Offer Run AI Agent Now" is switched on in Settings.
+#
 # A person presses Run AI Agent Now: the ticket gets an "agent_run" in state "requested". The runner on the Network LXC claims it
 # ("running", a read-only review), then says what it found and what it would change ("proposed", the findings are a comment with a
 # go-ahead waiting on it). A person presses Proceed ("approved"), the runner claims it again ("running", the change) and

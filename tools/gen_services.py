@@ -109,14 +109,14 @@ SERVICES = {
         "internal": ("Internal note", "True makes a private note that the requester can't see.", BOOL, False, None),
         "keep_assigned": ("Keep assigned", "True leaves the ticket queued for the AI agent after this comment instead of handing it back to the manager, for evidence on a ticket the agent is meant to keep watching. Default false: an agent's comment hands the ticket back.", BOOL, False, None),
         "actor": ACTOR}),
-    "claim_run": ("Claim run", "The runner takes a run that a person asked for (Run AI Agent Now, a read-only review) or approved (Proceed, the change). Only one runner can take it; a second call fails. Pass `actor` with the runner's name.", {
+    "claim_run": ("Claim run", "Experimental, for a runner that is not part of the first release. The runner takes a run that a person asked for (Run AI Agent Now, a read-only review) or approved (Proceed, the change). Only one runner can take it; a second call fails. Pass `actor` with the runner's name.", {
         "ticket_id": TID,
         "actor": ACTOR}),
-    "note_run": ("Note run", "The runner says what it is doing right now, shown in the ticket's working indicator (for example \"Using get_ticket\"). Only while it is running the ticket. Pass `actor` with the runner's name.", {
+    "note_run": ("Note run", "Experimental, for a runner that is not part of the first release. The runner says what it is doing right now, shown in the ticket's working indicator (for example \"Using get_ticket\"). Only while it is running the ticket. Pass `actor` with the runner's name.", {
         "ticket_id": TID,
         "note": ("Note", "A few words about the current step, at most 120 characters.", TEXT, True, "Using get_ticket"),
         "actor": ACTOR}),
-    "finish_run": ("Finish run", "The runner reports back on a claimed run, as a comment from the agent. `proposed`: what it found and what it would change, which waits for a person to press Proceed. `done`: the approved change was made. `failed`: why it could not. Fails if the run was stopped.", {
+    "finish_run": ("Finish run", "Experimental, for a runner that is not part of the first release. The runner reports back on a claimed run, as a comment from the agent. `proposed`: what it found and what it would change, which waits for a person to press Proceed. `done`: the approved change was made. `failed`: why it could not. Fails if the run was stopped.", {
         "ticket_id": TID,
         "state": ("State", "proposed, done or failed.", sel(["proposed", "done", "failed"]), True, "proposed"),
         "body": ("Comment", "What it found and would change, what it did, or why it failed, in markdown.", LONG, True, None),

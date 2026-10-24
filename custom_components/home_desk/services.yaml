@@ -343,7 +343,7 @@ add_comment:
       selector: {"text": {}}
 claim_run:
   name: "Claim run"
-  description: "The runner takes a run that a person asked for (Run AI Agent Now, a read-only review) or approved (Proceed, the change). Only one runner can take it; a second call fails. Pass `actor` with the runner's name."
+  description: "Experimental, for a runner that is not part of the first release. The runner takes a run that a person asked for (Run AI Agent Now, a read-only review) or approved (Proceed, the change). Only one runner can take it; a second call fails. Pass `actor` with the runner's name."
   fields:
     ticket_id:
       name: "Ticket ID"
@@ -356,7 +356,7 @@ claim_run:
       selector: {"text": {}}
 note_run:
   name: "Note run"
-  description: "The runner says what it is doing right now, shown in the ticket's working indicator (for example \"Using get_ticket\"). Only while it is running the ticket. Pass `actor` with the runner's name."
+  description: "Experimental, for a runner that is not part of the first release. The runner says what it is doing right now, shown in the ticket's working indicator (for example \"Using get_ticket\"). Only while it is running the ticket. Pass `actor` with the runner's name."
   fields:
     ticket_id:
       name: "Ticket ID"
@@ -375,7 +375,7 @@ note_run:
       selector: {"text": {}}
 finish_run:
   name: "Finish run"
-  description: "The runner reports back on a claimed run, as a comment from the agent. `proposed`: what it found and what it would change, which waits for a person to press Proceed. `done`: the approved change was made. `failed`: why it could not. Fails if the run was stopped."
+  description: "Experimental, for a runner that is not part of the first release. The runner reports back on a claimed run, as a comment from the agent. `proposed`: what it found and what it would change, which waits for a person to press Proceed. `done`: the approved change was made. `failed`: why it could not. Fails if the run was stopped."
   fields:
     ticket_id:
       name: "Ticket ID"

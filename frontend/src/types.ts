@@ -204,7 +204,7 @@ export interface HomeDeskSettings {
   ai_enabled: boolean;
   /** The entity id of the AI agent tickets can be assigned to (an AI Task or conversation agent). */
   agent: string;
-  /** Run AI Agent Now is offered (the runner on the Network LXC is set up). */
+  /** Run AI Agent Now is offered (the experimental AI Agent runner is set up; it is not part of the first release). */
   agent_runner: boolean;
   /** The Home Assistant user the runner signs in as (not an administrator), or empty. */
   agent_user: string;

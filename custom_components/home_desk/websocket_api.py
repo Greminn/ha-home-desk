@@ -582,7 +582,9 @@ async def ws_agent_stop(hass: HomeAssistant, connection: websocket_api.ActiveCon
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_agent_run_now(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """Run AI Agent Now: ask the runner to work this ticket, read-only first. Nothing happens unless the runner is set up."""
+    """Run AI Agent Now: ask the runner to work this ticket, read-only first. Nothing happens unless the runner is set up.
+
+    Experimental: the AI Agent runner is not part of the first release."""
     if not (await async_get_settings(hass)).get("agent_runner"):
         _fail(connection, msg, "invalid", "Run AI Agent Now is not switched on in Settings")
         return
