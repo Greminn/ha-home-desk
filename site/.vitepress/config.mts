@@ -14,7 +14,7 @@ export default defineConfig({
     logo: { light: "/home-desk-icon.svg", dark: "/home-desk-icon-dark.svg" },
     nav: [
       { text: "Getting Started", link: "/guide/what-is-home-desk", activeMatch: "/guide/(what-is-home-desk|install|first-ticket)" },
-      { text: "Using Home Desk", link: "/guide/getting-around", activeMatch: "/guide/(getting-around|status|labels-categories|household-reports|repairs|events|settings|good-to-know|under-the-hood)" },
+      { text: "Using Home Desk", link: "/guide/getting-around", activeMatch: "/guide/(getting-around|status|labels-categories|household-reports|repairs|events|settings|under-the-hood)" },
       { text: "AI Agents", link: "/ai/using-ai", activeMatch: "/ai/" },
     ],
     sidebar: [
@@ -30,7 +30,6 @@ export default defineConfig({
         { text: "Household Reports", link: "/guide/household-reports" },
         { text: "Home Assistant Repairs", link: "/guide/repairs" },
         { text: "Settings", link: "/guide/settings" },
-        { text: "Good to Know", link: "/guide/good-to-know" },
       ] },
       { text: "AI Agents", items: [
         { text: "Using AI with Home Desk", link: "/ai/using-ai" },

@@ -27,7 +27,7 @@ It cannot change anything and never touches the assignment. The instructions it 
 
 ## Queue
 
-Type the instruction in the comment box, pick **Queue** in the **AI Action** pill and press the main button, which reads **Queue for AI Agent**. The ticket moves to **Queued for AI**, and an [automation](/guide/events) can start your agent. When the agent replies, the ticket returns to the administrator. Queue it again to continue.
+Type the instruction in the comment box, pick **Queue** in the **AI Action** pill and press the main button, which reads **Queue for AI Agent**. The ticket moves to **Queued for AI**, and an [automation](/guide/events) can start your agent. Home Desk never starts an agent itself: **Queue for AI Agent** only marks the ticket. When the agent replies, the ticket returns to the administrator. Queue it again to continue.
 
 An agent's comments are marked **AI Agent** with the spark icon.
 
