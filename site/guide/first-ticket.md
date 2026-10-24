@@ -5,7 +5,7 @@ title: Your First Ticket
 # Your First Ticket
 
 1. Open **Home Desk** in the sidebar and select **New Ticket**.
-2. Enter a title and a description, then save. The ticket is **New** and shows in the **Inbox**.
+2. Enter a title and a description, choose its kind (Bug, Enhancement, Question or Task), set a priority if it matters and check the category (it starts as Home Assistant, and you can search for another). Then select **Create**. The ticket is **New** and shows in the **Inbox**.
 3. Open the ticket. Set the **priority** and **category**, add **labels**, and comment. The first change moves it to **In Progress** and into **Working**.
 4. When it is fixed, type the cause and the fix in the comment box and select **Resolve**. The text is saved as the resolution.
 
