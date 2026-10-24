@@ -4,7 +4,7 @@ title: What Is Home Desk?
 
 # What Is Home Desk?
 
-Home Desk is a helpdesk integration for Home Assistant. It stores tickets that you can label, sort into categories, and optionally assign to an AI agent. It adds a **Home Desk** panel to the sidebar in Home Assistant's own style.
+Home Desk is a helpdesk integration for Home Assistant. It stores tickets that you can label, sort into categories, and optionally assign to an AI agent. It adds **Home Desk** to the sidebar in Home Assistant's own style.
 
 Tickets are raised by:
 

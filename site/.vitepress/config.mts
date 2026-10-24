@@ -12,7 +12,7 @@ export default defineConfig({
     logo: { light: "/home-desk-icon.svg", dark: "/home-desk-icon-dark.svg" },
     nav: [
       { text: "Getting Started", link: "/guide/what-is-home-desk", activeMatch: "/guide/(what-is-home-desk|install|first-ticket)" },
-      { text: "Using Home Desk", link: "/guide/using-the-panel", activeMatch: "/guide/(using-the-panel|status|labels-categories|household-reports|repairs|events|settings|good-to-know)" },
+      { text: "Using Home Desk", link: "/guide/getting-around", activeMatch: "/guide/(getting-around|status|labels-categories|household-reports|repairs|events|settings|good-to-know)" },
       { text: "AI Agents", link: "/ai/using-ai", activeMatch: "/ai/" },
     ],
     sidebar: [
@@ -22,7 +22,7 @@ export default defineConfig({
         { text: "Your First Ticket", link: "/guide/first-ticket" },
       ] },
       { text: "Using Home Desk", items: [
-        { text: "Using the Panel", link: "/guide/using-the-panel" },
+        { text: "Getting Around", link: "/guide/getting-around" },
         { text: "Status", link: "/guide/status" },
         { text: "Labels and Categories", link: "/guide/labels-categories" },
         { text: "Household Reports", link: "/guide/household-reports" },

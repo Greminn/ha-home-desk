@@ -1,8 +1,8 @@
 ---
-title: Using the Panel
+title: Getting Around
 ---
 
-# Using the Panel
+# Getting Around
 
 The ticket list is on the left and the open ticket on the right. A phone shows one at a time. Every ticket has its own address, `/home-desk/<id>`, and a refresh keeps you on the page you were on, except Settings. Choosing **Home Desk** in Home Assistant's sidebar always opens Home, even from a ticket, a list or Settings.
 
@@ -85,4 +85,4 @@ A phone shows one pane at a time, laid out for a thumb:
 
 Administrators see and change everything. Other users see only the [report form](/guide/household-reports).
 
-The panel updates live, including changes made by automations and AI agents.
+Home Desk updates live, including changes made by automations and AI agents.

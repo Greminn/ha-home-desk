@@ -4,7 +4,7 @@ title: Settings
 
 # Settings
 
-The cog in the panel header opens Settings. Administrators only. Changes save immediately.
+The cog in the Home Desk header opens Settings. Administrators only. Changes save immediately.
 
 | Card | Setting | Effect |
 |---|---|---|

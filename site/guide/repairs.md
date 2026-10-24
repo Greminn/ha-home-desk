@@ -29,4 +29,4 @@ Repairs of one integration and issue type share one ticket that lists what is af
 
 ## Duplicates
 
-Fold two tickets together with **Merge**. See [Using the Panel](/guide/using-the-panel).
+Fold two tickets together with **Merge**. See [Getting Around](/guide/getting-around).

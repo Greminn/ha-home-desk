@@ -13,7 +13,7 @@ Feature ideas are welcome, and are tracked as issues on GitHub.
    - **What would you like to see?** A rough idea of how it could work is enough.
    - **Anything you have already tried?** For example a workaround.
 
-A screenshot of the part of the panel you mean helps. Keep to one idea per issue, so each can be discussed and tracked on its own.
+A screenshot of the part of the screen you mean helps. Keep to one idea per issue, so each can be discussed and tracked on its own.
 
 ::: tip
 This is a personal project, so there is no promise of when, or whether, an idea is built. Describing the problem you are trying to solve helps most, because it can often be solved in a way the first suggestion did not think of.

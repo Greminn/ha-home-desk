@@ -7,8 +7,8 @@ hero:
   image:
     light: /screenshots/home-desk-hero-v3.png
     dark: /screenshots/home-desk-hero-v3.png
-    alt: The Home Desk panel in Home Assistant, with floating cards showing a ticket and an AI agent answering it
-  tagline: Raise, track and resolve tickets in a panel in Home Assistant's own style, with AI to help.
+    alt: Home Desk in Home Assistant, with floating cards showing a ticket and an AI agent answering it
+  tagline: Raise, track and resolve tickets in Home Assistant, in its own style, with AI to help.
   actions:
     - { theme: brand, text: What Is Home Desk?, link: /guide/what-is-home-desk }
     - { theme: alt, text: Install, link: /guide/install }

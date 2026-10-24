@@ -13,7 +13,7 @@ Something in the house stops working, a household member has a request, or you h
 
 ## What you get
 
-- **A panel that looks like part of Home Assistant.** A Home page (what needs you, recent activity), five tabs (Inbox, Working, Queued for AI, Ideas, Completed), a searchable, sortable list and a full-width ticket page.
+- **An interface that looks like part of Home Assistant.** A Home page (what needs you, recent activity), five tabs (Inbox, Working, Queued for AI, Ideas, Completed), a searchable, sortable list and a full-width ticket page.
 - **A lifecycle that moves by itself.** New, In Progress, Resolved and Closed, with GitHub-style labels and categories for which part of the home a ticket is about.
 - **Tickets from Home Assistant Repairs.** Each repair becomes a ticket, and closes itself when the repair clears. Anything else that fires an event can raise one too.
 - **A simple report form for household users**, with photos and a voice message that Home Assistant's speech-to-text writes out.
@@ -25,7 +25,7 @@ Something in the house stops working, a household member has a request, or you h
 The full guide is at **<https://greminn.github.io/ha-home-desk/>**:
 
 - [What is Home Desk?](https://greminn.github.io/ha-home-desk/guide/what-is-home-desk), [install](https://greminn.github.io/ha-home-desk/guide/install) and [your first ticket](https://greminn.github.io/ha-home-desk/guide/first-ticket)
-- [Using the panel](https://greminn.github.io/ha-home-desk/guide/using-the-panel), [status](https://greminn.github.io/ha-home-desk/guide/status) and [labels and categories](https://greminn.github.io/ha-home-desk/guide/labels-categories)
+- [Getting around](https://greminn.github.io/ha-home-desk/guide/getting-around), [status](https://greminn.github.io/ha-home-desk/guide/status) and [labels and categories](https://greminn.github.io/ha-home-desk/guide/labels-categories)
 - [Household reports](https://greminn.github.io/ha-home-desk/guide/household-reports), [Home Assistant Repairs](https://greminn.github.io/ha-home-desk/guide/repairs) and [Settings](https://greminn.github.io/ha-home-desk/guide/settings)
 - [Automations and notifications](https://greminn.github.io/ha-home-desk/guide/events)
 - [Using AI with Home Desk](https://greminn.github.io/ha-home-desk/ai/using-ai) and [connecting your own AI agent](https://greminn.github.io/ha-home-desk/ai/access)

@@ -11,7 +11,7 @@ Users who are not administrators see a report form in place of the ticket list. 
 - **Type:** Problem (the **Bug** label) or Suggestion (the **Enhancement** label).
 - **One message box.** Write as much or as little as you like. The first line becomes the ticket's title and the rest its description.
 - **Photos:** up to 6, each shrunk to 1600 px in the browser.
-- **A voice message:** up to 3 minutes, recorded in the panel or picked from the device.
+- **A voice message:** up to 3 minutes, recorded on the form or picked from the device.
 
 A message, a photo or a voice message is enough on its own. A report with no words is titled "Sam reported a problem" (or "an idea" for a Suggestion), using the sender's name.
 
