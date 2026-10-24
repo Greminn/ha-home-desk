@@ -2,7 +2,7 @@ import { defineConfig } from "vitepress";
 
 // Published at https://greminn.github.io/ha-home-desk/ (GitHub Pages), so every address starts with /ha-home-desk/.
 export default defineConfig({
-  // The AI Agent runner is left out of the first release: its pages stay in the repository, unpublished and unlinked.
+  // The AI Agent runner is left out of the first release: its pages are kept off git (see .gitignore) and, if present, are not built.
   srcExclude: ["runner/**"],
   title: "Home Desk",
   description: "A smart home ticket system for Home Assistant, with AI to help.",
