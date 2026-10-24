@@ -200,6 +200,8 @@ export interface Proceed {
 export interface HomeDeskSettings {
   /** How long a resolved ticket stays Resolved before it is closed: "immediately", "1h", "6h", "1d", "3d", "7d", "14d", "30d" or "never". */
   auto_close: string;
+  /** The master switch: off hides every AI control and setting, and Home Desk refuses what an AI does. */
+  ai_enabled: boolean;
   /** The entity id of the AI agent tickets can be assigned to (an AI Task or conversation agent). */
   agent: string;
   /** Run AI Agent Now is offered (the runner on the Network LXC is set up). */

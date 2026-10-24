@@ -518,6 +518,37 @@ async def main():
     await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))
     f4 = await ADMIN_SERVICES["finish_run"][0](ServiceCall({"ticket_id": rt["id"], "state": "proposed", "body": "What I found\n\nAll fine.\n\n**What I would change:**\n\nNothing. Dismiss this.", "actor": "claude-ha"}, user_id="u-agent"))
     assert f4["agent_run"]["state"] == "done" and not [e for e in f4["events"] if (e.get("data") or {}).get("proceed") and e["id"] == f4["agent_run"]["event"]]
+    # the master switch: off takes every ticket off the AI's queue, and nothing an AI does is accepted until it is on again
+    queued = await svc("create_ticket", title="Queued for the agent", actor="Simon", assignee="ai:AI")
+    running = await svc("create_ticket", title="Being run", actor="Simon")
+    await call(hass, "agent_run_now", ADMIN(), ticket_id=running["id"])
+    await s.async_save_settings(hass, {"ai_enabled": False})
+    after = await s.async_get_ticket(hass, queued["id"])
+    assert after["assignee"] is None and after["events"][-1]["data"] == {"field": "assignee", "from": "ai:AI", "to": None}, "the queue is cleared"
+    stopped = await s.async_get_ticket(hass, running["id"])
+    assert stopped["agent_run"]["state"] == "stopped" and "agent_state" not in stopped, "a run in progress is ended"
+    async def off_refused(coro):
+        try:
+            await coro
+        except (HomeAssistantError, s.TicketError) as err:
+            assert "switched off" in str(err), err
+            return
+        raise SystemExit("something AI worked with the master switch off")
+    await off_refused(svc("update_ticket", ticket_id=queued["id"], assignee="ai:AI"))
+    await off_refused(svc("create_ticket", title="For the agent", assignee="ai:AI"))
+    await off_refused(as_agent("add_comment", ticket_id=running["id"], body="still here"))
+    await off_refused(ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": running["id"], "actor": "claude-ha"})))
+    await off_refused(svc("add_comment", ticket_id=running["id"], body="from an agent", actor="ai:claude"))
+    for command in ("agent_run_now", "agent_run"):
+        r = await call(hass, command, ADMIN(), ticket_id=running["id"])
+        assert r.error and "switched off" in r.error[1], command
+    r = await call(hass, "agent_test", ADMIN())
+    assert r.error and "switched off" in r.error[1], "the test of the AI"
+    await svc("update_ticket", ticket_id=queued["id"], priority="high", actor="Simon")  # people still work tickets as before
+    await s.async_save_settings(hass, {"ai_enabled": True})
+    again = await svc("update_ticket", ticket_id=queued["id"], assignee="ai:AI", actor="Simon")
+    assert again["assignee"] == "ai:AI", "back on, nothing restores the old queue but assigning works again"
+    print("ai switch ok")
     # deleting a ticket is for administrators in the panel only (there is no service), and takes it out of the history
     doomed = await svc("create_ticket", title="Created by mistake", actor="Simon")
     deny = await call(hass, "delete", HOUSEHOLD(), ticket_id=doomed["id"])

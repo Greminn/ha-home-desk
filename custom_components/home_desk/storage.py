@@ -448,6 +448,8 @@ def _new_ticket(
     title = (title or "").strip()
     if not title:
         raise TicketError("A ticket needs a title")
+    if is_agent(assignee):
+        _require_ai(data)
     _limit(title, MAX_TITLE, "The title")
     _limit(description, MAX_TEXT, "The description")
     _limit(resolution, MAX_TEXT, "The resolution")
@@ -519,6 +521,8 @@ def _apply_update(data: dict[str, Any], ticket: dict[str, Any], actor: str, fiel
             _limit(new, MAX_TEXT, f"The {key}")
         if key == "assignee":
             new = new or None
+            if is_agent(new):
+                _require_ai(data)
         elif key == "category":
             new = _resolve_category(data, new)
         elif key == "status":
@@ -555,6 +559,18 @@ def _apply_update(data: dict[str, Any], ticket: dict[str, Any], actor: str, fiel
 
 def _settings(data: dict[str, Any]) -> dict[str, Any]:
     return {**DEFAULT_SETTINGS, **data.get("settings", {})}
+
+
+AI_OFF = "AI is switched off in Settings"
+
+
+def _ai_on(data: dict[str, Any]) -> bool:
+    return bool(_settings(data)["ai_enabled"])
+
+
+def _require_ai(data: dict[str, Any]) -> None:
+    if not _ai_on(data):
+        raise TicketError(AI_OFF)
 
 
 def _default_prompt_id() -> str:
@@ -903,6 +919,7 @@ async def async_request_run(hass: HomeAssistant, ticket_id: int, *, actor: str) 
     """Ask the AI Agent on the runner to work a ticket (read-only first). One run at a time per ticket."""
     async with _lock(hass):
         data = await _load(hass)
+        _require_ai(data)
         ticket = _get(data, ticket_id)
         if ticket["status"] in ("resolved", "closed"):
             raise TicketError("Reopen the ticket before asking the AI Agent to run")
@@ -922,6 +939,7 @@ async def async_claim_run(hass: HomeAssistant, ticket_id: int, *, agent: str) ->
     """The runner takes a requested run (a read-only review) or an approved one (the change). Only one runner can have it."""
     async with _lock(hass):
         data = await _load(hass)
+        _require_ai(data)
         ticket = _get(data, ticket_id)
         run = ticket.get("agent_run") or {}
         if run.get("state") == "running":
@@ -945,6 +963,7 @@ async def async_note_run(hass: HomeAssistant, ticket_id: int, *, agent: str, not
     """The runner says what it is doing right now (shown in the working indicator, e.g. "Using get_ticket"). Only while it runs it."""
     async with _lock(hass):
         data = await _load(hass)
+        _require_ai(data)
         ticket = _get(data, ticket_id)
         if _run_state(ticket) != "running" or not ticket.get("agent_state"):
             raise TicketError("This run is not running")
@@ -966,6 +985,7 @@ async def async_finish_run(hass: HomeAssistant, ticket_id: int, *, agent: str, s
     actor = agent if agent.lower().startswith("ai:") else f"ai:{agent}"
     async with _lock(hass):
         data = await _load(hass)
+        _require_ai(data)
         ticket = _get(data, ticket_id)
         run = ticket.get("agent_run") or {}
         if run.get("state") != "running":
@@ -991,6 +1011,7 @@ async def async_decide_run(hass: HomeAssistant, ticket_id: int, event_id: int, *
     """A person presses Proceed (the runner may now carry out what it described) or Dismiss on the agent's findings."""
     async with _lock(hass):
         data = await _load(hass)
+        _require_ai(data)
         ticket = _get(data, ticket_id)
         ev = next((e for e in ticket["events"] if e["id"] == event_id), None)
         proceed = ((ev or {}).get("data") or {}).get("proceed")
@@ -1801,6 +1822,29 @@ async def async_get_settings(hass: HomeAssistant, user_id: str | None = None) ->
     return _panel_settings(data, user_id)
 
 
+def _switch_ai_off(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Turning the AI off takes every ticket off the AI agent's queue and ends any run, so nothing is left waiting for an agent
+    that can no longer answer. Turning it back on does not put them back. Returns the tickets that changed."""
+    changed = []
+    ts = _now()
+    for ticket in data["tickets"].values():
+        touched = False
+        if is_agent(ticket.get("assignee")):
+            before = ticket["assignee"]
+            ticket["assignee"] = None
+            _event(ticket, "Home Desk", "assignee", None, {"field": "assignee", "from": before, "to": None}, ts)
+            touched = True
+        if _run_state(ticket) in RUN_OPEN:
+            ticket["agent_run"].update(state="stopped", finished_at=ts)
+            touched = True
+        if ticket.pop("agent_state", None):
+            touched = True
+        if touched:
+            ticket["updated_at"] = ts
+            changed.append(ticket)
+    return changed
+
+
 async def async_save_settings(
     hass: HomeAssistant, patch: dict[str, Any], *, user_id: str | None = None
 ) -> dict[str, Any]:
@@ -1842,8 +1886,13 @@ async def async_save_settings(
     for key in ("agent", "stt"):
         if key in patch:
             patch[key] = _limit(str(patch[key]).strip(), 200, f"The {key} setting")
+    if "ai_enabled" in patch:
+        patch["ai_enabled"] = bool(patch["ai_enabled"])
+    cleared: list[dict[str, Any]] = []
     async with _lock(hass):
         data = await _load(hass)
+        if patch.get("ai_enabled") is False and _ai_on(data):
+            cleared = _switch_ai_off(data)
         data["settings"] = {**_settings(data), **patch}
         if notify is not None:
             mine = _user_notify(data, user_id)
@@ -1854,6 +1903,8 @@ async def async_save_settings(
             data.setdefault("notify", {})[user_id or ""] = mine
         await _save(hass, data)
         merged = _panel_settings(data, user_id)
+    for ticket in cleared:
+        _fire(hass, ticket, "updated", "Home Desk")
     return merged
 
 

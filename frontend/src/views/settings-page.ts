@@ -373,6 +373,7 @@ export class SettingsPage extends LitElement {
     const s = this._s;
     if (!s) return html`<div class="page"><p class="help">Loading…</p></div>`;
     const agents = [{ id: "", label: "None" }, ...this._agents];
+    const aiOn = s.ai_enabled !== false;
     return html`<div class="page">
       ${this._error ? html`<div class="error">${this._error}</div>` : nothing}
 
@@ -414,6 +415,18 @@ export class SettingsPage extends LitElement {
         </div>
       </div>
 
+      <div class="card">
+        <h2>AI</h2>
+        <div class="srow">
+          <div class="text">
+            <div class="name">Use AI</div>
+            <div class="desc">The master switch. Off hides every AI control and setting in Home Desk, and Home Desk refuses Review, Run, Proceed, assigning a ticket to an AI agent and anything an AI agent sends it. Turning it off also takes every ticket off the AI queue and ends any run in progress; turning it on again does not put them back.</div>
+          </div>
+          ${this._switch(aiOn, "Use AI", (v) => void this._save({ ai_enabled: v }))}
+        </div>
+      </div>
+
+      ${aiOn ? html`
       <div class="card">
         <h2>AI review</h2>
         <div class="srow">
@@ -512,6 +525,7 @@ export class SettingsPage extends LitElement {
         </div>
         ${s.agent_runner && !s.agent_user ? html`<div class="note">Choose the agent's user, or the runner can't sign in with limited rights.</div>` : nothing}
       </div>
+` : nothing}
 
       ${NOTIFICATIONS_SEND
         ? html`      <div class="card">

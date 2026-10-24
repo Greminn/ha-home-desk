@@ -82,7 +82,10 @@ AUTO_CLOSE_SECONDS = {
 #
 # The built-in AI (Ask AI Agent now): "agent_states", "agent_config" and "agent_related" choose what is sent to the AI provider
 # (entity states, automation and script configuration, related tickets), and "agent_daily_cap" limits how many requests it takes in a day.
+# "ai_enabled" is the master switch: off hides every AI control in the panel and makes Home Desk refuse Review, Run, Proceed,
+# assigning a ticket to an AI agent and the calls an AI agent makes (see storage.AI_OFF).
 DEFAULT_SETTINGS = {
+    "ai_enabled": True,
     "auto_close": "7d", "agent": "", "repairs": True, "stt": "", "transcribe": True,
     "agent_states": True, "agent_config": True, "agent_related": True, "agent_daily_cap": 30, "agent_prompt": "",
     "agent_prompt_base": "",  # which default a saved prompt was written against ("" = unknown), so a changed default can be noticed

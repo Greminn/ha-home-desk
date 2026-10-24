@@ -18,6 +18,7 @@ from .const import AUTO_CLOSE_SECONDS, DOMAIN, LABEL_COLORS, MAX_TEXT, MAX_TITLE
 from .agent import async_run_now, async_stop_turn, async_test_agent
 from .suggest import async_guess
 from .storage import (
+    AI_OFF,
     async_apply_proposal,
     async_decide_run,
     async_dismiss_proposal,
@@ -474,6 +475,7 @@ async def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConne
         vol.Required("type"): "home_desk/settings_save",
         vol.Optional("auto_close"): vol.In(list(AUTO_CLOSE_SECONDS)),
         vol.Optional("agent"): _SHORT,
+        vol.Optional("ai_enabled"): bool,
         vol.Optional("agent_runner"): bool,
         vol.Optional("agent_user"): _SHORT,
         vol.Optional("repairs"): bool,
@@ -624,7 +626,11 @@ async def ws_users(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
 @websocket_api.async_response
 async def ws_agent_test(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
     """Ask the chosen AI agent a harmless question, to show it works (or why it doesn't)."""
-    entity = (await async_get_settings(hass)).get("agent") or ""
+    settings = await async_get_settings(hass)
+    if not settings.get("ai_enabled", True):
+        _fail(connection, msg, "invalid", AI_OFF)
+        return
+    entity = settings.get("agent") or ""
     if not entity:
         _fail(connection, msg, "invalid", "Choose an AI agent first")
         return

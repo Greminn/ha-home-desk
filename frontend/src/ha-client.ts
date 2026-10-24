@@ -71,6 +71,7 @@ export class HaClient {
       return await this.send<HomeDeskSettings>("settings");
     } catch {
       return {
+        ai_enabled: true,
         auto_close: "7d",
         agent: "",
         repairs: true,

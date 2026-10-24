@@ -1077,6 +1077,8 @@ export class TicketDetail extends LitElement {
   @property() agentName = "claude";
   /** The built-in AI agent can be asked to work on a ticket now (an AI Task agent is chosen in Settings), and its name. */
   @property({ attribute: false }) hass!: HomeAssistant;
+  /** The master AI switch: off hides the AI Action control. */
+  @property({ type: Boolean }) aiOn = true;
   @property({ type: Boolean }) canAsk = false;
   /** The full width view: the ticket fills the page, details and description on the left and the comments on the right. */
   @property({ type: Boolean, reflect: true }) wide = false;
@@ -1802,7 +1804,7 @@ ${t.related?.length
     <textarea rows="2" placeholder="Add a comment" .value=${this._comment}
       @input=${(e: Event) => (this._comment = (e.target as HTMLTextAreaElement).value)}></textarea>
     <div class="bar-wrap"><div class="bar-clip"><div class="bar">
-      ${this.isAdmin ? this._aiAction(t) : nothing}
+      ${this.isAdmin && this.aiOn ? this._aiAction(t) : nothing}
       <div class="opts">
         ${this.isAdmin
           ? html`${done ? nothing : html`<div class="assign prio-group" role="group" aria-label="Priority">${this._priorityPills(t)}</div>`}`

@@ -262,6 +262,8 @@ export class AppHeader extends LitElement {
   @property({ attribute: false }) tickets: TicketSummary[] = [];
   @property({ type: Boolean }) narrow = false;
   @property({ type: Boolean }) admin = false;
+  /** The master AI switch: off drops the Queued for AI tab. */
+  @property({ type: Boolean }) aiOn = true;
   /** A ticket is open on a phone, where the search bar is hidden: the header then offers a search button. */
   @property({ type: Boolean }) ticketOpen = false;
   @state() private _menuOpen = false;
@@ -275,6 +277,10 @@ export class AppHeader extends LitElement {
   private _choose(page: Page) {
     this._menuOpen = false;
     this._fire("page-change", page);
+  }
+
+  private get _views() {
+    return this.aiOn ? VIEWS : VIEWS.filter((v) => v.id !== "queued");
   }
 
   private _count(v: (typeof VIEWS)[number]) {
@@ -294,7 +300,7 @@ export class AppHeader extends LitElement {
       ${this._viewsOpen
         ? html`<button class="menu-backdrop" aria-label="Close list" @click=${() => (this._viewsOpen = false)}></button>
             <div class="menu-popover view-menu" role="menu">
-              ${VIEWS.map(
+              ${this._views.map(
                 (v) => html`<button role="menuitemradio" aria-checked=${v.id === this.view} class=${v.id === this.view ? "active" : ""}
                   @click=${() => { this._viewsOpen = false; this._fire("view-change", v.id); }}>
                   <ha-icon .icon=${v.icon}></ha-icon>${v.label}${this._count(v)}
@@ -322,7 +328,7 @@ export class AppHeader extends LitElement {
           : this.narrow
             ? this._viewPicker()
             : html`<div class="tabs" role="tablist">
-              ${VIEWS.map(
+              ${this._views.map(
                 (v) => html`<button class="tab ${v.id === this.view ? "active" : ""}" role="tab" title=${v.label} aria-label=${v.label}
                   aria-selected=${v.id === this.view} @click=${() => this._fire("view-change", v.id)}>
                   <ha-icon .icon=${v.icon}></ha-icon><span class="tab-text">${v.label}</span>${v.count

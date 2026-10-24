@@ -239,6 +239,7 @@ export class HomeDeskPanel extends LitElement {
     window.visualViewport?.addEventListener("scroll", this._fit);
     this._mq.addEventListener("change", this._onCompact);
     document.addEventListener("visibilitychange", this._onVisible);
+    window.addEventListener("click", this._onSidebarClick, true);
     if (this._client && !this._unsub) this._subscribe(); // reattached after being removed
   }
 
@@ -256,6 +257,7 @@ export class HomeDeskPanel extends LitElement {
     window.visualViewport?.removeEventListener("scroll", this._fit);
     this._mq.removeEventListener("change", this._onCompact);
     document.removeEventListener("visibilitychange", this._onVisible);
+    window.removeEventListener("click", this._onSidebarClick, true);
     window.clearInterval(this._pollTimer);
     this._unsub?.();
     this._unsub = undefined;
@@ -395,7 +397,7 @@ export class HomeDeskPanel extends LitElement {
         this._client.labels(),
         this._client.categories(),
       ]);
-      if (this._admin) this._settings = await this._client.settings();
+      if (this._admin) this._setSettings(await this._client.settings());
       if (this._q.trim()) await this._runSearch();
       if (this._selectedId !== null) await this._loadSelected(this._selectedId);
       this._error = "";
@@ -419,9 +421,19 @@ export class HomeDeskPanel extends LitElement {
     }
   }
 
+  /** The master AI switch. Off hides every AI control (and the Queued for AI tab, so a saved or open view of it moves to the Inbox). */
+  private get _aiOn(): boolean {
+    return this._settings?.ai_enabled !== false;
+  }
+
+  private _setSettings(settings: HomeDeskSettings) {
+    this._settings = settings;
+    if (settings.ai_enabled === false && this._view === "queued") this._view = "inbox";
+  }
+
   /** Whether the built-in AI agent can be asked to work (an AI Task agent is chosen in Settings), and its short name. */
   private get _canAsk(): boolean {
-    return !!this._settings?.agent?.startsWith("ai_task.");
+    return this._aiOn && !!this._settings?.agent?.startsWith("ai_task.");
   }
 
   /** The AI Home Assistant is asked to review a ticket, by its integration's name, for dialogs: "the AI (Claude)". */
@@ -711,6 +723,29 @@ export class HomeDeskPanel extends LitElement {
     }
   }
 
+  /** Home: the Home page, with no ticket open. */
+  private _goHome() {
+    this._page = "home";
+    this._close();
+  }
+
+  /**
+   * Choosing Home Desk in Home Assistant's sidebar always comes back to Home, even from a ticket, a list or Settings. Home Assistant
+   * does not change the address when it is already this panel's, so the panel would not hear about it from the router: it watches
+   * for the click on the sidebar's own link instead.
+   */
+  private _onSidebarClick = (e: MouseEvent) => {
+    const path = e.composedPath();
+    if (path.includes(this)) return; // a click inside the panel is the panel's own business
+    const link = path.find((n): n is HTMLAnchorElement => n instanceof HTMLAnchorElement);
+    if (!link) return;
+    try {
+      if (new URL(link.href, location.href).pathname === this._prefix) this._goHome();
+    } catch {
+      // A link without a usable address is not the sidebar's.
+    }
+  };
+
   private _close() {
     this._selectedId = null;
     this._selected = null;
@@ -798,7 +833,7 @@ export class HomeDeskPanel extends LitElement {
 
   /** The Home page: on a wide screen it fills the right pane beside the Inbox list; on a narrow one it stands alone with its own Inbox. */
   private _homeTemplate(compact: boolean) {
-    return html`<st-home-page .tickets=${this._tickets} .language=${this.hass.language} .userName=${this.hass.user?.name ?? ""} .compact=${compact}
+    return html`<st-home-page .tickets=${this._tickets} .language=${this.hass.language} .userName=${this.hass.user?.name ?? ""} .compact=${compact} .aiOn=${this._aiOn}
       @open-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
       @go-view=${(e: CustomEvent<{ view: string; priority: string }>) => {
         this._page = "";
@@ -813,7 +848,7 @@ export class HomeDeskPanel extends LitElement {
     const lang = this.hass.language;
     const selecting = this._selectedId !== null;
     return html`
-      <st-app-header .page=${this._page === "home" ? "" : this._page} .view=${this._page === "home" ? "" : this._view} .tickets=${this._tickets} .narrow=${this.narrow} .admin=${this._admin} .ticketOpen=${this._selectedId !== null}
+      <st-app-header .page=${this._page === "home" ? "" : this._page} .view=${this._page === "home" ? "" : this._view} .tickets=${this._tickets} .narrow=${this.narrow} .admin=${this._admin} .aiOn=${this._aiOn} .ticketOpen=${this._selectedId !== null}
         @page-change=${(e: CustomEvent<Page>) => (this._page = e.detail)}
         @view-change=${(e: CustomEvent<string>) => {
           this._page = "";
@@ -827,10 +862,7 @@ export class HomeDeskPanel extends LitElement {
           await this.updateComplete;
           this.renderRoot.querySelector<TopBar>("st-top-bar")?.focusSearch();
         }}
-        @go-home=${() => {
-          this._page = "home";
-          this._close();
-        }}
+        @go-home=${() => this._goHome()}
         @refresh=${() => void this._refresh()}
         @mark-all-read=${() => void this._markRead()}></st-app-header>
       ${this._error ? html`<div class="banner">${this._error}</div>` : nothing}
@@ -848,7 +880,7 @@ export class HomeDeskPanel extends LitElement {
               @categories-changed=${() => void this._refresh()}></st-category-manager>`
           : this._page === "settings" && this._client
             ? html`<st-settings .client=${this._client} .hass=${this.hass}
-                @settings-changed=${(e: CustomEvent<HomeDeskSettings>) => (this._settings = e.detail)}></st-settings>`
+                @settings-changed=${(e: CustomEvent<HomeDeskSettings>) => this._setSettings(e.detail)}></st-settings>`
             : html`<main class=${`${selecting ? "has-selection" : ""} ${this._wide && selecting && !this._compact ? "wide" : ""}`}>
         <st-top-bar .q=${this._q} .tabs=${this._tabInfos} .activeId=${this._selectedId} .results=${this._hits}
           @open-result=${(e: CustomEvent<number>) => {
@@ -918,7 +950,8 @@ export class HomeDeskPanel extends LitElement {
           @open-ticket=${(e: CustomEvent<number>) => void this._open(e.detail)}
           .hass=${this.hass}
           .canAsk=${this._canAsk}
-          .canRun=${!!this._settings?.agent_runner}
+          .aiOn=${this._aiOn}
+          .canRun=${this._aiOn && !!this._settings?.agent_runner}
           @run-agent=${(e: CustomEvent<{ body: string; done: () => void }>) => this._runNow(e.detail)}
           @proceed=${(e: CustomEvent<{ eventId: number; action: "approve" | "dismiss" }>) => this._selected && void this._act((c) => c.proceed(this._selected!.id, e.detail.eventId, e.detail.action))}
           @proposal=${(e: CustomEvent<{ eventId: number; action: "apply" | "dismiss" }>) => this._selected && void this._act((c) => c.proposal(this._selected!.id, e.detail.eventId, e.detail.action))}

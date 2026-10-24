@@ -11,6 +11,8 @@ Home Desk has two separate AI actions. **Review** only advises. **Queue** hands 
 | **Review** | An AI reads the ticket and suggests what to do. It can only advise. | In Home Assistant. |
 | **Queue** | Marks the ticket for an AI agent that you run. | Wherever you run it. |
 
+Don't want any of this? Turn off **Use AI** in [Settings](/guide/settings): every AI control disappears and Home Desk refuses what an AI would do.
+
 Both are choices in the **AI Action** pill in the reply bar. You pick one, then press the main button, which names what it will do. **Run** also appears there if you have set up the optional [runner](/runner/).
 
 ## Review

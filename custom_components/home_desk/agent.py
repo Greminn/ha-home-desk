@@ -21,6 +21,7 @@ from .agent_context import async_build_prompt
 from .proposals import clean as clean_actions, split_reply
 from .const import AGENT_TIMEOUT, DOMAIN
 from .storage import (
+    AI_OFF,
     TicketError,
     async_add_comment,
     async_get_settings,
@@ -137,6 +138,8 @@ async def _turn(hass: HomeAssistant, ticket_id: int, entity_id: str, name: str, 
 async def async_run_now(hass: HomeAssistant, ticket_id: int, actor: str) -> dict[str, Any]:
     """"Review with AI": ask the AI chosen in Settings to review the ticket (this uses the AI plan). The assignee is left alone."""
     settings = await async_get_settings(hass)
+    if not settings.get("ai_enabled", True):
+        raise TicketError(AI_OFF)
     entity_id = settings.get("agent") or ""
     if not entity_id.startswith("ai_task."):
         raise TicketError("Choose an AI Task agent in Settings first")
@@ -160,4 +163,6 @@ async def async_stop_turn(hass: HomeAssistant, ticket_id: int, actor: str) -> No
 
 async def async_test_agent(hass: HomeAssistant, entity_id: str) -> str:
     """A harmless request, to see that the chosen AI answers. Returns its answer."""
+    if not (await async_get_settings(hass)).get("ai_enabled", True):
+        raise TicketError(AI_OFF)
     return await _ask(hass, entity_id, "Home Desk test", "Reply with one short, friendly sentence saying you are ready to help with smart home tickets.")

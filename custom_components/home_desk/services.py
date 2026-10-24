@@ -22,6 +22,7 @@ from homeassistant.helpers import config_validation as cv
 from .changelog import changelog_since
 from .const import DOMAIN, LABEL_COLORS, LEGACY_TYPE_LABELS, PRIORITIES, STATUS_ALIASES, STATUSES
 from .storage import (
+    AI_OFF,
     TicketError,
     async_add_comment,
     async_claim_run,
@@ -65,6 +66,7 @@ _LEGACY = {
 
 # What the AI Agent's own user may do to a ticket depends on its run, so it is read-only until a person presses Proceed: it can
 # comment while any run is working the ticket, but changing, closing, linking or creating tickets only while the approved change run is.
+_RUN_SERVICES = {"claim_run", "note_run", "finish_run"}  # only ever called by the runner
 _AGENT_COMMENTS = {"add_comment"}
 _AGENT_WRITES = {"update_ticket", "close_ticket", "link_tickets", "create_ticket"}
 
@@ -292,6 +294,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             return
 
         async def checked(call: ServiceCall):
+            if not (await async_get_settings(hass)).get("ai_enabled", True) and (
+                name in _RUN_SERVICES or await _is_agent_user(hass, call) or str(call.data.get("actor") or "").lower().startswith("ai:")
+            ):
+                raise HomeAssistantError(AI_OFF)  # the master switch in Settings: nothing an AI agent does is accepted
             user_id = call.context.user_id
             if user_id is not None:  # an automation or script has no user and is trusted, as before
                 user = await hass.auth.async_get_user(user_id)

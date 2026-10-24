@@ -291,6 +291,8 @@ export class HomePage extends LitElement {
   @property() userName = "";
   /** On a narrow screen the page stands alone and carries its own Inbox; on a wide one the Inbox list is beside it. */
   @property({ type: Boolean }) compact = false;
+  /** The master AI switch: off drops the Queued for AI tile. */
+  @property({ type: Boolean }) aiOn = true;
 
   private _fire(name: string, detail: unknown) {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
@@ -403,7 +405,7 @@ export class HomePage extends LitElement {
       <div class="tiles">
         ${this._tile("mdi:inbox-outline", "Inbox", inbox.length, "inbox", { cls: unread(inbox), flags: flags(inbox) })}
         ${this._tile("mdi:progress-wrench", "Working", view("working").length, "working", { cls: unread(view("working")), flags: flags(view("working")) })}
-        ${this._tile("mdi:star-four-points-outline", "Queued for AI", view("queued").length, "queued", { cls: unread(view("queued")) })}
+        ${this.aiOn ? this._tile("mdi:star-four-points-outline", "Queued for AI", view("queued").length, "queued", { cls: unread(view("queued")) }) : nothing}
         ${this._tile("mdi:check-circle-outline", "Completed", completed, "completed", { sub: "in the last 7 days" })}
       </div>
 
