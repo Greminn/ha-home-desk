@@ -5,9 +5,9 @@ hero:
   name: Home Desk
   text: A smart home ticket system for Home Assistant
   image:
-    light: /screenshots/screenshot-main-light-v3.png
-    dark: /screenshots/screenshot-main-v3.png
-    alt: The Home Desk panel in Home Assistant, with the Inbox beside an open ticket and its reply bar
+    light: /screenshots/home-desk-hero-v3.png
+    dark: /screenshots/home-desk-hero-v3.png
+    alt: The Home Desk panel in Home Assistant, with floating cards showing a ticket and an AI agent answering it
   tagline: Raise, track and resolve tickets in a panel in Home Assistant's own style, with AI to help.
   actions:
     - { theme: brand, text: What Is Home Desk?, link: /guide/what-is-home-desk }

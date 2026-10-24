@@ -62,8 +62,13 @@
     margin-left: 32px;
   }
 
-  /* Sits a little below the vertical centre of the text, without changing the height of the hero. */
+  /* Sits a little below the vertical centre of the text, without changing the height of the hero. It is wider than its column, spilling
+     into the empty edges of the artwork on both sides, and never catches a click meant for the buttons beside it. */
   .VPHero.has-image .image-src {
+    width: calc(100% + 160px);
+    max-width: none;
+    margin: 0 -60px 0 -100px;
+    pointer-events: none;
     transform: translateY(40px);
   }
 }
