@@ -2,6 +2,8 @@ import { defineConfig } from "vitepress";
 
 // Published at https://greminn.github.io/ha-home-desk/ (GitHub Pages), so every address starts with /ha-home-desk/.
 export default defineConfig({
+  // The AI Agent runner is left out of the first release: its pages stay in the repository, unpublished and unlinked.
+  srcExclude: ["runner/**"],
   title: "Home Desk",
   description: "A smart home ticket system for Home Assistant, with AI to help.",
   base: "/ha-home-desk/",
@@ -12,7 +14,7 @@ export default defineConfig({
     logo: { light: "/home-desk-icon.svg", dark: "/home-desk-icon-dark.svg" },
     nav: [
       { text: "Getting Started", link: "/guide/what-is-home-desk", activeMatch: "/guide/(what-is-home-desk|install|first-ticket)" },
-      { text: "Using Home Desk", link: "/guide/getting-around", activeMatch: "/guide/(getting-around|status|labels-categories|household-reports|repairs|events|settings|good-to-know)" },
+      { text: "Using Home Desk", link: "/guide/getting-around", activeMatch: "/guide/(getting-around|status|labels-categories|household-reports|repairs|events|settings|good-to-know|under-the-hood)" },
       { text: "AI Agents", link: "/ai/using-ai", activeMatch: "/ai/" },
     ],
     sidebar: [
@@ -32,18 +34,11 @@ export default defineConfig({
       ] },
       { text: "AI Agents", items: [
         { text: "Using AI with Home Desk", link: "/ai/using-ai" },
-        { text: "Connect Your AI Agent", link: "/ai/access" },
       ] },
       { text: "Advanced", items: [
+        { text: "Connect Your AI Agent", link: "/ai/access" },
         { text: "Events and Automations", link: "/guide/events" },
-        { text: "AI Agent Runner", collapsed: true, items: [
-          { text: "Overview", link: "/runner/" },
-          { text: "How It Is Built", link: "/runner/overview" },
-          { text: "Setup", link: "/runner/setup" },
-          { text: "Looking at Your Home", link: "/runner/mcp" },
-          { text: "Presets", link: "/runner/presets" },
-          { text: "Troubleshooting", link: "/runner/running" },
-        ] },
+        { text: "Under the Hood", link: "/guide/under-the-hood" },
       ] },
       { text: "Support", items: [
         { text: "Reporting a Problem", link: "/support/reporting-a-problem" },

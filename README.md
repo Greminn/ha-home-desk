@@ -66,7 +66,6 @@ actions:
 
 Every ticket change also fires `home_desk_event`, so an [automation](https://greminn.github.io/ha-home-desk/guide/events) can notify your phone. Built-in push notifications aren't available yet.
 
-
 ## Support the project
 
 Home Desk is a personal project, free and shared as is. If it's useful to you and you'd like to say thanks, you can [buy me an espresso](https://buymeacoffee.com/greminn). It's never expected, and bug reports and ideas are just as welcome.

@@ -17,18 +17,14 @@ A message, a photo or a voice message is enough on its own. A report with no wor
 
 The report arrives in the **Inbox**. Only administrators set the priority and other labels.
 
-::: warning Recording needs https
-The browser blocks the microphone unless Home Assistant is opened over `https` or `localhost`.
+::: warning Recording needs a secure connection
+The browser blocks the microphone unless Home Assistant is opened over a secure (https) address. You can still pick a recording from the device.
 :::
 
 ## Voice to Text
 
-The recording is converted in the browser to 16 kHz mono WAV. After the report is sent it is passed to Home Assistant's speech-to-text, using the engine chosen in [Settings](/guide/settings) or the one the Assist pipeline uses. The text is added to the description as a quoted block. A speech-to-text failure never loses the ticket or the recording.
+After the report is sent, the recording is turned into text by Home Assistant's speech-to-text and added to the description as a quote. If that fails, the ticket and the recording are kept. Turn it off in [Settings](/guide/settings).
 
-Turn it off in [Settings](/guide/settings).
+## Limits
 
-## Files and Limits
-
-- Files are stored in `<config>/home_desk_attachments/<ticket>/`.
-- Only JPEG, PNG, WebP, WAV, Ogg, WebM, MP4/M4A and MP3 are accepted, judged by their first bytes. They are served with `nosniff` and a sandboxing content policy, only to administrators and the sender, through signed links.
-- Photos are limited to 10 MB each and a voice message to 12 MB. Each person can send ten reports an hour. A refused report leaves nothing behind.
+Up to 6 photos and one voice message of up to 3 minutes per report, and ten reports an hour for each person. The technical details are in [Under the Hood](/guide/under-the-hood).

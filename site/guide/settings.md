@@ -11,14 +11,13 @@ The cog in the Home Desk header opens Settings. Administrators only. Changes sav
 | **Tickets** | **Close resolved tickets** | The delay before a resolved ticket closes. |
 | | **Tickets from Repairs** | Opens a ticket for each Home Assistant Repair. See [Repairs](/guide/repairs). |
 | **Voice messages** | **Write out voice messages** and **Speech-to-text** | Transcribes household voice messages, with the speech-to-text engine you choose. See [Household Reports](/guide/household-reports). |
-| **AI** | **Use AI** | The master switch, on by default. Off hides every AI control and setting (the AI Action control, the **Queued for AI** tab and tile, and the cards below), and Home Desk refuses Review, Run, Proceed, assigning a ticket to an AI agent and anything an AI agent sends it. Turning it off asks first, because it also takes every ticket off the AI queue and ends any run in progress; turning it back on does not put them back. |
+| **AI** | **Use AI** | The master switch, on by default. Off hides every AI control and setting (the AI Action control, the **Queued for AI** tab and tile, and the cards below), and Home Desk refuses Review, assigning a ticket to an AI agent and anything an AI agent sends it. Turning it off asks first, because it also takes every ticket off the AI queue and ends any run in progress; turning it back on does not put them back. |
 | **AI review** | **AI for review** | The AI Task or conversation entity used by **Review With AI**. See [AI Agents](/ai/using-ai). |
 | | **Daily limit** | How many reviews can be asked for in a day. **Test the AI** sends one short question to check it works. |
 | **What the AI is sent for a review** | Entity states, automation and script configuration, related tickets | What is added to the ticket and its comments. Secrets are removed first. |
 | **Review instructions** | The text the AI is given | Editable. See below. |
-| **AI Agent runner** | **Offer Run AI Agent Now**, and the agent's Home Assistant user | Shows **Run** in the reply bar once the optional [runner](/runner/) is set up. |
 
-The four AI cards below **AI** appear only while **Use AI** is on.
+The AI cards below **AI** appear only while **Use AI** is on.
 
 **Manage Labels** and **Manage Categories** are in the **⋮** menu.
 

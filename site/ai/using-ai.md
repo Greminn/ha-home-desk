@@ -11,9 +11,9 @@ Home Desk has two separate AI actions. **Review** only advises. **Queue** hands 
 | **Review** | An AI reads the ticket and suggests what to do. It can only advise. | In Home Assistant. |
 | **Queue** | Marks the ticket for an AI agent that you run. | Wherever you run it. |
 
-Don't want any of this? Turn off **Use AI** in [Settings](/guide/settings) (it asks first): every AI control disappears, tickets queued for an AI come off the queue, and Home Desk refuses what an AI would do, including calls from an agent you connect and from the runner.
+Don't want any of this? Turn off **Use AI** in [Settings](/guide/settings) (it asks first): every AI control disappears, tickets queued for an AI come off the queue, and Home Desk refuses what an AI would do, including calls from an agent you connect.
 
-Both are choices in the **AI Action** pill in the reply bar. You pick one, then press the main button, which names what it will do. **Run** also appears there if you have set up the optional [runner](/runner/).
+Both are choices in the **AI Action** pill in the reply bar. You pick one, then press the main button, which names what it will do.
 
 ## Review
 
@@ -27,14 +27,10 @@ It cannot change anything and never touches the assignment. The instructions it 
 
 ## Queue
 
-Type the instruction in the comment box, pick **Queue** in the **AI Action** pill and press the main button, which reads **Queue for AI Agent**. The ticket moves to **Queued for AI** and `home_desk_event` fires with `kind: assigned`, so an [automation](/guide/events) can start the agent. When the agent replies, the ticket returns to the administrator. Queue it again to continue.
+Type the instruction in the comment box, pick **Queue** in the **AI Action** pill and press the main button, which reads **Queue for AI Agent**. The ticket moves to **Queued for AI**, and an [automation](/guide/events) can start your agent. When the agent replies, the ticket returns to the administrator. Queue it again to continue.
 
 An agent's comments are marked **AI Agent** with the spark icon.
 
-When a **Run** finds nothing to change (its findings end in "What I would change: Nothing"), the run simply finishes: there is no **Proceed** to press.
-
-## Running the Work
-
-To have an agent work queued tickets for you, see the optional [AI Agent Runner](/runner/). Setup is technical, and it carries a warning. Once it is set up and switched on in Settings, **Run** appears in the **AI Action** pill and the main button reads **Run AI Agent Now**.
+## Connecting an Agent
 
 To connect an agent you already run, see [Connect Your AI Agent](/ai/access).

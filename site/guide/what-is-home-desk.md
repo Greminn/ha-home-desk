@@ -11,9 +11,9 @@ Tickets are raised by:
 - **Administrators**, for anything in or around the home.
 - **Household users**, through a report form that accepts photos and a voice message.
 - **Home Assistant**, from [Repairs](/guide/repairs). The ticket resolves when the Repair clears.
-- **AI agents**, through the `home_desk.*` actions. See [AI Agents](/ai/using-ai).
+- **AI agents** you connect. See [AI Agents](/ai/using-ai).
 
-Every change is kept in the ticket's history and fires a `home_desk_event`, so [automations](/guide/events) can react to it.
+Every change is kept in the ticket's history, and [automations](/guide/events) can react to it.
 
 ## Ticket Lifecycle
 

@@ -4,7 +4,7 @@ title: Getting Around
 
 # Getting Around
 
-The ticket list is on the left and the open ticket on the right. A phone shows one at a time. Every ticket has its own address, `/home-desk/<id>`, and a refresh keeps you on the page you were on, except Settings. Choosing **Home Desk** in Home Assistant's sidebar always opens Home, even from a ticket, a list or Settings.
+The ticket list is on the left and the open ticket on the right. A phone shows one at a time. A refresh keeps you on the page you were on, except Settings. Choosing **Home Desk** in Home Assistant's sidebar always opens Home, even from a ticket, a list or Settings.
 
 ## The Home Page
 
@@ -64,7 +64,7 @@ Each ticket you open gets a chip under the header.
 Choices in the reply bar are picked first, then applied with the main button, which says what it will do:
 
 - **Priority icons** (High, Urgent): the button reads **Set Priority** when that is all you chose.
-- **AI Action:** pick one of **Run**, **Review** or **Queue**, and select it again to switch it off. The main button then reads **Run AI Agent Now**, **Review With AI Now** or **Queue for AI Agent**. Run and Review ask you to confirm first, because they use your AI plan. See [AI Agents](/ai/using-ai).
+- **AI Action:** pick **Review** or **Queue**, and select it again to switch it off. The main button then reads **Review With AI Now** or **Queue for AI Agent**. Review asks you to confirm first, because it uses your AI plan. See [AI Agents](/ai/using-ai).
 - Text in the comment box is posted first, as your comment or as the instruction to the AI.
 
 **Resolve**, **Start Working** and **Reopen** act straight away.

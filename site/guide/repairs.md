@@ -10,7 +10,7 @@ To skip noisy integrations, list them under **Settings â†’ Devices & Services â†
 
 ## Ticket Contents
 
-Requester `Home Assistant`, category Home Assistant, labels Bug and Repair. The priority follows severity: critical is Urgent, error is High, warning is Normal. The description holds the Repair's text, the integration and its "learn more" link. Your own changes to priority and labels are kept.
+Requester Home Assistant, category Home Assistant, labels Bug and Repair. The priority follows severity: critical is Urgent, error is High, warning is Normal. The description holds the Repair's text, the integration and its "learn more" link. Your own changes to priority and labels are kept.
 
 ## How the Ticket Follows the Repair
 
