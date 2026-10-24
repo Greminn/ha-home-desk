@@ -122,8 +122,8 @@ rsync -a --exclude __pycache__ custom_components/home_desk/ user@homeassistant.l
 - **Hero image, NOT yet approved or committed at the time of writing** (committed at the end of the session as work in progress for the author to judge): the author supplied `~/Desktop/home-desk-hero.png` (5000x3160 transparent RGBA, plus a `.psd`, both only on the Mac). It is saved cropped to the full alpha edge and resized to 2000 px wide as `site/public/screenshots/home-desk-hero-v3.png` (the `-v1` and `-v2` were tried and deleted; the author said v2 cut off glow), used for both themes in `site/index.md`, and made about 25% larger on desktop by a rule in `site/.vitepress/theme/custom.css` (wider than its column, `pointer-events: none`). Open: whether it is big enough or too big, a light variant, the README still shows the old screenshot, and a faint straight edge where the glow was clipped at the bottom of the source (a re-export of the PSD with more room would fix it). Checked at 1440 and 1100 px wide only, in light mode; phone and dark not looked at.
 
 **Waiting on the author**
-- Say whether the hero image is big enough, and whether the README should use it.
-- Review the remaining docs pages (preview: `cd site && npx vitepress dev --port 5174 --host 127.0.0.1`, then http://127.0.0.1:5174/ha-home-desk/). The home page is signed off apart from the hero image.
+- ~~Hero image~~: **the home page, hero image included, was signed off on 2026-10-25.** Still open: whether the README should use the new hero.
+- Review the remaining docs pages (preview: `cd site && npx vitepress dev --port 5174 --host 127.0.0.1`, then http://127.0.0.1:5174/ha-home-desk/). The home page is fully signed off (2026-10-25).
 - Answer: should the New Ticket dialog also get the single message box?
 - Delete `/private/tmp/claude-501/hd-cleanup/` (it holds the pre-rewrite backup bundle, which still contains the old private address) once the second history rewrite is done.
 
