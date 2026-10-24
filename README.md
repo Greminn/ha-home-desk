@@ -13,7 +13,7 @@ Something in the house stops working, a household member has a request, or you h
 
 ## What you get
 
-- **An interface that looks like part of Home Assistant.** A Home page (what needs you, recent activity), five tabs (Inbox, Working, Queued for AI, Ideas, Completed), a searchable, sortable list and a full-width ticket page.
+- **An interface that looks like part of Home Assistant.** A Home page (what needs you, recent activity), tabs for Inbox, Working, Ideas and Completed (plus Queued for AI when AI is on), a searchable, sortable list and a full-width ticket page.
 - **A lifecycle that moves by itself.** New, In Progress, Resolved and Closed, with GitHub-style labels and categories for which part of the home a ticket is about.
 - **Tickets from Home Assistant Repairs.** Each repair becomes a ticket, and closes itself when the repair clears. Anything else that fires an event can raise one too.
 - **A simple report form for household users**, with photos and a voice message that Home Assistant's speech-to-text writes out.

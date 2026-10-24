@@ -10,7 +10,7 @@ The ticket list is on the left and the open ticket on the right. A phone shows o
 
 The **Home Desk** title in the header opens the Home page. It shows:
 
-- **Four tiles:** Inbox, Working, Queued for AI, and how many tickets were completed in the last 7 days. Select a tile to open that tab.
+- **Tiles:** Inbox, Working, Queued for AI (only while [AI is on](/guide/settings)), and how many tickets were completed in the last 7 days. Select a tile to open that tab.
 - **Urgent and High counts** on the Inbox and Working tiles. Select one to open that tab with the priority filter already set, so the number always matches the list you land on.
 - **Blue numbers.** A tile's number turns blue when that tab has tickets with updates you have not seen, the same as the counts in the tab bar.
 - **Ticket Activity:** a graph of tickets opened and completed on each of the last 7 days.
@@ -23,11 +23,11 @@ Each open ticket is in exactly one tab, the first that fits.
 |---|---|
 | **Inbox** | New tickets, and tickets reopened by Home Assistant or an AI agent. |
 | **Working** | Tickets in progress, and tickets an AI agent has answered. |
-| **Queued for AI** | Tickets handed to an AI agent. |
+| **Queued for AI** | Tickets handed to an AI agent. Shown only while [AI is on](/guide/settings). |
 | **Ideas** | Enhancement tickets not yet started. Notes do not move them. **Start Working** moves one to **Working**. |
 | **Completed** | Resolved and closed tickets. Tickets with the **History** label are listed here only when you filter by that label. |
 
-The first four show counts that add up to the open tickets. The last tab used is remembered per browser.
+The tabs before Completed show counts that add up to the open tickets. The last tab used is remembered per browser.
 
 ## The List
 
