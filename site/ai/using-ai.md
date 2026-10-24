@@ -11,6 +11,10 @@ Home Desk has two separate AI actions. **Review** only advises. **Queue** hands 
 | **Review** | An AI reads the ticket and suggests what to do. It can only advise. | In Home Assistant. |
 | **Queue** | Marks the ticket for an AI agent that you run. | Wherever you run it. |
 
+::: warning Usage and Cost
+AI is not free. **Review** sends the ticket to the AI you chose, and that uses your AI plan and may cost money. Home Desk asks you to confirm each time and has a daily limit in [Settings](/guide/settings) so a busy day cannot run up a bill. An agent you run yourself uses its own plan, which Home Desk cannot see or limit. Check what your AI provider charges, and keep an eye on your usage.
+:::
+
 Don't want any of this? Turn off **Use AI** in [Settings](/guide/settings) (it asks first): every AI control disappears, tickets queued for an AI come off the queue, and Home Desk refuses what an AI would do, including calls from an agent you connect.
 
 Both are choices in the **AI Action** pill in the reply bar. You pick one, then press the main button, which names what it will do.
