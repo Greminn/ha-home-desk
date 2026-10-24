@@ -16,3 +16,8 @@ site/.vitepress/dist/
 
 # Private working notes (design ideas and decisions in progress); kept on this machine only.
 local/
+
+# The AI Agent runner is left out of the first release: it stays on this machine, untracked, until it is offered again.
+/runner/
+/site/runner/
+/tests/test_runner.py
