@@ -10,6 +10,8 @@ An agent should call **`home_desk.get_guide`** first. It returns the fields, the
 
 Agents should pass their own name as `actor`, so their work is labelled in the ticket's history.
 
+If the owner has turned **Use AI** off in [Settings](/guide/settings), calls from an agent (an `ai:` actor, or the agent's own Home Assistant user) are refused with "AI is switched off in Settings". An agent should stop and say so, not retry.
+
 Responses are data. Call the actions with response enabled (`return_response: true`).
 
 ## Through an Existing Connection

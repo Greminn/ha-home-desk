@@ -18,6 +18,7 @@ Something in the house stops working, a household member has a request, or you h
 - **Tickets from Home Assistant Repairs.** Each repair becomes a ticket, and closes itself when the repair clears. Anything else that fires an event can raise one too.
 - **A simple report form for household users**, with photos and a voice message that Home Assistant's speech-to-text writes out.
 - **AI that advises first.** **Review With AI** asks the AI you chose in Settings to look at a ticket and say what it thinks, and it can't change anything. **Queue** hands a ticket to an AI agent you run yourself.
+- **AI is optional and has a master switch.** Turn off **Use AI** in Settings and every AI control disappears and Home Desk refuses what an AI would do.
 
 ## Documentation
 

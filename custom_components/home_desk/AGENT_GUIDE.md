@@ -106,6 +106,7 @@ Home Desk can turn Home Assistant's own **Repairs** into tickets (an option on t
 
 - Timestamps are UTC ISO-8601; convert to the household's local time when speaking to people.
 - Ticket text is markdown. Use backticks for entity ids.
+- The owner can switch AI off (Settings, Use AI). Then any call as an AI (an `ai:` actor or your own Home Assistant user) is refused with "AI is switched off in Settings". Stop and say so; do not retry or look for another route.
 - The panel (sidebar: Home Desk) shows the same data live; your changes appear there as you make them, under your `actor` name.
 - A `home_desk_event` is fired on the event bus for every change (`created`, `updated`, `comment`, `note`, `closed`, and `assigned` when a ticket is handed to an AI agent). The data includes `with_agent` and `category`, so the manager can automate notifications.
 

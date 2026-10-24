@@ -4,7 +4,7 @@ title: Using the Panel
 
 # Using the Panel
 
-The ticket list is on the left and the open ticket on the right. A phone shows one at a time. Every ticket has its own address, `/home-desk/<id>`, and a refresh keeps you on the page you were on, except Settings: coming back to Home Desk always opens Home.
+The ticket list is on the left and the open ticket on the right. A phone shows one at a time. Every ticket has its own address, `/home-desk/<id>`, and a refresh keeps you on the page you were on, except Settings. Choosing **Home Desk** in Home Assistant's sidebar always opens Home, even from a ticket, a list or Settings.
 
 ## The Home Page
 
