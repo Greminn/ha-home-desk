@@ -3828,26 +3828,7 @@ ${e.related?.length?F`<div class="chips"><span class="sect">Related</span>${e.re
         </details>
       </div>
 
-      <div class="card">
-        <h2>AI Agent runner</h2>
-        <p class="help">The AI Agent on your Network LXC works a ticket when you press <b>Run</b>: it reads it first and says what it found and what it would change, and only changes anything after you press <b>Proceed</b>. See <code>docs/agent-runs.md</code> for setting up the runner.</p>
-        <div class="srow">
-          <div class="text">
-            <div class="name">Offer Run AI Agent Now</div>
-            <div class="desc">Shows <b>Run</b> in the AI Action control on a ticket. Switch it on once the runner is set up.</div>
-          </div>
-          ${this._switch(e.agent_runner,"Offer Run AI Agent Now",e=>{this._save({agent_runner:e})})}
-        </div>
-        <div class="srow">
-          <div class="text">
-            <div class="name">The agent's Home Assistant user</div>
-            <div class="desc">The runner signs in as this user. It must not be an administrator: it can read and comment on tickets, create and update them, and claim and finish its runs, and nothing else (no merging, labels, categories or import).</div>
-          </div>
-          <st-dropdown plain field label="The agent's Home Assistant user" .value=${e.agent_user} .options=${[{id:"",label:"None"},...this._users.map(e=>({id:e.id,label:e.name}))]}
-            @change=${e=>{this._save({agent_user:e.detail})}}></st-dropdown>
-        </div>
-        ${e.agent_runner&&!e.agent_user?F`<div class="note">Choose the agent's user, or the runner can't sign in with limited rights.</div>`:G}
-      </div>
+      ${G}
 `:G}
 
       ${G}

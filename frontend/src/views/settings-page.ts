@@ -30,6 +30,9 @@ const REPO = "https://github.com/Greminn/ha-home-desk";
 /** The notification options are saved but nothing sends yet (see "Phone notifications" in docs/development.md), so the card stays hidden until it does. */
 const NOTIFICATIONS_SEND = false;
 
+/** The AI Agent runner is left out of the first release. Its card in Settings stays hidden (a setting already switched on keeps working) until it is offered again. */
+const RUNNER_SETTINGS = false;
+
 /** The keyboard shortcuts: the keys, what they do, and a line of detail. Keep in step with the key handlers in ticket-detail.ts and top-bar.ts. */
 const SHORTCUTS: [string[], string, string][] = [
   [["R"], "Reply", "Opens the comment box and puts the cursor in it. With the cursor outside the box it closes it again."],
@@ -506,6 +509,7 @@ export class SettingsPage extends LitElement {
         </details>
       </div>
 
+      ${RUNNER_SETTINGS ? html`
       <div class="card">
         <h2>AI Agent runner</h2>
         <p class="help">The AI Agent on your Network LXC works a ticket when you press <b>Run</b>: it reads it first and says what it found and what it would change, and only changes anything after you press <b>Proceed</b>. See <code>docs/agent-runs.md</code> for setting up the runner.</p>
@@ -526,6 +530,7 @@ export class SettingsPage extends LitElement {
         </div>
         ${s.agent_runner && !s.agent_user ? html`<div class="note">Choose the agent's user, or the runner can't sign in with limited rights.</div>` : nothing}
       </div>
+` : nothing}
 ` : nothing}
 
       ${NOTIFICATIONS_SEND
