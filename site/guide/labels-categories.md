@@ -12,6 +12,8 @@ A ticket has one category or none. Select **Add Category** on a ticket, or selec
 
 **Manage Categories** (the **⋮** menu, administrators only) creates, renames, changes the icon of and deletes categories. Deleting a category leaves its tickets uncategorised. **Home Assistant** is built in and locked.
 
+Categories you might add: **Network**, **Cameras**, **Lighting**, **Heating and Cooling**, **Energy**, **Appliances** and **Security and Access**. Use whatever matches how your own home is divided up.
+
 ## Labels
 
 A label has a name, a colour, and an optional icon and description. The colours are Home Assistant's own colour names, so they follow the theme. A ticket can have any number.
