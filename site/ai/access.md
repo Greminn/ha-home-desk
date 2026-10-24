@@ -38,8 +38,4 @@ Use any Home Assistant MCP server or the REST API. The `home_desk.*` actions are
 }
 ```
 
-::: warning
-Keep the token out of version control.
-:::
-
 The full action list is in the [agent guide](https://github.com/Greminn/ha-home-desk/blob/main/custom_components/home_desk/AGENT_GUIDE.md).
