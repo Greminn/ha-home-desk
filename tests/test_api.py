@@ -518,6 +518,12 @@ async def main():
     await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))
     f4 = await ADMIN_SERVICES["finish_run"][0](ServiceCall({"ticket_id": rt["id"], "state": "proposed", "body": "What I found\n\nAll fine.\n\n**What I would change:**\n\nNothing. Dismiss this.", "actor": "claude-ha"}, user_id="u-agent"))
     assert f4["agent_run"]["state"] == "done" and not [e for e in f4["events"] if (e.get("data") or {}).get("proceed") and e["id"] == f4["agent_run"]["event"]]
+    # the example in the docs ("Raise a Ticket From an Automation") works as written: no user, so the requester is Home Assistant
+    doc = await svc("create_ticket", title="Soil probe has stopped reporting",
+                    description="sensor.garden_soil_moisture has been unavailable for 24 hours.", priority="normal",
+                    labels=["Bug"], entities=["sensor.garden_soil_moisture"])
+    assert doc["requester"] == "Home Assistant" and doc["entities"] == ["sensor.garden_soil_moisture"] and "bug" in [l.lower() for l in doc["labels"]], doc
+    print("docs example ok")
     # the master switch: off takes every ticket off the AI's queue, and nothing an AI does is accepted until it is on again
     queued = await svc("create_ticket", title="Queued for the agent", actor="Simon", assignee="ai:AI")
     running = await svc("create_ticket", title="Being run", actor="Simon")
