@@ -59,7 +59,7 @@ jobs:
         run: python tests/test_api.py
       - name: MCP bridge tests
         run: python tests/test_mcp.py
-      - name: Report tests (photos and voice messages: upload, download, file checks, transcription)
+      - name: Report tests (photos and voice messages, upload and download, file checks, transcription)
         run: python tests/test_attachments.py
       - name: Matching tests (guessing what a ticket is about)
         run: python -I tests/test_matching.py
