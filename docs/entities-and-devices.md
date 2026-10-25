@@ -27,7 +27,7 @@ A device on a ticket stands for all of its entities when the AI agent is given c
 
 - **New Ticket dialog** (manual): a "Devices and entities" field with a search picker. Type "deck" and see matches by name, entity id, device, area or voice-assistant alias, each with its icon and current state. Pick several.
 - **On the ticket:** the chips row gains a **+** (admins) and each chip a remove button, like labels.
-- **From Home Assistant:** Repairs tickets attach the entity or device when the issue names one; the device-watcher proposal (offline devices, low batteries) attaches the device by design; a `report_issue` service takes `entities` and `devices`.
+- **From Home Assistant:** Repairs tickets attach the entity or device when the issue names one, and the `create_ticket` service takes `entities`, `devices` and `areas`.
 - **AI agents:** `create_ticket` and `update_ticket` accept `entities` and `devices` (a service and MCP change), and the guide tells agents to attach what they investigate.
 
 Reuse Home Assistant's own target picker if it can be loaded from a panel (it would look exactly native); otherwise the picker popup that already does categories, fed from the entity, device and area registries the panel already receives.
@@ -73,7 +73,7 @@ A photo could help too (a picture of the deck at night), by sending it to the mo
 | 1 | A `devices` list on tickets (storage, services, MCP, websocket); chips with icon, name and live state; click to open more-info or the device page; add and remove on the ticket and in the New Ticket dialog | Medium |
 | 2 | The AI agent's context expands devices into their entities; the agent guide and service descriptions updated | Small |
 | 3 | The name index and scoring; "Related?" suggestions on the ticket; unconfirmed guesses in the agent's context | Medium |
-| 4 | Follow entity renames; "Show tickets about this"; Repairs and `report_issue` attach entities and devices | Small to medium |
+| 4 | Follow entity renames; "Show tickets about this"; Repairs and `create_ticket` attach entities and devices | Small to medium |
 | 5 | ~~AI-assisted choosing~~ (dropped), and sending the photo | Medium |
 
 Steps 1 to 3 would have made the answer on #234 specific.
