@@ -8,7 +8,7 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 
 ## [1.0.0-beta.1] - 2026-10-25
 
-The first public beta. It covers everything since the internal 0.1.0 below; the panel's look and workflow changed a lot, so read **Breaking** first if you used 0.1.0.
+The first public pre-release. It covers everything since the internal 0.1.0 below; the panel's look and workflow changed a lot, so read **Breaking** first if you used 0.1.0.
 
 ### Breaking
 - **Statuses are now `new`, `in_progress`, `resolved` and `closed`: `open` is gone.** Existing `open` tickets become `in_progress` on first start. Setting `status: open` (or `waiting`) still works and means `in_progress`, but responses never contain `open`. **Action:** stop reading or writing `open`.
