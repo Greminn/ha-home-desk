@@ -6,9 +6,11 @@ title: Why Home Desk?
 
 Things go wrong in a home all the time, and most of them are forgotten before they are fixed. Home Desk keeps them in one place and follows each one through.
 
-## Why Not Just Ask an AI?
+## How Is It Different From Giving an AI Access to Home Assistant?
 
-An AI with access to Home Assistant is good at one job at a time: you ask, and it looks. Home Desk is the other half, a place where problems live.
+A fair question, and one people ask: why not just give an AI agent access to your Home Assistant and prompt it?
+
+An AI with access is good at one job at a time: you ask, and it looks. Home Desk is the other half, a place where problems live.
 
 - **It keeps the record for you.** Every problem has its own ticket, written down as it happens: what was wrong, what was tried and what was decided. An AI can remember too, but only when you ask it to, and only for you.
 - **It has more than one source.** Household members report problems, Repairs become tickets, and automations can raise them, all without anyone having to prompt anything. Everyone who administers your smart home sees the same tickets.
