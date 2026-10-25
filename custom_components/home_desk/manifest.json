@@ -1,6 +1,7 @@
 {
   "domain": "home_desk",
   "name": "Home Desk",
+  "after_dependencies": ["assist_pipeline", "recorder"],
   "codeowners": ["@Greminn"],
   "config_flow": true,
   "dependencies": ["http", "frontend", "panel_custom", "websocket_api"],

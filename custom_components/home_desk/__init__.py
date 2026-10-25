@@ -14,6 +14,7 @@ from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.start import async_at_started
 from homeassistant.loader import async_get_integration
@@ -28,6 +29,9 @@ from .services import async_setup_services
 from .websocket_api import async_register_commands
 
 _LOGGER = logging.getLogger(__name__)
+
+# Home Desk is set up from the UI only; there is nothing to put in configuration.yaml.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
