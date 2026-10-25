@@ -13,13 +13,14 @@ export default defineConfig({
   themeConfig: {
     logo: { light: "/home-desk-icon.svg", dark: "/home-desk-icon-dark.svg" },
     nav: [
-      { text: "Getting Started", link: "/guide/what-is-home-desk", activeMatch: "/guide/(what-is-home-desk|install|first-ticket)" },
+      { text: "Getting Started", link: "/guide/what-is-home-desk", activeMatch: "/guide/(what-is-home-desk|why-home-desk|install|first-ticket)" },
       { text: "Using Home Desk", link: "/guide/getting-around", activeMatch: "/guide/(getting-around|status|labels-categories|household-reports|repairs|events|settings|under-the-hood)" },
       { text: "AI Agents", link: "/ai/using-ai", activeMatch: "/ai/" },
     ],
     sidebar: [
       { text: "Getting Started", items: [
         { text: "What Is Home Desk?", link: "/guide/what-is-home-desk" },
+        { text: "Why Home Desk?", link: "/guide/why-home-desk" },
         { text: "Install", link: "/guide/install" },
         { text: "Your First Ticket", link: "/guide/first-ticket" },
       ] },
