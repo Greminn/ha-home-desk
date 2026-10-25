@@ -5,7 +5,7 @@
   "codeowners": ["@Greminn"],
   "config_flow": true,
   "dependencies": ["http", "frontend", "panel_custom", "websocket_api"],
-  "documentation": "https://github.com/Greminn/ha-home-desk",
+  "documentation": "https://greminn.github.io/ha-home-desk/",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/Greminn/ha-home-desk/issues",
   "requirements": [],
