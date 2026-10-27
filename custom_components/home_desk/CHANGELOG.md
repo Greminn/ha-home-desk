@@ -6,6 +6,10 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 
 ## [Unreleased]
 
+## [1.0.0-beta.2] - 2026-10-28
+
+Tickets for ignored repairs, and a way for an automation to raise a problem once. Home Assistant 2026.10 is now the minimum.
+
 ### Changed
 - **Home Assistant 2026.10 is now the stated minimum** (`hacs.json`, README, documentation). Home Desk had only ever been tested on 2026.10, and the older 2024.10 was never checked. **Action:** if you run an older Home Assistant, update it before updating Home Desk.
 
