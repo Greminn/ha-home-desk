@@ -74,6 +74,22 @@ SERVICES = {
         "include_history": ("Include history", "Include tickets labelled History (records of past work). Default false.", BOOL, False, None),
         "run_state": ("Run state", "Only tickets whose AI Agent run is in this state, or a comma-separated list: requested, running, proposed, approved, done, failed, stopped, dismissed. The runner polls for `requested` and `approved`.", TEXT, False, "requested,approved"),
         "limit": ("Limit", "Maximum tickets to return (default 100).", {"number": {"min": 1, "max": 1000, "mode": "box"}}, False, None)}),
+    "raise_issue": ("Raise issue", "For automations: open a ticket for a problem, once, however often it is reported. The key says which problem it is. Nothing open for the key: a ticket is created. One already open: nothing happens (or one comment an hour with `on_existing: comment`), and a higher priority is taken over. A resolved ticket for the key is reopened. The ticket says which automation or script raised it. Returns `result` (created, found, reopened or commented) and the ticket. Pair it with clear_issue.", {
+        "key": ("Key", "A short name for the problem, the same every time it is reported, e.g. soil-probe-garden-dry. Trimmed and lower-cased, at most 80 characters. It never touches tickets made from Home Assistant Repairs.", TEXT, True, "soil-probe-garden-dry"),
+        "title": ("Title", "Short summary of the problem.", TEXT, True, "Garden soil probe is dry"),
+        "description": ("Description", "Details in markdown. Used as the comment when an open ticket is raised again with `on_existing: comment`, and when a resolved one reopens.", LONG, False, None),
+        "priority": ("Priority", "low, normal, high or urgent. An open ticket only ever goes up.", sel(PRIOS), False, None),
+        "on_existing": ("If already open", "ignore (the default) does nothing; comment adds a comment, at most once an hour for each key.", sel(["ignore", "comment"]), False, None),
+        "labels": ("Labels", "Label names or ids. Names that don't exist yet are created.", MULTI, False, None),
+        "category": ("Category", "What part of the home this is about (see list_categories). It must already exist.", TEXT, False, None),
+        "entities": ("Entities", "Home Assistant entity ids this ticket concerns.", MULTI, False, None),
+        "devices": ("Devices", "Home Assistant device ids this ticket concerns.", MULTI, False, None),
+        "areas": ("Areas", "Home Assistant area ids this ticket concerns.", MULTI, False, None),
+        "actor": ACTOR}),
+    "clear_issue": ("Clear issue", "For automations: the problem raised with raise_issue is over. Resolves the open ticket for the key with a note. If no ticket is open for the key, nothing happens and it is not an error. Returns `result` (cleared or none).", {
+        "key": ("Key", "The key used with raise_issue.", TEXT, True, "soil-probe-garden-dry"),
+        "resolution": ("Resolution", "What to record. A default note is used if left out.", LONG, False, None),
+        "actor": ACTOR}),
     "get_ticket": ("Get ticket", "Return one ticket in full: description, resolution, labels, entities, timeline of comments and changes, and related tickets.", {"ticket_id": TID}),
     "create_ticket": ("Create ticket", "Create a ticket and return it. Search first (list_tickets with a query) to avoid duplicates. AI agents: call get_guide first and pass `actor` with your own name.", {
         "title": ("Title", "Short summary of the problem, request or idea.", TEXT, True, "Hallway light didn't turn on"),

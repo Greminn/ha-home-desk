@@ -38,6 +38,10 @@ class FakeStore:
 class FakeBus:
     def __init__(self):
         self.events = []
+        self.listeners = {}
+
+    def async_listen(self, name, handler):
+        self.listeners.setdefault(name, []).append(handler)
 
     def async_fire(self, name, data):
         self.events.append((name, data))
@@ -61,6 +65,8 @@ class FakeHass:
         self.tasks = []
         self.auth = types.SimpleNamespace(async_get_user=self._user)
         self.users = {}
+        self.states = types.SimpleNamespace(get=lambda entity_id: self.entity_states.get(entity_id))
+        self.entity_states = {}
 
     async def _user(self, user_id):
         return self.users.get(user_id)
@@ -88,9 +94,9 @@ class Unauthorized(Exception):
 
 
 class ServiceCall:
-    def __init__(self, data, user_id=None):
+    def __init__(self, data, user_id=None, context_id=None, parent_id=None):
         self.data = data
-        self.context = types.SimpleNamespace(user_id=user_id)
+        self.context = types.SimpleNamespace(user_id=user_id, id=context_id, parent_id=parent_id)
 
 
 REGISTERED = []  # websocket commands, in the order they were registered
@@ -527,6 +533,47 @@ async def main():
                     labels=["Bug"], entities=["sensor.garden_soil_moisture"])
     assert doc["requester"] == "Home Assistant" and doc["entities"] == ["sensor.garden_soil_moisture"] and "bug" in [l.lower() for l in doc["labels"]], doc
     print("docs example ok")
+
+    # raise_issue and clear_issue: the same problem reported again is one ticket; the automation that raised it is named
+    hass.entity_states["automation.soil_dry"] = types.SimpleNamespace(name="Soil probe is dry", attributes={"id": "1700000000"})
+    run = types.SimpleNamespace(id="ctx-run", user_id=None)
+    for fire in hass.bus.listeners["automation_triggered"]:
+        fire(types.SimpleNamespace(context=run, data={"entity_id": "automation.soil_dry", "name": "Soil probe is dry"}))
+    def raise_(**data):
+        handler, schema = ADMIN_SERVICES["raise_issue"]
+        return handler(ServiceCall(schema({"key": "Soil-Probe-Garden", "title": "Garden soil probe is dry", **data}), context_id="ctx-run"))
+    first = await raise_(priority="normal")
+    assert first["result"] == "created" and first["ticket"]["raised_by"] == {
+        "entity_id": "automation.soil_dry", "name": "Soil probe is dry", "kind": "automation", "url": "/config/automation/edit/1700000000"}, first
+    assert first["ticket"]["source_key"] == "issue:soil-probe-garden" and first["ticket"]["requester"] == "Home Assistant"
+    again = await raise_(priority="high")
+    assert again["result"] == "found" and again["ticket"]["id"] == first["ticket"]["id"] and again["ticket"]["priority"] == "high", again
+    assert (await raise_(priority="low"))["ticket"]["priority"] == "high", "the priority only goes up"
+    com = await raise_(on_existing="comment", description="Still dry.")
+    assert com["result"] == "commented" and com["ticket"]["events"][-1]["body"] == "Still dry."
+    assert (await raise_(on_existing="comment", description="Still dry."))["result"] == "found", "one comment an hour"
+    handler, schema = ADMIN_SERVICES["clear_issue"]
+    cleared = await handler(ServiceCall(schema({"key": " SOIL-probe-garden "}), context_id="ctx-run"))
+    assert cleared["result"] == "cleared" and cleared["ticket"]["status"] == "resolved", cleared
+    assert (await handler(ServiceCall(schema({"key": "soil-probe-garden"}))))["result"] == "none", "nothing open: a quiet no-op"
+    assert (await handler(ServiceCall(schema({"key": "never-raised"}))))["result"] == "none"
+    back = await raise_()
+    assert back["result"] == "reopened" and back["ticket"]["id"] == first["ticket"]["id"] and back["ticket"]["status"] == "new", back
+    nobody = await ADMIN_SERVICES["raise_issue"][0](ServiceCall(ADMIN_SERVICES["raise_issue"][1]({"key": "other", "title": "Other"}), context_id="ctx-unknown"))
+    assert nobody["ticket"].get("raised_by") is None, "an unknown caller is left blank (shown as Home Assistant)"
+    for bad in ({"key": "   ", "title": "x"}, {"key": "k" * 81, "title": "x"}):
+        try:
+            await ADMIN_SERVICES["raise_issue"][0](ServiceCall(ADMIN_SERVICES["raise_issue"][1](bad)))
+            raise SystemExit(f"raise_issue accepted {bad['key'][:5]!r}")
+        except HomeAssistantError:
+            pass
+    for name in ("raise_issue", "clear_issue"):
+        try:
+            await ADMIN_SERVICES[name][0](ServiceCall({"key": "k", "title": "t"}, user_id="u-agent"))
+            raise SystemExit(f"{name} let in a user who is not an administrator")
+        except Unauthorized:
+            pass
+    print("raise issue ok")
     # the master switch: off takes every ticket off the AI's queue, and nothing an AI does is accepted until it is on again
     queued = await svc("create_ticket", title="Queued for the agent", actor="Simon", assignee="ai:AI")
     running = await svc("create_ticket", title="Being run", actor="Simon")

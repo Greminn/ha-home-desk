@@ -71,8 +71,57 @@ Only `title` is required. The rest are optional:
 The ticket appears in the **Inbox** like any other, with Home Assistant as the requester. You can find the action in **Developer Tools**, under **Actions**.
 
 ::: warning Duplicates
-Every run raises a new ticket, and Home Desk does not yet check whether one already exists for the same problem. Trigger on a change, as the example does with `for:`, not on a timer. A way to avoid duplicates is being planned: see [issue 2](https://github.com/Greminn/ha-home-desk/issues/2).
+`create_ticket` raises a new ticket every time it runs. To raise a problem once however often it is reported, use `raise_issue` instead, as in the next example.
 :::
+
+## Example: Raise a Problem Once, and Clear It When It Is Over
+
+`home_desk.raise_issue` opens a ticket for a problem, once. You give the problem a short `key`, the same every time, and Home Desk finds the ticket by it. `home_desk.clear_issue` resolves that ticket when the problem is over. For example, a soil probe that goes dry:
+
+```yaml
+alias: Home Desk - soil is dry
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.garden_soil_moisture
+    below: 15
+    for: "01:00:00"
+actions:
+  - action: home_desk.raise_issue
+    data:
+      key: soil-probe-garden-dry
+      title: "Garden soil probe is dry"
+      description: "sensor.garden_soil_moisture has been below 15% for an hour."
+      priority: normal
+      entities:
+        - sensor.garden_soil_moisture
+```
+
+```yaml
+alias: Home Desk - soil is wet again
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.garden_soil_moisture
+    above: 25
+actions:
+  - action: home_desk.clear_issue
+    data:
+      key: soil-probe-garden-dry
+      resolution: "The soil moisture is back above 25%."
+```
+
+What happens to the ticket for a key:
+
+| When | What happens |
+|---|---|
+| `raise_issue`, nothing is open | A ticket is created. |
+| `raise_issue`, one is open | Nothing, unless `on_existing: comment` adds a comment (at most one an hour for each key). A higher `priority` is taken over; a lower one never is. |
+| `raise_issue`, it was resolved or closed | The same ticket reopens to **New**. |
+| `raise_issue`, the ticket was deleted | A new ticket is created. |
+| `clear_issue` | The open ticket is resolved with your note. If nothing is open, nothing happens and it is not an error. |
+
+The key is trimmed and lower-cased, and can be up to 80 characters. Keys are separate from Repairs, so they never touch a ticket made from a Home Assistant Repair. If you merge two tickets, the one you keep takes over the key.
+
+The ticket shows **Raised by the automation** with a link to it (or **Raised by Home Assistant** when the caller can't be found). Both actions return what happened, `created`, `found`, `reopened`, `commented`, `cleared` or `none`, which an automation can use with `response_variable`.
 
 ## Starting an AI Agent
 

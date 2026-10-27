@@ -468,6 +468,13 @@ export class TicketDetail extends LitElement {
         border-color: var(--st-success);
       }
       /* Each item (icon and words) is a centred row, so icons line up with the text whatever the font. */
+      .meta-line a {
+        color: var(--st-primary);
+        text-decoration: none;
+      }
+      .meta-line a:hover {
+        text-decoration: underline;
+      }
       .meta-line > span {
         display: inline-flex;
         align-items: center;
@@ -1226,6 +1233,21 @@ export class TicketDetail extends LitElement {
     }
   }
 
+  /** The automation that raised the ticket: its editor page, or its dialog when it has no editor page. */
+  private _openRaisedBy(e: Event, by: { entity_id: string; url: string | null }) {
+    e.preventDefault();
+    if (!by.url) {
+      this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: by.entity_id }, bubbles: true, composed: true }));
+      return;
+    }
+    try {
+      history.pushState(null, "", by.url);
+      window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+    } catch {
+      // No router (a preview): nothing to open.
+    }
+  }
+
   private _fire(name: string, detail?: unknown) {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
   }
@@ -1745,6 +1767,12 @@ ${canWide
     ${t.labels.includes(BLOCKED) ? html`<span class="blocked" title="Waiting on a person, a part or a fix"><ha-icon icon="mdi:timer-sand"></ha-icon> Blocked</span>` : nothing}
     ${t.comment_count ? html`<span><ha-icon icon="mdi:comment-outline"></ha-icon> ${t.comment_count}</span>` : nothing}
   </div>
+  ${t.source === "Automation"
+    ? html`<div class="meta-line"><span><ha-icon icon=${t.raised_by?.kind === "script" ? "mdi:script-text-outline" : "mdi:robot-outline"}></ha-icon>
+        ${t.raised_by
+          ? html`Raised by the ${t.raised_by.kind} <a href=${t.raised_by.url ?? "#"} title="Open it in Home Assistant" @click=${(e: Event) => this._openRaisedBy(e, t.raised_by!)}>${t.raised_by.name}</a>`
+          : "Raised by Home Assistant"}</span></div>`
+    : nothing}
   <!-- Second line: the category, status and priority, then the labels (which wrap on to their own line if they don't fit). -->
   <div class="tag-line">
     <button class="num ${this._copied ? "copied" : ""}" title=${this._copied ? "Copied" : "Copy the ticket number"} aria-label="Ticket ${t.id}: copy the number"

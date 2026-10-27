@@ -88,6 +88,8 @@ export interface TicketSummary {
   links: number[];
   legacy_ref: string | null;
   source: string | null;
+  /** The automation or script that raised the ticket with raise_issue (url: its editor page, when it has one). */
+  raised_by?: { entity_id: string; name: string; kind: string; url: string | null } | null;
   created_at: string;
   updated_at: string;
   closed_at: string | null;

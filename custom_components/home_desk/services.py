@@ -10,12 +10,13 @@ for automations).
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.core import Event, HomeAssistant, ServiceCall, SupportsResponse, callback
 from homeassistant.exceptions import HomeAssistantError, Unauthorized
 from homeassistant.helpers import config_validation as cv
 
@@ -25,9 +26,11 @@ from .storage import (
     AI_OFF,
     TicketError,
     async_add_comment,
+    async_clear_issue,
     async_claim_run,
     async_finish_run,
     async_note_run,
+    async_raise_issue,
     async_agent_run_allows,
     async_get_settings,
     async_close_ticket,
@@ -52,6 +55,49 @@ from .storage import (
 GUIDE_PATH = Path(__file__).parent / "AGENT_GUIDE.md"
 CHANGELOG_PATH = Path(__file__).parent / "CHANGELOG.md"
 MANIFEST_PATH = Path(__file__).parent / "manifest.json"
+
+CALLER_KEEP = 600  # seconds an automation or script run is remembered, to say who raised an issue
+
+
+@callback
+def _remember_callers(hass: HomeAssistant) -> dict[str, dict[str, Any]]:
+    """Watch automations and scripts start, so `raise_issue` can say which one called it. A service call made by an automation
+    shares the context of its run, and that context is announced in the start event."""
+    seen: dict[str, dict[str, Any]] = {}
+
+    @callback
+    def started(event: Event) -> None:
+        now = time.monotonic()
+        for ctx in [c for c, v in seen.items() if now - v["at"] > CALLER_KEEP]:
+            del seen[ctx]
+        entity_id = event.data.get("entity_id")
+        if event.context and entity_id:
+            seen[event.context.id] = {"entity_id": entity_id, "name": event.data.get("name"), "at": now}
+
+    hass.bus.async_listen("automation_triggered", started)
+    hass.bus.async_listen("script_started", started)
+    return seen
+
+
+def _raised_by(hass: HomeAssistant, seen: dict[str, dict[str, Any]], call: ServiceCall) -> dict[str, Any] | None:
+    """The automation or script behind a service call, with a link to its editor, or None when it can't be found."""
+    for ctx in (call.context.id, call.context.parent_id):
+        found = seen.get(ctx) if ctx else None
+        if found:
+            break
+    else:
+        return None
+    entity_id = found["entity_id"]
+    state = hass.states.get(entity_id)
+    name = found["name"] or (state.name if state else None) or entity_id
+    kind, _, object_id = entity_id.partition(".")
+    url = None
+    if kind == "automation" and state and state.attributes.get("id"):
+        url = f"/config/automation/edit/{state.attributes['id']}"
+    elif kind == "script":
+        url = f"/config/script/edit/{object_id}"
+    return {"entity_id": entity_id, "name": name, "kind": kind, "url": url}
+
 
 _ACTOR = {vol.Optional("actor"): cv.string}
 _ID = {vol.Required("ticket_id"): vol.Coerce(int)}
@@ -208,6 +254,31 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             hass, call.data["ticket_id"], call.data["merge_ids"], actor=await _actor(hass, call)
         )
 
+    callers = _remember_callers(hass)
+
+    async def raise_issue(call: ServiceCall) -> dict[str, Any]:
+        d = call.data
+        return await async_raise_issue(
+            hass,
+            key=d["key"],
+            title=d["title"],
+            description=d.get("description", ""),
+            priority=d.get("priority", "normal"),
+            labels=d.get("labels"),
+            category=d.get("category"),
+            entities=d.get("entities"),
+            devices=d.get("devices"),
+            areas=d.get("areas"),
+            on_existing=d.get("on_existing", "ignore"),
+            raised_by=_raised_by(hass, callers, call),
+            actor=await _actor(hass, call),
+        )
+
+    async def clear_issue(call: ServiceCall) -> dict[str, Any]:
+        return await async_clear_issue(
+            hass, key=call.data["key"], resolution=call.data.get("resolution", ""), actor=await _actor(hass, call)
+        )
+
     async def list_labels(call: ServiceCall) -> dict[str, Any]:
         return {"labels": await async_list_labels(hass)}
 
@@ -325,6 +396,24 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Optional("devices"): _LABELS,
         vol.Optional("areas"): _LABELS,
         **_LEGACY,
+        **_ACTOR,
+    }), supports_response=both)
+    s(DOMAIN, "raise_issue", _wrap(raise_issue), vol.Schema({
+        vol.Required("key"): cv.string,
+        vol.Required("title"): cv.string,
+        vol.Optional("description"): cv.string,
+        vol.Optional("priority"): vol.In(PRIORITIES),
+        vol.Optional("on_existing"): vol.In(["ignore", "comment"]),
+        vol.Optional("labels"): _LABELS,
+        vol.Optional("category"): vol.Any(cv.string, None),
+        vol.Optional("entities"): _LABELS,
+        vol.Optional("devices"): _LABELS,
+        vol.Optional("areas"): _LABELS,
+        **_ACTOR,
+    }), supports_response=both)
+    s(DOMAIN, "clear_issue", _wrap(clear_issue), vol.Schema({
+        vol.Required("key"): cv.string,
+        vol.Optional("resolution"): cv.string,
         **_ACTOR,
     }), supports_response=both)
     s(DOMAIN, "get_ticket", _wrap(get), vol.Schema(_ID), supports_response=SupportsResponse.ONLY)

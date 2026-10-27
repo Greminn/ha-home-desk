@@ -630,6 +630,29 @@ async def main():
     off5()
     print("repairs glue ok")
 
+    # raise_issue / clear_issue in storage: merge keeps the key, a deleted ticket is raised again, a repair key is never touched
+    hass6 = FakeHass()
+    FakeStore.saved = {}
+    r1 = await s.async_raise_issue(hass6, key="Probe", title="Probe dry")
+    r2 = await s.async_create_ticket(hass6, title="By hand")
+    await s.async_merge_tickets(hass6, r2["id"], [r1["ticket"]["id"]], actor="simon")
+    moved = await s.async_raise_issue(hass6, key="probe", title="Probe dry")
+    assert moved["result"] == "found" and moved["ticket"]["id"] == r2["id"], "after a merge the key belongs to the target"
+    assert (await s.async_clear_issue(hass6, key="probe"))["result"] == "cleared"
+    await s.async_delete_ticket(hass6, r2["id"], actor="simon")
+    fresh = await s.async_raise_issue(hass6, key="probe", title="Probe dry")
+    assert fresh["result"] == "created" and fresh["ticket"]["id"] != r2["id"], "a deleted ticket is forgotten: the next call raises a new one"
+    rep = await s.async_raise_issue(hass6, key="hue:old_fw", title="Not a repair")
+    assert rep["ticket"]["source_key"] == "issue:hue:old_fw" and s.repair_key("hue", "old_fw") != rep["ticket"]["source_key"]
+    assert await s.async_open_repair_keys(hass6) == [], "an issue ticket is not a repair"
+    try:
+        await s.async_raise_issue(hass6, key="k", title="x", on_existing="shout")
+        raise SystemExit("on_existing accepted nonsense")
+    except s.TicketError:
+        pass
+    print("raise issue storage ok")
+
+
     # ---- repairs of one kind share a ticket
     hass5 = FakeHass()
     FakeStore.saved = {}

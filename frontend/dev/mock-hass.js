@@ -57,7 +57,7 @@ function seed() {
     const ticket = {
       id, title: t.title, description: t.description ?? "", status: t.status ?? "open", priority: t.priority ?? "normal",
       requester: t.requester ?? "Sam", assignee: t.assignee ?? null, labels: t.labels ?? ["home-assistant"],
-      entities: t.entities ?? [], devices: t.devices ?? [], areas: t.areas ?? [], links: [], legacy_ref: t.ref ?? null, source: t.source ?? null, source_key: t.key ?? null,
+      entities: t.entities ?? [], devices: t.devices ?? [], areas: t.areas ?? [], links: [], legacy_ref: t.ref ?? null, source: t.source ?? null, source_key: t.key ?? null, raised_by: t.raised_by ?? null,
       resolution: t.resolution ?? null, created_at: iso(created), updated_at: iso(t.updated ?? created),
       closed_at: ["resolved", "closed"].includes(t.status) ? iso(t.updated ?? created) : null,
       events: [{ id: 1, actor: t.requester ?? "Sam", kind: "created", body: null, data: null, created_at: iso(created) }],
@@ -85,6 +85,12 @@ function seed() {
       description: `**Integration:** \`ping\` · **Repair:** \`${i}_Update ${host}_unreachable\``, ago: 40 * MIN,
     });
   }
+  add({
+    title: "Garden soil probe is dry", status: "new", priority: "high", requester: "Home Assistant", labels: ["home-assistant"], source: "Automation",
+    key: "issue:soil-probe-garden-dry", entities: ["sensor.garden_soil_moisture"], ago: 25 * MIN,
+    raised_by: { entity_id: "automation.soil_probe_is_dry", name: "Soil probe is dry", kind: "automation", url: "/config/automation/edit/1700000000" },
+    description: "sensor.garden_soil_moisture has been below 15% for an hour.",
+  });
   add({ title: "Guest network blocklist check", status: "open", priority: "high", labels: ["bug", "needs-review", "network", "home-assistant"], ago: 4 * HOUR,
     description: "**Recurring.** Periodically compare the devices on the guest network with the router's blocklist, so nothing blocked has slipped back on.\n\nThe first run was clean. The second found one real gap (a smart plug), fixed the same day.", entities: ["binary_sensor.router_online"] },
     [["claude", "Ran the check again: **12 devices match**, no stale entries.", 3 * HOUR], ["Sam", "Thanks. Leave it open, it recurs monthly.", 2 * HOUR]]);

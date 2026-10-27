@@ -17,6 +17,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 import re
+import time
 
 from .const import (
     ACTIVE_STATUSES,
@@ -1177,7 +1178,7 @@ def _merge_into(data: dict[str, Any], target: dict[str, Any], source: dict[str, 
     for a in source.get("attachments", []):
         target["attachments"].append({**a, "ticket": a.get("ticket", sid)})
     # Repairs: the target takes over the source's repair keys and members.
-    keys = [k for k in (source.get("source_key"), *source.get("source_aliases", ())) if k and k.startswith(REPAIR_PREFIX)]
+    keys = [k for k in (source.get("source_key"), *source.get("source_aliases", ())) if k and k.startswith((REPAIR_PREFIX, ISSUE_PREFIX))]
     if keys or source.get("repair_members"):
         _members_of(target)
         for member_key, member in _members_of(source).items():
@@ -1313,6 +1314,7 @@ async def async_stats(hass: HomeAssistant) -> dict[str, Any]:
 REPAIR_SOURCE = "Home Assistant Repairs"
 REPAIR_ACTOR = "Home Assistant"
 REPAIR_PREFIX = "repair:"
+ISSUE_PREFIX = "issue:"  # keys of tickets raised by automations (raise_issue): their own namespace, never a repair's
 
 
 def repair_key(domain: str, issue_id: str) -> str:
@@ -1624,6 +1626,120 @@ async def async_sync_repair(
     if kind:
         _fire(hass, ticket, "closed" if kind == "resolved" else kind if kind == "created" else "updated", REPAIR_ACTOR)
     return kind
+
+
+# ------------------------------------------------------------------ issues raised by automations
+
+ISSUE_SOURCE = "Automation"
+ISSUE_KEY_MAX = 80
+ISSUE_COMMENT_GAP = 3600  # seconds: an open ticket takes at most one "raised again" comment per key per hour
+
+
+def issue_key(raw: str) -> str:
+    """The key an automation chose for a problem, tidied: trimmed and lower-cased. It is also the storage key's tail."""
+    key = " ".join(str(raw or "").split()).lower()
+    if not key:
+        raise TicketError("A key is needed: it is how the same problem is recognised next time")
+    _limit(key, ISSUE_KEY_MAX, "The key")
+    return f"{ISSUE_PREFIX}{key}"
+
+
+def _find_issue(data: dict[str, Any], key: str) -> dict[str, Any] | None:
+    """The ticket for an issue key: an open one first, else the newest. Keys moved by a merge count too."""
+    found = [t for t in data["tickets"].values() if t.get("source_key") == key or key in t.get("source_aliases", ())]
+    found.sort(key=lambda t: (t["status"] in ACTIVE_STATUSES, t["id"]))
+    return found[-1] if found else None
+
+
+async def async_raise_issue(
+    hass: HomeAssistant,
+    *,
+    key: str,
+    title: str,
+    description: str = "",
+    priority: str = "normal",
+    labels: list[str] | None = None,
+    category: str | None = None,
+    entities: list[str] | None = None,
+    devices: list[str] | None = None,
+    areas: list[str] | None = None,
+    on_existing: str = "ignore",
+    raised_by: dict[str, Any] | None = None,
+    actor: str = "Home Assistant",
+) -> dict[str, Any]:
+    """Open a ticket for a problem an automation noticed, once, however often it is reported.
+
+    Nothing is open for the key: a ticket is created ("created"). One is open: nothing happens ("found"), or with
+    `on_existing="comment"` a comment is added at most once an hour ("commented"); a higher priority is taken over, never a
+    lower one. A resolved or closed one: it reopens ("reopened"). A deleted ticket is gone, so the next call creates a new one.
+    Returns {"result", "ticket"}."""
+    skey = issue_key(key)
+    if on_existing not in ("ignore", "comment"):
+        raise TicketError("on_existing must be ignore or comment")
+    _check(priority, PRIORITIES, "priority")
+    kind = "created"
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _find_issue(data, skey)
+        if ticket is None:
+            ticket = _new_ticket(
+                data, title=title, description=description, priority=priority, requester=actor, labels=labels,
+                category=category, entities=entities, devices=devices, areas=areas, actor=actor,
+                source=ISSUE_SOURCE, source_key=skey,
+            )
+            if raised_by:
+                ticket["raised_by"] = raised_by
+            await _save(hass, data)
+            event = "created"
+        else:
+            changed = False
+            rank = {p: n for n, p in enumerate(PRIORITIES)}
+            fields: dict[str, Any] = {}
+            if rank[priority] > rank[ticket["priority"]]:
+                fields["priority"] = priority
+            if ticket["status"] in ACTIVE_STATUSES:
+                kind = "found"
+            else:
+                kind = "reopened"
+                fields["status"] = "in_progress"
+            if fields:
+                changed = _apply_update(data, ticket, actor, fields)
+            if kind == "reopened":
+                _event(ticket, actor, "comment", description or "Raised again.")
+            elif on_existing == "comment" and time.time() - ticket.get("issue_commented", 0) >= ISSUE_COMMENT_GAP:
+                _event(ticket, actor, "comment", description or "Raised again.")
+                kind, changed = "commented", True
+            if kind == "reopened" or kind == "commented":
+                ticket["issue_commented"] = time.time()
+            if raised_by and kind == "reopened":
+                ticket["raised_by"] = raised_by
+            if kind != "found" or changed:
+                ticket["updated_at"] = _now()
+                await _save(hass, data)
+            event = "updated" if kind != "found" or changed else ""
+    if event:
+        _fire(hass, ticket, event, actor)
+    return {"result": kind, "ticket": ticket}
+
+
+async def async_clear_issue(
+    hass: HomeAssistant, *, key: str, resolution: str = "", actor: str = "Home Assistant"
+) -> dict[str, Any]:
+    """Resolve the open ticket for an issue key, with a note. No open ticket is not an error: the problem is simply not
+    open ("none"). Returns {"result": "cleared" | "none", "ticket"?}."""
+    skey = issue_key(key)
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _find_issue(data, skey)
+        if ticket is None or ticket["status"] not in ACTIVE_STATUSES:
+            return {"result": "none"}
+        resolution = resolution.strip() or "Cleared by the automation that raised it: the problem is over."
+        _apply_update(data, ticket, actor, {"status": "resolved", "resolution": resolution})
+        _event(ticket, actor, "comment", f"**Resolution:** {resolution}")
+        ticket["updated_at"] = _now()
+        await _save(hass, data)
+    _fire(hass, ticket, "closed", actor)
+    return {"result": "cleared", "ticket": ticket}
 
 
 # ------------------------------------------------------------------ label registry

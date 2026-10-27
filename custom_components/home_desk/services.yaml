@@ -191,6 +191,76 @@ list_tickets:
       name: "Limit"
       description: "Maximum tickets to return (default 100)."
       selector: {"number": {"min": 1, "max": 1000, "mode": "box"}}
+raise_issue:
+  name: "Raise issue"
+  description: "For automations: open a ticket for a problem, once, however often it is reported. The key says which problem it is. Nothing open for the key: a ticket is created. One already open: nothing happens (or one comment an hour with `on_existing: comment`), and a higher priority is taken over. A resolved ticket for the key is reopened. The ticket says which automation or script raised it. Returns `result` (created, found, reopened or commented) and the ticket. Pair it with clear_issue."
+  fields:
+    key:
+      name: "Key"
+      description: "A short name for the problem, the same every time it is reported, e.g. soil-probe-garden-dry. Trimmed and lower-cased, at most 80 characters. It never touches tickets made from Home Assistant Repairs."
+      required: true
+      example: "soil-probe-garden-dry"
+      selector: {"text": {}}
+    title:
+      name: "Title"
+      description: "Short summary of the problem."
+      required: true
+      example: "Garden soil probe is dry"
+      selector: {"text": {}}
+    description:
+      name: "Description"
+      description: "Details in markdown. Used as the comment when an open ticket is raised again with `on_existing: comment`, and when a resolved one reopens."
+      selector: {"text": {"multiline": true}}
+    priority:
+      name: "Priority"
+      description: "low, normal, high or urgent. An open ticket only ever goes up."
+      selector: {"select": {"options": ["low", "normal", "high", "urgent"]}}
+    on_existing:
+      name: "If already open"
+      description: "ignore (the default) does nothing; comment adds a comment, at most once an hour for each key."
+      selector: {"select": {"options": ["ignore", "comment"]}}
+    labels:
+      name: "Labels"
+      description: "Label names or ids. Names that don't exist yet are created."
+      selector: {"text": {"multiple": true}}
+    category:
+      name: "Category"
+      description: "What part of the home this is about (see list_categories). It must already exist."
+      selector: {"text": {}}
+    entities:
+      name: "Entities"
+      description: "Home Assistant entity ids this ticket concerns."
+      selector: {"text": {"multiple": true}}
+    devices:
+      name: "Devices"
+      description: "Home Assistant device ids this ticket concerns."
+      selector: {"text": {"multiple": true}}
+    areas:
+      name: "Areas"
+      description: "Home Assistant area ids this ticket concerns."
+      selector: {"text": {"multiple": true}}
+    actor:
+      name: "Actor"
+      description: "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+      selector: {"text": {}}
+clear_issue:
+  name: "Clear issue"
+  description: "For automations: the problem raised with raise_issue is over. Resolves the open ticket for the key with a note. If no ticket is open for the key, nothing happens and it is not an error. Returns `result` (cleared or none)."
+  fields:
+    key:
+      name: "Key"
+      description: "The key used with raise_issue."
+      required: true
+      example: "soil-probe-garden-dry"
+      selector: {"text": {}}
+    resolution:
+      name: "Resolution"
+      description: "What to record. A default note is used if left out."
+      selector: {"text": {"multiline": true}}
+    actor:
+      name: "Actor"
+      description: "Who is acting, recorded on the timeline. AI agents: pass your own name (e.g. claude), otherwise the token owner's name is recorded."
+      selector: {"text": {}}
 get_ticket:
   name: "Get ticket"
   description: "Return one ticket in full: description, resolution, labels, entities, timeline of comments and changes, and related tickets."
