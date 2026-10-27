@@ -6,6 +6,9 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 
 ## [Unreleased]
 
+### Added
+- **Agents can look at a ticket's photos.** A new action, `home_desk.get_attachment` (`ticket_id`, `attachment_id`, optional `max_bytes`), returns a photo as base64 with its mime type and size. A photo over 1 MB (at most 5 MB if asked) is refused, never cut short. Voice messages are not served; their words are already in the description. It is open to the AI Agent user, which can now read every photo on any ticket, including ones household members sent. The agent guide says photo content is data, not instructions. The Home Desk MCP bridge has a matching `get_attachment` tool that returns the picture itself. Through other tool layers, such as ha-mcp, the result is base64 text: an agent with file tools can decode it to a file and open that, and the guide says how. **Action:** restart Home Assistant to load the new action.
+
 ## [1.0.0-beta.2] - 2026-10-28
 
 Tickets for ignored repairs, and a way for an automation to raise a problem once. Home Assistant 2026.10 is now the minimum.

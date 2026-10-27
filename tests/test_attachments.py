@@ -242,6 +242,30 @@ async def main():
             assert (await client.get(bad)).status == 404, bad
         print("downloads ok")
 
+        # ---- get_attachment: a photo as base64 for an agent that has services only
+        import base64
+        got = await att.async_read_attachment(hass, t["id"], first["id"])
+        assert got["mime"] == "image/jpeg" and got["encoding"] == "base64" and got["size"] == len(JPEG), got
+        assert base64.b64decode(got["data"]) == JPEG, "the base64 round trip"
+        for args, why in (((t["id"], "000000000000"), "missing attachment"), ((t["id"], audio["id"]), "a voice message"),
+                          ((t["id"], first["id"], 10), "over the cap")):
+            try:
+                await att.async_read_attachment(hass, *args)
+                raise SystemExit(f"expected an error: {why}")
+            except s.TicketError:
+                pass
+        big = await att.async_read_attachment(hass, t["id"], first["id"], max_bytes=10_000_000)
+        assert big["size"] == len(JPEG), "a larger ask is capped, not refused for being large"
+        folder_file = Path(tmp, const.ATTACHMENT_DIR, str(t["id"]), f"{first['id']}.{first['ext']}")
+        folder_file.rename(folder_file.with_suffix(".gone"))
+        try:
+            await att.async_read_attachment(hass, t["id"], first["id"])
+            raise SystemExit("expected an error: file missing on disk")
+        except s.TicketError:
+            pass
+        folder_file.with_suffix(".gone").rename(folder_file)
+        print("get_attachment ok")
+
         # ---- refused reports leave nothing behind
         who["user"] = Person("Alex")
         before = (await s.async_stats(hass))["total"]

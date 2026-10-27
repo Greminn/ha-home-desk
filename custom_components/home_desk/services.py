@@ -188,6 +188,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     async def get(call: ServiceCall) -> dict[str, Any]:
         return await async_get_ticket(hass, call.data["ticket_id"])
 
+    async def get_attachment(call: ServiceCall) -> dict[str, Any]:
+        from .attachments import async_read_attachment  # late: it pulls in the web server, which the service tests don't have
+        return await async_read_attachment(hass, call.data["ticket_id"], call.data["attachment_id"], call.data.get("max_bytes"))
+
     async def list_(call: ServiceCall) -> dict[str, Any]:
         d = upgrade_legacy_fields(dict(call.data), "filter")
         return await async_list_tickets(
@@ -355,7 +359,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     # The AI Agent's own Home Assistant user (Settings) is not an administrator. It may use only these: read, comment, triage,
     # create, link, close, and the two calls that run it. Merging, labels and categories, and import stay with administrators.
     agent_services = {
-        "get_ticket", "list_tickets", "get_stats", "list_labels", "list_categories", "create_ticket", "update_ticket",
+        "get_ticket", "get_attachment", "list_tickets", "get_stats", "list_labels", "list_categories", "create_ticket", "update_ticket",
         "add_comment", "close_ticket", "link_tickets", "claim_run", "note_run", "finish_run",
     }
 
@@ -417,6 +421,11 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         **_ACTOR,
     }), supports_response=both)
     s(DOMAIN, "get_ticket", _wrap(get), vol.Schema(_ID), supports_response=SupportsResponse.ONLY)
+    s(DOMAIN, "get_attachment", _wrap(get_attachment), vol.Schema({
+        **_ID,
+        vol.Required("attachment_id"): cv.string,
+        vol.Optional("max_bytes"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+    }), supports_response=SupportsResponse.ONLY)
     s(DOMAIN, "list_tickets", _wrap(list_), vol.Schema({
         vol.Optional("status"): cv.string,
         vol.Optional("query"): cv.string,

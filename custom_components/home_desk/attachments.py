@@ -8,6 +8,7 @@ it. Both need a signed-in user, and a file is judged by its first bytes, never b
 
 from __future__ import annotations
 
+import base64
 import logging
 import shutil
 import time
@@ -255,6 +256,29 @@ async def _transcribe_later(hass: HomeAssistant, ticket_id: int, attachment: dic
             await async_set_transcript(hass, ticket_id, attachment["id"], text)
     except Exception:  # noqa: BLE001 - a failed transcript must never lose the ticket or the recording
         _LOGGER.warning("Could not transcribe the voice message on ticket %s", ticket_id, exc_info=True)
+
+
+# What get_attachment returns by default, and the most it may be asked for. Over the cap it refuses; it never cuts a picture short.
+ATTACHMENT_READ_DEFAULT = 1_000_000
+ATTACHMENT_READ_MAX = 5_000_000
+
+
+async def async_read_attachment(hass: HomeAssistant, ticket_id: int, attachment_id: str, max_bytes: int | None = None) -> dict[str, Any]:
+    """A photo as base64, for an AI agent that has services but no way to fetch the download URL."""
+    cap = min(max_bytes or ATTACHMENT_READ_DEFAULT, ATTACHMENT_READ_MAX)
+    _, attachment = await async_find_attachment(hass, ticket_id, attachment_id)
+    if attachment["kind"] != "image":
+        raise TicketError("Only photos can be read; a voice message is already transcribed in the description")
+    if attachment["size"] > cap:
+        raise TicketError(f"The photo is {attachment['size']} bytes, over the {cap} byte limit; ask the manager to look at it")
+    # A file that came with a merged ticket stays in that ticket's folder.
+    path = _root(hass) / str(attachment.get("ticket", ticket_id)) / f"{attachment['id']}.{attachment['ext']}"
+    try:
+        data = await hass.async_add_executor_job(path.read_bytes)
+    except OSError as err:
+        raise TicketError("The file is missing from disk") from err
+    return {"id": attachment["id"], "mime": attachment["mime"], "size": len(data), "encoding": "base64",
+            "data": base64.b64encode(data).decode()}
 
 
 class ReportView(HomeAssistantView):
