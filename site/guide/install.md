@@ -4,7 +4,7 @@ title: Install
 
 # Install
 
-Home Desk is a custom integration. Install it with HACS or copy it in from GitHub. It needs Home Assistant 2024.10 or newer.
+Home Desk is a custom integration. Install it with HACS or copy it in from GitHub. It needs Home Assistant 2026.10 or newer.
 
 ## HACS
 

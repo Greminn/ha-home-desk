@@ -34,7 +34,7 @@ The full guide is at **<https://greminn.github.io/ha-home-desk/>**:
 
 ## Installation
 
-Needs **Home Assistant 2024.10** or newer. Home Desk is a **pre-release** and isn't in the HACS default repository yet, so it's added as a custom repository.
+Needs **Home Assistant 2026.10** or newer. Home Desk is a **pre-release** and isn't in the HACS default repository yet, so it's added as a custom repository.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Greminn&repository=ha-home-desk&category=integration)
 

@@ -28,7 +28,7 @@ See [Status](/guide/status).
 
 ## Requirements
 
-- Home Assistant 2024.10 or newer.
+- Home Assistant 2026.10 or newer.
 - Access to the `config` folder, to copy the integration in. See [Install](/guide/install).
 
 ::: warning Pre-Release
