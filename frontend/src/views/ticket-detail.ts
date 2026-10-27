@@ -469,7 +469,7 @@ export class TicketDetail extends LitElement {
       }
       /* Each item (icon and words) is a centred row, so icons line up with the text whatever the font. */
       .meta-line a {
-        color: var(--st-primary);
+        color: var(--st-accent);
         text-decoration: none;
       }
       .meta-line a:hover {
