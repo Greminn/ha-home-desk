@@ -210,6 +210,8 @@ export interface HomeDeskSettings {
   agent_user: string;
   /** Raise a ticket for each Home Assistant Repair. */
   repairs: boolean;
+  /** Also open tickets for repairs that are ignored in Home Assistant. */
+  repairs_ignored: boolean;
   /** The speech-to-text engine (an stt entity id) for voice messages; empty to use the Assist default. */
   stt: string;
   /** Turn voice messages into text on the ticket. */

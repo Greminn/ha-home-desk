@@ -479,6 +479,7 @@ async def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConne
         vol.Optional("agent_runner"): bool,
         vol.Optional("agent_user"): _SHORT,
         vol.Optional("repairs"): bool,
+        vol.Optional("repairs_ignored"): bool,
         vol.Optional("stt"): _SHORT,
         vol.Optional("transcribe"): bool,
         vol.Optional("agent_states"): bool,
@@ -507,7 +508,9 @@ async def ws_settings_save(hass: HomeAssistant, connection: websocket_api.Active
         return
     # Turning Repairs-to-tickets on picks up the repairs that exist right now.
     catch_up = hass.data.get(f"{DOMAIN}_repairs_catch_up")
-    if catch_up and result["repairs"] and not before["repairs"]:
+    if catch_up and result["repairs"] and (
+        not before["repairs"] or (result["repairs_ignored"] and not before["repairs_ignored"])
+    ):
         hass.async_create_task(catch_up())
     # Changing the auto-close delay applies straight away rather than at the next hourly check.
     if "auto_close" in patch:

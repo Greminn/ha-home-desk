@@ -1420,9 +1420,20 @@ def _group_fields(ticket: dict[str, Any]) -> dict[str, Any]:
     return fields
 
 
+IGNORED_LABEL = "Ignored in Home Assistant"
+
+
+def _reopen_reason(unignored: Any, dismissed: bool, no_longer_ignored: str, again: str) -> str:
+    """Why a repair ticket was reopened. A repair that is still ignored in Home Assistant was not un-ignored: tickets for
+    ignored repairs were switched on."""
+    if unignored and dismissed:
+        return "Tickets are now kept for repairs ignored in Home Assistant"
+    return no_longer_ignored if unignored else again
+
+
 def _sync_member(
     data: dict[str, Any], ticket: dict[str, Any], *, domain: str, issue_id: str, active: bool, ignored: bool,
-    title: str, member: str, priority: str, how: str = "",
+    title: str, member: str, priority: str, how: str = "", dismissed: bool = False,
 ) -> str | None:
     """Update a ticket that stands for several repairs of one kind. Returns what happened, or None."""
     members = _members_of(ticket)
@@ -1465,7 +1476,7 @@ def _sync_member(
         fields["priority"] = priority
     changed = _apply_update(data, ticket, REPAIR_ACTOR, fields) if fields else False
     if was_closed:
-        why = f"{name} is no longer ignored in Home Assistant" if unignored else f"Home Assistant is reporting this repair again ({name})"
+        why = _reopen_reason(unignored, dismissed, f"{name} is no longer ignored in Home Assistant", f"Home Assistant is reporting this repair again ({name})")
         _event(ticket, REPAIR_ACTOR, "comment", f"{why}, so the ticket was reopened.")
         return "reopened"
     if appeared and others:
@@ -1488,6 +1499,7 @@ async def async_sync_repair(
     member: str = "",
     generic_title: str = "",
     how: str = "",
+    dismissed: bool = False,
 ) -> str | None:
     """Make the ticket for one Home Assistant repair match the repair's state.
 
@@ -1502,6 +1514,10 @@ async def async_sync_repair(
 
     A repair that is ignored in Home Assistant counts as resolved: an open ticket for it is resolved
     ("Ignored in Home Assistant"), one is never opened for it, and it reopens if the repair is no longer ignored.
+
+    With the setting "Also open tickets for repairs I have ignored" the caller passes `ignored=False` for them, and
+    `dismissed=True` to say the repair is ignored anyway: a ticket opened for it is Low priority and labelled
+    "Ignored in Home Assistant", and a ticket reopened for it says so instead of "no longer ignored".
     """
     key = repair_key(domain, group or issue_id)
     kind: str | None = None
@@ -1532,7 +1548,7 @@ async def async_sync_repair(
                 ticket["repair_generic"] = generic_title
             result = _sync_member(
                 data, ticket, domain=domain, issue_id=issue_id, active=active, ignored=ignored,
-                title=title or ticket["title"], member=member, priority=priority, how=how,
+                title=title or ticket["title"], member=member, priority=priority, how=how, dismissed=dismissed,
             )
             kind = result or kind
             if kind:
@@ -1549,9 +1565,9 @@ async def async_sync_repair(
                 data,
                 title=title or f"{domain}: {issue_id}",
                 description=description,
-                priority=priority,
+                priority="low" if dismissed else priority,
                 requester=REPAIR_ACTOR,
-                labels=["Bug", "Repair"],
+                labels=["Bug", "Repair", IGNORED_LABEL] if dismissed else ["Bug", "Repair"],
                 category=HA_CATEGORY_ID,
                 source=REPAIR_SOURCE,
                 source_key=key,
@@ -1590,7 +1606,7 @@ async def async_sync_repair(
             if fields:
                 changed = _apply_update(data, ticket, REPAIR_ACTOR, fields)
             if was_closed:
-                why = "The repair is no longer ignored in Home Assistant" if unignored else "Home Assistant is reporting this repair again"
+                why = _reopen_reason(unignored, dismissed, "The repair is no longer ignored in Home Assistant", "Home Assistant is reporting this repair again")
                 _event(ticket, REPAIR_ACTOR, "comment", f"{why}, so the ticket was reopened.")
                 kind = "reopened"
             elif changed:
@@ -1860,8 +1876,9 @@ async def async_save_settings(
     unknown = set(patch) - set(DEFAULT_SETTINGS)
     if unknown:
         raise TicketError(f"Unknown setting(s) {sorted(unknown)}")
-    if "repairs" in patch:
-        patch["repairs"] = bool(patch["repairs"])
+    for key in ("repairs", "repairs_ignored"):
+        if key in patch:
+            patch[key] = bool(patch[key])
     if "transcribe" in patch:
         patch["transcribe"] = bool(patch["transcribe"])
     if "agent_runner" in patch:

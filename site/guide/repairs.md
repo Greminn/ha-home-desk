@@ -18,8 +18,10 @@ Requester Home Assistant, category Home Assistant, labels Bug and Repair. The pr
 |---|---|
 | Clears | Resolves ("Cleared by Home Assistant"). |
 | Returns | Reopens to **New**. |
-| Is ignored | Resolves ("Ignored in Home Assistant"). |
+| Is ignored | Resolves ("Ignored in Home Assistant"), and a new ignored repair gets no ticket. |
 | Is no longer ignored | Reopens. |
+
+To keep tickets for ignored repairs too, turn on **Include Ignored Repairs** in [Settings](/guide/settings). Home Desk then opens a Low priority ticket labelled "Ignored in Home Assistant" for each one, including those already ignored when you switch it on. These tickets stay open until the repair is really fixed; ignoring or un-ignoring it in Home Assistant changes nothing. It is off by default.
 
 "Restart required" notices are skipped. Repairs already present at startup are picked up, including ones that cleared while Home Assistant was off.
 

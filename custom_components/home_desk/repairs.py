@@ -104,12 +104,14 @@ async def _sync(hass: HomeAssistant, domain: str, issue_id: str, ignored_domains
             await async_sync_repair(hass, domain=domain, issue_id=issue_id, active=False, how=how)
             return
         title, description = await _describe(hass, issue)
+        dismissed = issue.dismissed_version is not None
         await async_sync_repair(
             hass,
             domain=domain,
             issue_id=issue_id,
             active=True,
-            ignored=issue.dismissed_version is not None,
+            ignored=dismissed and not (await async_get_settings(hass)).get("repairs_ignored", False),
+            dismissed=dismissed,
             title=title,
             description=description,
             priority=REPAIR_PRIORITY.get(str(getattr(issue.severity, "value", issue.severity)), "normal"),

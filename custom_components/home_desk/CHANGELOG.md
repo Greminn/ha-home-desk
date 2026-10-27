@@ -6,6 +6,9 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 
 ## [Unreleased]
 
+### Added
+- **Tickets for ignored repairs (issue 1).** A new setting, Settings → Tickets → **Include Ignored Repairs** (`repairs_ignored`, off by default, shown while Tickets from Repairs is on). A repair you have ignored in Home Assistant then gets a Low priority ticket labelled "Ignored in Home Assistant", including the ones already ignored when you switch it on. The ticket stays open until the repair is really fixed. With the setting off nothing changes. `home_desk/settings_save` accepts `repairs_ignored`. **Action:** none
+
 ## [1.0.0-beta.1] - 2026-10-25
 
 The first public pre-release. It covers everything since the internal 0.1.0 below; the panel's look and workflow changed a lot, so read **Breaking** first if you used 0.1.0.

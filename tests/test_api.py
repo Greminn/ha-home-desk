@@ -275,6 +275,9 @@ async def main():
     await call(hass, "settings_save", ADMIN(), repairs=True)
     await asyncio.gather(*hass.tasks)
     assert caught == [True], "only switching it on catches up"
+    await call(hass, "settings_save", ADMIN(), repairs_ignored=True)
+    await asyncio.gather(*hass.tasks)
+    assert caught == [True, True], "so does switching on tickets for ignored repairs"
     print("websocket admin commands ok")
 
     # the schemas, as Home Assistant would apply them before calling a handler

@@ -10,6 +10,7 @@ The cog in the Home Desk header opens Settings. Administrators only. Changes sav
 |---|---|---|
 | **Tickets** | **Close resolved tickets** | The delay before a resolved ticket closes. |
 | | **Tickets from Repairs** | Opens a ticket for each Home Assistant Repair. See [Repairs](/guide/repairs). |
+| | **Include Ignored Repairs** | Also opens a Low priority ticket for repairs you have ignored in Home Assistant. Off by default. See [Repairs](/guide/repairs). |
 | **Voice messages** | **Write out voice messages** and **Speech-to-text** | Transcribes household voice messages, with the speech-to-text engine you choose. See [Household Reports](/guide/household-reports). |
 | **AI** | **Use AI** | The master switch, on by default. Off hides every AI control and setting (the AI Action control, the **Queued for AI** tab and tile, and the cards below), and Home Desk refuses Review, assigning a ticket to an AI agent and anything an AI agent sends it. Turning it off asks first, because it also takes every ticket off the AI queue and ends any run in progress; turning it back on does not put them back. |
 | **AI review** | **AI for review** | The AI Task or conversation entity used by **Review With AI**. See [AI Agents](/ai/using-ai). |

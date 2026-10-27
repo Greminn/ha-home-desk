@@ -482,6 +482,23 @@ async def main():
     # an ignored repair that is new gets no ticket
     assert await s.async_sync_repair(hass2, domain="x", issue_id="y", active=True, ignored=True, title="t") is None
     assert not any(x["source_key"] == "repair:x:y" for x in (await s.async_list_tickets(hass2, status="all"))["tickets"])
+    # "Also open tickets for repairs I have ignored": the caller passes ignored=False and dismissed=True
+    kept = lambda issue_id, **kw: s.async_sync_repair(hass2, domain="ign", issue_id=issue_id, ignored=False, dismissed=True, **kw)
+    assert await kept("a", active=True, title="Ignored one", priority="high") == "created", "ignored when first seen: gets a ticket"
+    ia = next(x for x in (await s.async_list_tickets(hass2, status="all"))["tickets"] if x["source_key"] == "repair:ign:a")
+    ia = await s.async_get_ticket(hass2, ia["id"])
+    assert ia["priority"] == "low" and "ignored-in-home-assistant" in ia["labels"] and ia["status"] == "new", (ia["priority"], ia["labels"])
+    assert await kept("a", active=True, title="Ignored one", priority="high") is None, "idempotent"
+    assert await s.async_sync_repair(hass2, domain="ign", issue_id="a", active=True, title="Ignored one") is None, "un-ignored later: nothing changes"
+    assert "ignored-in-home-assistant" in (await s.async_get_ticket(hass2, ia["id"]))["labels"], "the label stays"
+    assert await kept("a", active=False) == "resolved", "cleared as usual"
+    # ignored later, setting off: resolved as before; then the setting goes on: reopened, and says why
+    await s.async_sync_repair(hass2, domain="ign", issue_id="b", active=True, title="Later")
+    assert await s.async_sync_repair(hass2, domain="ign", issue_id="b", active=True, ignored=True, dismissed=True, title="Later") == "resolved"
+    assert await s.async_sync_repair(hass2, domain="ign", issue_id="b", active=True, ignored=False, dismissed=True, title="Later") == "reopened"
+    ib = next(x for x in (await s.async_list_tickets(hass2, status="all"))["tickets"] if x["source_key"] == "repair:ign:b")
+    ib = await s.async_get_ticket(hass2, ib["id"])
+    assert ib["status"] == "new" and "Tickets are now kept for repairs ignored" in ib["events"][-1]["body"], ib["events"][-1]["body"]
     assert await s.async_sync_repair(hass2, domain="x", issue_id="y", active=True, title="t") == "created"
     y = next(x for x in (await s.async_list_tickets(hass2, status="all"))["tickets"] if x["source_key"] == "repair:x:y")
     # one ticket for several repairs of a kind: ignored ones aren't listed, and it resolves when all that are left are ignored
@@ -599,6 +616,18 @@ async def main():
     await hass4.data["home_desk_repairs_catch_up"]()  # what turning the switch on does
     assert (await s.async_list_tickets(hass4, status="all"))["total"] == 1, "on: the existing repair is picked up"
     off()
+
+    # "Also open tickets for repairs I have ignored": off by default, so an ignored repair gets no ticket; on, it does, at Low
+    hass5 = FakeHass()
+    FakeStore.saved = {}
+    FakeRegistry.issues = {("hue", "z"): FakeIssue("hue", "z", translation_key="z", dismissed_version="2026.10")}
+    off5 = await repairs.async_setup_repairs(hass5, {})
+    assert (await s.async_list_tickets(hass5, status="all"))["total"] == 0, "ignored repairs get no ticket by default"
+    await s.async_save_settings(hass5, {"repairs_ignored": True})
+    await hass5.data["home_desk_repairs_catch_up"]()  # what switching the setting on does
+    [z] = (await s.async_list_tickets(hass5, status="all"))["tickets"]
+    assert z["priority"] == "low" and z["status"] == "new", z
+    off5()
     print("repairs glue ok")
 
     # ---- repairs of one kind share a ticket

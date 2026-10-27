@@ -398,6 +398,15 @@ export class SettingsPage extends LitElement {
           </div>
           ${this._switch(s.repairs, "Tickets from Repairs", (v) => void this._save({ repairs: v }))}
         </div>
+        ${s.repairs
+          ? html`<div class="srow">
+              <div class="text">
+                <div class="name">Include Ignored Repairs</div>
+                <div class="desc">Also open a Low priority ticket for repairs you have ignored in Home Assistant.</div>
+              </div>
+              ${this._switch(s.repairs_ignored, "Include Ignored Repairs", (v) => void this._save({ repairs_ignored: v }))}
+            </div>`
+          : nothing}
       </div>
 
       <div class="card">
