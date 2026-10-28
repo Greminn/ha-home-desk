@@ -476,7 +476,7 @@ async def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConne
         vol.Optional("auto_close"): vol.In(list(AUTO_CLOSE_SECONDS)),
         vol.Optional("agent"): _SHORT,
         vol.Optional("ai_enabled"): bool,
-        vol.Optional("agent_runner"): bool,
+        vol.Optional("agent_dispatcher"): bool,
         vol.Optional("agent_user"): _SHORT,
         vol.Optional("repairs"): bool,
         vol.Optional("repairs_ignored"): bool,
@@ -585,10 +585,10 @@ async def ws_agent_stop(hass: HomeAssistant, connection: websocket_api.ActiveCon
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_agent_run_now(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """Run AI Agent Now: ask the runner to work this ticket, read-only first. Nothing happens unless the runner is set up.
+    """Run AI Agent Now: ask the AI Dispatcher to work this ticket, read-only first. Nothing happens unless the AI Dispatcher is set up.
 
-    Experimental: the AI Agent runner is not part of the first release."""
-    if not (await async_get_settings(hass)).get("agent_runner"):
+    Experimental: the AI Dispatcher is not part of the first release."""
+    if not (await async_get_settings(hass)).get("agent_dispatcher"):
         _fail(connection, msg, "invalid", "Run AI Agent Now is not switched on in Settings")
         return
     try:
@@ -605,7 +605,7 @@ async def ws_agent_run_now(hass: HomeAssistant, connection: websocket_api.Active
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_proceed(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """Proceed (or Dismiss) on the AI Agent's findings: only a person pressing it in the panel lets the runner change anything."""
+    """Proceed (or Dismiss) on the AI Agent's findings: only a person pressing it in the panel lets the AI Dispatcher change anything."""
     try:
         ticket = await async_decide_run(hass, msg["ticket_id"], msg["event_id"], actor=_actor(connection), do=msg["do"])
     except TicketError as err:
@@ -618,7 +618,7 @@ async def ws_proceed(hass: HomeAssistant, connection: websocket_api.ActiveConnec
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_users(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """The Home Assistant users that can be the AI Agent's own user (not administrators: the runner has no business being one)."""
+    """The Home Assistant users that can be the AI Agent's own user (not administrators: the AI Dispatcher has no business being one)."""
     users = await hass.auth.async_get_users()
     connection.send_result(
         msg["id"],

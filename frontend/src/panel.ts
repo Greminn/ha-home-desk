@@ -449,7 +449,7 @@ export class HomeDeskPanel extends LitElement {
     this._confirmCost = { heading, text, run };
   }
 
-  /** Run AI Agent Now: post the comment (the instruction), then ask the runner. Experimental: the runner is not part of the first release. */
+  /** Run AI Agent Now: post the comment (the instruction), then ask the AI Dispatcher. Experimental: the AI Dispatcher is not part of the first release. */
   private _runNow(detail: { body: string; done: () => void }) {
     const ticket = this._selected;
     if (!ticket) return;
@@ -951,7 +951,7 @@ export class HomeDeskPanel extends LitElement {
           .hass=${this.hass}
           .canAsk=${this._canAsk}
           .aiOn=${this._aiOn}
-          .canRun=${this._aiOn && !!this._settings?.agent_runner}
+          .canRun=${this._aiOn && !!this._settings?.agent_dispatcher}
           @run-agent=${(e: CustomEvent<{ body: string; done: () => void }>) => this._runNow(e.detail)}
           @proceed=${(e: CustomEvent<{ eventId: number; action: "approve" | "dismiss" }>) => this._selected && void this._act((c) => c.proceed(this._selected!.id, e.detail.eventId, e.detail.action))}
           @proposal=${(e: CustomEvent<{ eventId: number; action: "apply" | "dismiss" }>) => this._selected && void this._act((c) => c.proposal(this._selected!.id, e.detail.eventId, e.detail.action))}

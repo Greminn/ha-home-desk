@@ -437,27 +437,27 @@ async def main():
         except vol.Invalid:
             pass
     # ---- Run AI Agent Now, end to end: request, claim, findings, Proceed, the change
-    await s.async_save_settings(hass, {"agent_runner": False})
+    await s.async_save_settings(hass, {"agent_dispatcher": False})
     rt = await svc("create_ticket", title="Hall light flickers", actor="Simon")
     off = await call(hass, "agent_run_now", ADMIN(), ticket_id=rt["id"])
     assert off.error and "not switched on" in off.error[1], "Run AI Agent Now needs switching on in Settings"
-    await s.async_save_settings(hass, {"agent_runner": True, "agent_user": "u-agent"})
+    await s.async_save_settings(hass, {"agent_dispatcher": True, "agent_user": "u-agent"})
     house = await call(hass, "agent_run_now", HOUSEHOLD(), ticket_id=rt["id"])
     assert house.error and house.error[0] == "unauthorized"
     req = (await call(hass, "agent_run_now", ADMIN(), ticket_id=rt["id"])).result
     assert req["agent_run"]["state"] == "requested" and req["agent_state"]["kind"] == "run", req.get("agent_run")
     again = await call(hass, "agent_run_now", ADMIN(), ticket_id=rt["id"])
     assert again.error and "already" in again.error[1], "one run at a time"
-    # the runner finds it, as the agent user (not an administrator), and takes it
+    # the AI Dispatcher finds it, as the agent user (not an administrator), and takes it
     waiting = await ADMIN_SERVICES["list_tickets"][0](ServiceCall({"run_state": "requested"}, user_id="u-agent"))
     assert [x["id"] for x in waiting["tickets"]] == [rt["id"]], waiting
     claimed = await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "claude-ha"}, user_id="u-agent"))
     noted = await ADMIN_SERVICES["note_run"][0](ServiceCall({"ticket_id": rt["id"], "note": "Using get_ticket", "actor": "claude-ha"}, user_id="u-agent"))
-    assert noted["agent_state"]["note"] == "Using get_ticket", "the working indicator says what the runner is doing"
+    assert noted["agent_state"]["note"] == "Using get_ticket", "the working indicator says what the AI Dispatcher is doing"
     assert claimed["agent_run"]["state"] == "running" and claimed["agent_run"]["mode"] == "review" and claimed["agent_run"]["claimed_by"] == "claude-ha"
     try:
-        await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "other-runner"}, user_id="u-agent"))
-        raise SystemExit("two runners took one ticket")
+        await ADMIN_SERVICES["claim_run"][0](ServiceCall({"ticket_id": rt["id"], "actor": "other-dispatcher"}, user_id="u-agent"))
+        raise SystemExit("two AI Dispatchers took one ticket")
     except HomeAssistantError as err:
         assert "already" in str(err)
     # read-only until a person presses Proceed: during the review the agent user can comment, but not change, close, link or create
@@ -501,7 +501,7 @@ async def main():
     await as_agent("update_ticket", ticket_id=rt["id"], priority="high")
     assert "Proceed" in await refused("update_ticket", ticket_id=other["id"], priority="high")
     await as_agent("create_ticket", title="Raised by the approved change")
-    # Stop while it works: the runner then can't finish
+    # Stop while it works: the AI Dispatcher then can't finish
     stopped = (await call(hass, "agent_stop", ADMIN(), ticket_id=rt["id"])).result
     assert stopped == {"stopped": rt["id"]} and (await s.async_get_ticket(hass, rt["id"]))["agent_run"]["state"] == "stopped"
     try:

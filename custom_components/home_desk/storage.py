@@ -319,6 +319,11 @@ def _migrate(data: dict[str, Any]) -> bool:
         if key not in data:
             data[key] = default
             changed = True
+    saved = data.get("settings")
+    if isinstance(saved, dict) and "agent_runner" in saved:  # the AI Dispatcher was first called the runner
+        saved.setdefault("agent_dispatcher", saved["agent_runner"])
+        del saved["agent_runner"]
+        changed = True
     return changed
 
 
@@ -893,12 +898,12 @@ async def async_set_agent_state(hass: HomeAssistant, ticket_id: int, state: dict
 
 # ---------------------------------------------------------------- AI Agent runs (Run AI Agent Now)
 #
-# Experimental: this is the Home Assistant half of an AI Agent runner, a separate program that is not part of the first release
+# Experimental: this is the Home Assistant half of an AI Dispatcher, a separate program that is not part of the first release
 # (it is not documented or supported yet). Nothing here runs unless "Offer Run AI Agent Now" is switched on in Settings.
 #
-# A person presses Run AI Agent Now: the ticket gets an "agent_run" in state "requested". The runner on the Network LXC claims it
+# A person presses Run AI Agent Now: the ticket gets an "agent_run" in state "requested". The AI Dispatcher on the Network LXC claims it
 # ("running", a read-only review), then says what it found and what it would change ("proposed", the findings are a comment with a
-# go-ahead waiting on it). A person presses Proceed ("approved"), the runner claims it again ("running", the change) and
+# go-ahead waiting on it). A person presses Proceed ("approved"), the AI Dispatcher claims it again ("running", the change) and
 # finishes ("done"). "failed", "stopped" and "dismissed" end a run too. While a run is wanted or going the ticket shows an
 # "agent_state" (the working indicator, with Stop).
 
@@ -920,7 +925,7 @@ def _run_state(ticket: dict[str, Any]) -> str:
 
 
 async def async_request_run(hass: HomeAssistant, ticket_id: int, *, actor: str) -> dict[str, Any]:
-    """Ask the AI Agent on the runner to work a ticket (read-only first). One run at a time per ticket."""
+    """Ask the AI Agent on the AI Dispatcher to work a ticket (read-only first). One run at a time per ticket."""
     async with _lock(hass):
         data = await _load(hass)
         _require_ai(data)
@@ -940,7 +945,7 @@ async def async_request_run(hass: HomeAssistant, ticket_id: int, *, actor: str) 
 
 
 async def async_claim_run(hass: HomeAssistant, ticket_id: int, *, agent: str) -> dict[str, Any]:
-    """The runner takes a requested run (a read-only review) or an approved one (the change). Only one runner can have it."""
+    """The AI Dispatcher takes a requested run (a read-only review) or an approved one (the change). Only one AI Dispatcher can have it."""
     async with _lock(hass):
         data = await _load(hass)
         _require_ai(data)
@@ -964,7 +969,7 @@ async def async_claim_run(hass: HomeAssistant, ticket_id: int, *, agent: str) ->
 
 
 async def async_note_run(hass: HomeAssistant, ticket_id: int, *, agent: str, note: str) -> dict[str, Any]:
-    """The runner says what it is doing right now (shown in the working indicator, e.g. "Using get_ticket"). Only while it runs it."""
+    """The AI Dispatcher says what it is doing right now (shown in the working indicator, e.g. "Using get_ticket"). Only while it runs it."""
     async with _lock(hass):
         data = await _load(hass)
         _require_ai(data)
@@ -978,7 +983,7 @@ async def async_note_run(hass: HomeAssistant, ticket_id: int, *, agent: str, not
 
 
 async def async_finish_run(hass: HomeAssistant, ticket_id: int, *, agent: str, state: str, body: str) -> dict[str, Any]:
-    """The runner reports back: its findings and what it would change ("proposed", waiting for Proceed), the change done
+    """The AI Dispatcher reports back: its findings and what it would change ("proposed", waiting for Proceed), the change done
     ("done"), or why it could not ("failed"). Its words are a comment from the agent, which hands the ticket back."""
     if state not in ("proposed", "done", "failed"):
         raise TicketError("A run finishes as proposed, done or failed")
@@ -1012,7 +1017,7 @@ async def async_finish_run(hass: HomeAssistant, ticket_id: int, *, agent: str, s
 
 
 async def async_decide_run(hass: HomeAssistant, ticket_id: int, event_id: int, *, actor: str, do: str) -> dict[str, Any]:
-    """A person presses Proceed (the runner may now carry out what it described) or Dismiss on the agent's findings."""
+    """A person presses Proceed (the AI Dispatcher may now carry out what it described) or Dismiss on the agent's findings."""
     async with _lock(hass):
         data = await _load(hass)
         _require_ai(data)
@@ -1058,7 +1063,7 @@ async def async_agent_run_allows(hass: HomeAssistant, ticket_id: int | None, *, 
 
 
 async def async_stop_run(hass: HomeAssistant, ticket_id: int, *, actor: str) -> bool:
-    """Stop a run that is wanted or going: the runner finds out when it tries to finish. Returns whether there was one."""
+    """Stop a run that is wanted or going: the AI Dispatcher finds out when it tries to finish. Returns whether there was one."""
     async with _lock(hass):
         data = await _load(hass)
         ticket = _get(data, ticket_id)
@@ -1997,8 +2002,8 @@ async def async_save_settings(
             patch[key] = bool(patch[key])
     if "transcribe" in patch:
         patch["transcribe"] = bool(patch["transcribe"])
-    if "agent_runner" in patch:
-        patch["agent_runner"] = bool(patch["agent_runner"])
+    if "agent_dispatcher" in patch:
+        patch["agent_dispatcher"] = bool(patch["agent_dispatcher"])
     if "agent_user" in patch:
         patch["agent_user"] = _limit(str(patch["agent_user"]).strip(), 64, "The agent user")
     for key in ("agent_states", "agent_config", "agent_related"):

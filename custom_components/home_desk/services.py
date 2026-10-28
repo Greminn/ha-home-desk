@@ -112,7 +112,7 @@ _LEGACY = {
 
 # What the AI Agent's own user may do to a ticket depends on its run, so it is read-only until a person presses Proceed: it can
 # comment while any run is working the ticket, but changing, closing, linking or creating tickets only while the approved change run is.
-_RUN_SERVICES = {"claim_run", "note_run", "finish_run"}  # only ever called by the AI Agent runner (experimental, not in the first release)
+_RUN_SERVICES = {"claim_run", "note_run", "finish_run"}  # only ever called by the AI Dispatcher (experimental, not in the first release)
 _AGENT_COMMENTS = {"add_comment"}
 _AGENT_WRITES = {"update_ticket", "close_ticket", "link_tickets", "create_ticket"}
 

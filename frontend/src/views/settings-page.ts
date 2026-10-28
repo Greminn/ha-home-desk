@@ -30,8 +30,8 @@ const REPO = "https://github.com/Greminn/ha-home-desk";
 /** The notification options are saved but nothing sends yet (see "Phone notifications" in docs/development.md), so the card stays hidden until it does. */
 const NOTIFICATIONS_SEND = false;
 
-/** The AI Agent runner is left out of the first release. Its card in Settings stays hidden (a setting already switched on keeps working) until it is offered again. */
-const RUNNER_SETTINGS = false;
+/** The AI Dispatcher is left out of the first release. Its card in Settings stays hidden (a setting already switched on keeps working) until it is offered again. */
+const DISPATCHER_SETTINGS = false;
 
 /** The keyboard shortcuts: the keys, what they do, and a line of detail. Keep in step with the key handlers in ticket-detail.ts and top-bar.ts. */
 const SHORTCUTS: [string[], string, string][] = [
@@ -289,7 +289,7 @@ export class SettingsPage extends LitElement {
   /** The Test button sends a (tiny) request to the AI provider, so it asks first. */
   @state() private _confirmTest = false;
   @state() private _confirmAiOff = false;
-  /** The Home Assistant users the runner could sign in as. */
+  /** The Home Assistant users the AI Dispatcher could sign in as. */
   @state() private _users: { id: string; name: string }[] = [];
 
   private async _runTest() {
@@ -518,26 +518,26 @@ export class SettingsPage extends LitElement {
         </details>
       </div>
 
-      ${RUNNER_SETTINGS ? html`
+      ${DISPATCHER_SETTINGS ? html`
       <div class="card">
-        <h2>AI Agent runner</h2>
-        <p class="help">The AI Agent on your Network LXC works a ticket when you press <b>Run</b>: it reads it first and says what it found and what it would change, and only changes anything after you press <b>Proceed</b>. See <code>docs/agent-runs.md</code> for setting up the runner.</p>
+        <h2>AI Dispatcher</h2>
+        <p class="help">The AI Agent on your Network LXC works a ticket when you press <b>Run</b>: it reads it first and says what it found and what it would change, and only changes anything after you press <b>Proceed</b>. See <code>docs/agent-runs.md</code> for setting up the AI Dispatcher.</p>
         <div class="srow">
           <div class="text">
             <div class="name">Offer Run AI Agent Now</div>
-            <div class="desc">Shows <b>Run</b> in the AI Action control on a ticket. Switch it on once the runner is set up.</div>
+            <div class="desc">Shows <b>Run</b> in the AI Action control on a ticket. Switch it on once the AI Dispatcher is set up.</div>
           </div>
-          ${this._switch(s.agent_runner, "Offer Run AI Agent Now", (v) => void this._save({ agent_runner: v }))}
+          ${this._switch(s.agent_dispatcher, "Offer Run AI Agent Now", (v) => void this._save({ agent_dispatcher: v }))}
         </div>
         <div class="srow">
           <div class="text">
             <div class="name">The agent's Home Assistant user</div>
-            <div class="desc">The runner signs in as this user. It must not be an administrator: it can read and comment on tickets, create and update them, and claim and finish its runs, and nothing else (no merging, labels, categories or import).</div>
+            <div class="desc">The AI Dispatcher signs in as this user. It must not be an administrator: it can read and comment on tickets, create and update them, and claim and finish its runs, and nothing else (no merging, labels, categories or import).</div>
           </div>
           <st-dropdown plain field label="The agent's Home Assistant user" .value=${s.agent_user} .options=${[{ id: "", label: "None" }, ...this._users.map((u) => ({ id: u.id, label: u.name }))]}
             @change=${(e: CustomEvent<string>) => void this._save({ agent_user: e.detail })}></st-dropdown>
         </div>
-        ${s.agent_runner && !s.agent_user ? html`<div class="note">Choose the agent's user, or the runner can't sign in with limited rights.</div>` : nothing}
+        ${s.agent_dispatcher && !s.agent_user ? html`<div class="note">Choose the agent's user, or the AI Dispatcher can't sign in with limited rights.</div>` : nothing}
       </div>
 ` : nothing}
 ` : nothing}

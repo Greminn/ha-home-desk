@@ -877,6 +877,18 @@ async def main():
         s._now = real_now
     print("unread ok")
 
+    # ---- the AI Dispatcher was first called the runner: its saved setting carries over
+    hass_m = FakeHass()
+    data = await s._load(hass_m)
+    data["settings"].pop("agent_dispatcher", None)
+    data["settings"]["agent_runner"] = True
+    assert s._migrate(data) is True
+    assert data["settings"]["agent_dispatcher"] is True and "agent_runner" not in data["settings"], data["settings"]
+    data["settings"].update({"agent_dispatcher": False, "agent_runner": True})
+    s._migrate(data)
+    assert data["settings"]["agent_dispatcher"] is False and "agent_runner" not in data["settings"], "a value saved under the new name wins"
+    print("dispatcher setting migration ok")
+
     # ---- a ticket file written by a newer Home Desk is refused, never read and rewritten
     store = s._store(FakeHass())
     assert await store._async_migrate_func(1, 0, {"tickets": {}}) == {"tickets": {}}, "the current format passes through untouched"

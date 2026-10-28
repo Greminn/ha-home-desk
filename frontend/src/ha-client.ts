@@ -82,7 +82,7 @@ export class HaClient {
         agent_config: true,
         agent_related: true,
         agent_daily_cap: 30,
-        agent_runner: false,
+        agent_dispatcher: false,
         agent_user: "",
         agent_prompt: "",
         agent_prompt_default: "",
@@ -141,7 +141,7 @@ export class HaClient {
     return this.send("agent_run", { ticket_id: ticketId });
   }
 
-  /** Run AI Agent Now: the runner works the ticket read-only, then says what it would change and waits for Proceed. */
+  /** Run AI Agent Now: the AI Dispatcher works the ticket read-only, then says what it would change and waits for Proceed. */
   runAgentNow(ticketId: number): Promise<Ticket> {
     return this.send("agent_run_now", { ticket_id: ticketId });
   }
