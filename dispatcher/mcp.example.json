@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "home-desk": {
+      "command": "/home/claude-agent/.local/bin/uv",
+      "args": [
+        "run",
+        "--script",
+        "/home/claude-agent/home-desk-dispatcher/mcp/server.py"
+      ],
+      "env": {
+        "HA_URL": "https://homeassistant.local",
+        "HOMEDESK_ACTOR": "claude-ha",
+        "HA_TOKEN_FILE": "/home/claude-agent/home-desk-dispatcher/secrets/ha-token",
+        "HA_CA_FILE": "/home/claude-agent/home-desk-dispatcher/secrets/internal-ca.pem"
+      }
+    }
+  }
+}

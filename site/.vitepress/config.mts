@@ -2,8 +2,6 @@ import { defineConfig } from "vitepress";
 
 // Published at https://greminn.github.io/ha-home-desk/ (GitHub Pages), so every address starts with /ha-home-desk/.
 export default defineConfig({
-  // The AI Agent runner is left out of the first release: its pages are kept off git (see .gitignore) and, if present, are not built.
-  srcExclude: ["runner/**"],
   title: "Home Desk",
   description: "A smart home ticket system for Home Assistant, with AI to help.",
   base: "/ha-home-desk/",
@@ -39,6 +37,14 @@ export default defineConfig({
         { text: "Connect Your AI Agent", link: "/ai/access" },
         { text: "Events and Automations", link: "/guide/events" },
         { text: "Under the Hood", link: "/guide/under-the-hood" },
+        { text: "AI Dispatcher", collapsed: true, items: [
+          { text: "Overview", link: "/dispatcher/" },
+          { text: "How It Is Built", link: "/dispatcher/overview" },
+          { text: "Setup", link: "/dispatcher/setup" },
+          { text: "Presets", link: "/dispatcher/presets" },
+          { text: "Looking at Your Home", link: "/dispatcher/mcp" },
+          { text: "Troubleshooting", link: "/dispatcher/running" },
+        ] },
       ] },
       { text: "Support", items: [
         { text: "Reporting a Problem", link: "/support/reporting-a-problem" },

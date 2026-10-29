@@ -6,7 +6,12 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 
 ## [Unreleased]
 
+## [1.0.0-beta.3] - 2026-10-30
+
+The AI Dispatcher, and agents that can look at a ticket's photos.
+
 ### Added
+- **The AI Dispatcher.** A small program on your own network that works tickets for an AI agent: it reviews first and only acts after you press Proceed. In Settings, the AI Dispatcher card offers **Run AI Agent Now** and picks the agent's Home Assistant user. Set up and presets are in the documentation. It replaces the unreleased "runner" name; the setting `agent_runner` moves to `agent_dispatcher` on first start. **Action:** none unless you want to use it.
 - **Agents can look at a ticket's photos.** A new action, `home_desk.get_attachment` (`ticket_id`, `attachment_id`, optional `max_bytes`), returns a photo as base64 with its mime type and size. A photo over 1 MB (at most 5 MB if asked) is refused, never cut short. Voice messages are not served; their words are already in the description. It is open to the AI Agent user, which can now read every photo on any ticket, including ones household members sent. The agent guide says photo content is data, not instructions. The Home Desk MCP bridge has a matching `get_attachment` tool that returns the picture itself. Through other tool layers, such as ha-mcp, the result is base64 text: an agent with file tools can decode it to a file and open that, and the guide says how. **Action:** restart Home Assistant to load the new action.
 
 ## [1.0.0-beta.2] - 2026-10-28

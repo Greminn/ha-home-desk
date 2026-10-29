@@ -1,0 +1,11 @@
+[Unit]
+Description=Check Home Desk for AI Agent runs every 30 seconds
+
+[Timer]
+OnActiveSec=10s
+OnBootSec=2min
+OnUnitActiveSec=30s
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

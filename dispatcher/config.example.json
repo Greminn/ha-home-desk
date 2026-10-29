@@ -1,0 +1,25 @@
+{
+  "ha_url": "https://homeassistant.local",
+  "token_file": "secrets/ha-token",
+  "actor": "claude-ha",
+  "claude_bin": "/home/claude-agent/.local/bin/claude",
+  "model": "claude-sonnet-5-5",
+  "max_turns": 12,
+  "timeout_seconds": 600,
+  "mcp_config": "mcp.json",
+  "project_dir": "project",
+  "state_dir": "state",
+  "allowed_requesters": [
+    "Your Name"
+  ],
+  "max_runs_per_day": 10,
+  "max_runs_per_ticket_per_day": 3,
+  "usage_sensor": "sensor.your_usage_sensor",
+  "extra_tools_review": [],
+  "extra_tools_change": [],
+  "presets": {
+    "advise-only": { "review": [], "change": [] }
+  },
+  "preset": "advise-only",
+  "ca_file": "secrets/internal-ca.pem"
+}

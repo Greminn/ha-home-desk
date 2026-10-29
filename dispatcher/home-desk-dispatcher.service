@@ -1,0 +1,12 @@
+[Unit]
+Description=Home Desk AI Dispatcher: work the tickets a person asked the AI Agent to run (one pass)
+
+[Service]
+Type=oneshot
+User=claude-agent
+WorkingDirectory=/home/claude-agent/home-desk-dispatcher
+Environment=HOME_DESK_DISPATCHER_CONFIG=/home/claude-agent/home-desk-dispatcher/config.json
+ExecStart=/usr/bin/python3 /home/claude-agent/home-desk-dispatcher/home_desk_dispatcher.py
+# The AI Dispatcher makes no AI call unless a person asked for one, so a frequent timer costs nothing.
+NoNewPrivileges=true
+PrivateTmp=true

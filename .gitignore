@@ -16,8 +16,3 @@ site/.vitepress/dist/
 
 # Private working notes (design ideas and decisions in progress); kept on this machine only.
 local/
-
-# The AI Dispatcher is left out of the first release: it stays on this machine, untracked, until it is offered again.
-/dispatcher/
-/site/dispatcher/
-/tests/test_dispatcher.py
