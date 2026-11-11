@@ -1,15 +1,10 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="brand/extras/social-preview-dark-1280x640.png">
-  <img alt="Home Desk: a smart home ticket system for Home Assistant, with AI to help." src="brand/extras/social-preview-1280x640.png">
-</picture>
-
-![Pre-release](https://img.shields.io/badge/status-pre--release-orange)
+![Home Desk: a smart home ticket system for Home Assistant, with AI to help.](https://raw.githubusercontent.com/Greminn/ha-home-desk/main/brand/extras/social-preview-1280x640.png)
 
 Something in the house stops working, a household member has a request, or you have an idea for later, and it lives in your head, a chat thread or a note on the fridge. Home Desk is a helpdesk that lives inside Home Assistant. You, your household, AI agents and Home Assistant itself raise tickets; you and your AI agents work them through to resolution, with the full history kept. Home Assistant is the heart of a smart home, so it's where tickets live, but they can be about anything around it too: the network, the servers, the media box.
 
-![Home Desk in Home Assistant, with floating cards showing a ticket and an AI agent answering it](site/public/screenshots/home-desk-hero-v3.png)
+![Home Desk in Home Assistant, with floating cards showing a ticket and an AI agent answering it](https://raw.githubusercontent.com/Greminn/ha-home-desk/main/site/public/screenshots/home-desk-hero-v3.png)
 
-![Home Desk in Home Assistant: the Inbox beside an open ticket, with its priority, category and labels, and the reply bar below](site/public/screenshots/screenshot-main-v3.png)
+![Home Desk in Home Assistant: the Inbox beside an open ticket, with its priority, category and labels, and the reply bar below](https://raw.githubusercontent.com/Greminn/ha-home-desk/main/site/public/screenshots/screenshot-main-v3.png)
 
 *A preview with sample tickets.*
 
@@ -34,12 +29,12 @@ The full guide is at **<https://greminn.github.io/ha-home-desk/>**:
 
 ## Installation
 
-Needs **Home Assistant 2026.10** or newer. Home Desk is a **pre-release** and isn't in the HACS default repository yet, so it's added as a custom repository.
+Needs **Home Assistant 2026.10** or newer. Install it through HACS.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Greminn&repository=ha-home-desk&category=integration)
 
-1. Click the button above, or in HACS choose **⋮ → Custom repositories**, paste `https://github.com/Greminn/ha-home-desk` and set **Type** to **Integration**.
-2. Install **Home Desk** (turn on **Show beta versions** if you don't see it; that is HACS's name for pre-releases).
+1. Click the button above, or search for **Home Desk** in HACS.
+2. Install **Home Desk**.
 3. Restart Home Assistant, then **Settings → Devices & Services → Add Integration → Home Desk**.
 
 Prefer to copy files by hand? Put `custom_components/home_desk/` into your `/config/custom_components/`. The [install guide](https://greminn.github.io/ha-home-desk/guide/install) has the details.
@@ -72,16 +67,16 @@ Every ticket change also fires `home_desk_event`, so an [automation](https://gre
 
 Home Desk is a personal project, free and shared as is. If it's useful to you and you'd like to say thanks, you can [buy me an espresso](https://buymeacoffee.com/greminn). It's never expected, and bug reports and ideas are just as welcome.
 
-<a href="https://buymeacoffee.com/greminn"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20an%20espresso&emoji=&slug=greminn&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Buy me an espresso" height="50"></a>
+[![Buy me an espresso](https://img.buymeacoffee.com/button-api/?text=Buy%20me%20an%20espresso&emoji=&slug=greminn&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff)](https://buymeacoffee.com/greminn)
 
 ## Status
 
-**Pre-release.** Used daily on the author's own home, but the interface may still change between releases, and it hasn't yet been tested against the wide variety of Home Assistant setups a stable release should handle.
+Used daily on the author's own home.
 
 Found a bug, or have an idea? Please [open an issue](https://github.com/Greminn/ha-home-desk/issues). Problems and feature ideas are equally welcome, not just polished bug reports.
 
 ## Development and licence
 
-Building, testing, the mock preview and deploying are covered in [docs/development.md](docs/development.md). The panel is built from `frontend/` (Lit and TypeScript) and the output is committed, so HACS and a manual copy need no build step.
+Building, testing, the mock preview and deploying are covered in [docs/development.md](https://github.com/Greminn/ha-home-desk/blob/main/docs/development.md). The panel is built from `frontend/` (Lit and TypeScript) and the output is committed, so HACS and a manual copy need no build step.
 
 [MIT](LICENSE)

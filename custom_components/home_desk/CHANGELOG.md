@@ -6,6 +6,13 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-12
+
+The first stable release, and the first one offered in the HACS default repository. It is the same code as 1.0.0-beta.3.
+
+### Changed
+- The README now renders in HACS (absolute image links, no raw HTML). **Action:** none.
+
 ## [1.0.0-beta.3] - 2026-10-30
 
 The AI Dispatcher, and agents that can look at a ticket's photos.
