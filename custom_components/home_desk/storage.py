@@ -1319,6 +1319,7 @@ async def async_stats(hass: HomeAssistant) -> dict[str, Any]:
 REPAIR_SOURCE = "Home Assistant Repairs"
 REPAIR_ACTOR = "Home Assistant"
 REPAIR_PREFIX = "repair:"
+UPDATE_PREFIX = "update:"
 ISSUE_PREFIX = "issue:"  # keys of tickets raised by automations (raise_issue): their own namespace, never a repair's
 
 
@@ -1632,6 +1633,103 @@ async def async_sync_repair(
         _fire(hass, ticket, "closed" if kind == "resolved" else kind if kind == "created" else "updated", REPAIR_ACTOR)
     return kind
 
+
+async def async_sync_update(
+    hass: HomeAssistant, *, entity_id: str, available: bool,
+    title: str = "", description: str = "", version: str = "", priority: str = "normal",
+    category: str = HA_CATEGORY_ID,
+) -> str | None:
+    """Keep one ticket per update entity in step with Home Assistant's update state.
+
+    An unavailable/unknown entity must not call this function: it says nothing
+    about whether the update was installed. A manually closed ticket remains
+    closed for the same version, but a later version opens it again.
+    """
+    key = f"{UPDATE_PREFIX}{entity_id}"
+    actor = "Home Assistant"
+    kind: str | None = None
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = _find_by_source_key(data, key)
+        if category not in data["category_registry"]:
+            category = HA_CATEGORY_ID
+        metadata_changed = False
+        if available and ticket is None:
+            ticket = _new_ticket(
+                data, title=title or f"Update available: {entity_id}",
+                description=description, priority=priority, requester=actor,
+                labels=["Update"], category=category,
+                entities=[entity_id], source="Home Assistant Updates",
+                source_key=key, actor=actor,
+            )
+            ticket["update_version"] = version
+            ticket["update_title"] = ticket["title"]
+            ticket["update_category"] = category
+            kind = "created"
+        elif available and ticket is not None:
+            previous_version = ticket.get("update_version", "")
+            if ticket["status"] == "closed" and previous_version == version:
+                return None
+            fields: dict[str, Any] = {}
+            # Preserve a person's category choice when reconciling the update.
+            category_events = [
+                event for event in ticket.get("events", ())
+                if event.get("kind") == "field" and (event.get("data") or {}).get("field") == "category"
+            ]
+            managed = (
+                ticket.get("update_category") == ticket.get("category")
+                if "update_category" in ticket else
+                not category_events or category_events[-1].get("actor") == actor
+            )
+            if managed:
+                if ticket.get("category") != category:
+                    fields["category"] = category
+                if ticket.get("update_category") != category:
+                    ticket["update_category"] = category
+                    metadata_changed = True
+            if ticket["status"] not in ACTIVE_STATUSES:
+                fields["status"] = "in_progress"
+                kind = "reopened"
+            if title and ticket["title"] == ticket.get("update_title", ticket["title"]) and title != ticket["title"]:
+                fields["title"] = title
+                ticket["update_title"] = title
+            if description and description != ticket["description"]:
+                fields["description"] = description
+            if version != previous_version:
+                ticket["update_version"] = version
+                if ticket["status"] in ACTIVE_STATUSES:
+                    _event(ticket, actor, "comment", f"A new update version is available: {version or 'unknown'}.")
+                    kind = "updated"
+            if priority == "high" and ticket["priority"] in ("low", "normal"):
+                fields["priority"] = "high"
+            if fields:
+                _apply_update(data, ticket, actor, fields)
+                kind = kind or "updated"
+            if kind == "reopened":
+                _event(ticket, actor, "comment", f"An update is available again: {version or 'unknown'}.")
+        elif not available and ticket is not None and ticket["status"] in ACTIVE_STATUSES:
+            resolution = "Home Assistant no longer reports this update as pending (it may have been installed or skipped)."
+            _apply_update(data, ticket, actor, {"status": "resolved", "resolution": resolution})
+            _event(ticket, actor, "comment", f"**Resolution:** {resolution}")
+            kind = "resolved"
+        if kind or metadata_changed:
+            if kind:
+                ticket["updated_at"] = _now()
+            await _save(hass, data)
+    if kind:
+        _fire(hass, ticket, "closed" if kind == "resolved" else kind if kind == "created" else "updated", actor)
+    return kind
+
+
+async def async_open_update_entity_ids(hass: HomeAssistant) -> list[str]:
+    """Return update entities with an active Home Desk ticket for startup reconciliation."""
+    async with _lock(hass):
+        data = await _load(hass)
+    return [
+        t["source_key"][len(UPDATE_PREFIX):]
+        for t in data["tickets"].values()
+        if t["status"] in ACTIVE_STATUSES and (t.get("source_key") or "").startswith(UPDATE_PREFIX)
+    ]
 
 # ------------------------------------------------------------------ issues raised by automations
 

@@ -47,9 +47,26 @@ class FakeHass:
         self.bus = FakeBus()
         self.config = types.SimpleNamespace(language="en")
         self.tasks = []
+        self.states = FakeStates()
 
     def async_create_task(self, coro):
         self.tasks.append(asyncio.ensure_future(coro))
+
+
+class FakeStates:
+    def __init__(self):
+        self.values = {}
+
+    def get(self, entity_id):
+        return self.values.get(entity_id)
+
+    def async_all(self, domain):
+        return [state for key, state in self.values.items() if key.startswith(f"{domain}.")]
+
+
+class FakeState:
+    def __init__(self, entity_id, state, **attrs):
+        self.entity_id, self.state, self.attributes = entity_id, state, attrs
 
 
 class FakeIssue:
@@ -86,6 +103,9 @@ def stub(name, **attrs):
 
 
 stub("homeassistant")
+stub("homeassistant.components")
+stub("homeassistant.components.update", DATA_COMPONENT="update_component", UpdateEntityFeature=types.SimpleNamespace(RELEASE_NOTES=16))
+stub("homeassistant.const", EVENT_STATE_CHANGED="state_changed")
 stub("homeassistant.core", HomeAssistant=FakeHass, Event=object, callback=lambda f: f)
 stub("homeassistant.helpers.issue_registry", IssueEntry=FakeIssue, async_get=lambda hass: FakeRegistry(),
      EVENT_REPAIRS_ISSUE_REGISTRY_UPDATED="repairs_issue_registry_updated")
@@ -113,6 +133,15 @@ async def fire_timers():
 
 stub("homeassistant.helpers.event", async_call_later=fake_call_later)
 helpers = stub("homeassistant.helpers")
+ENTITY_DEVICES = {}
+DEVICE_MODELS = {}
+helpers.entity_registry = stub("homeassistant.helpers.entity_registry", async_get=lambda hass: types.SimpleNamespace(
+    async_get=lambda entity_id: types.SimpleNamespace(device_id=ENTITY_DEVICES[entity_id]) if entity_id in ENTITY_DEVICES else None,
+))
+helpers.device_registry = stub("homeassistant.helpers.device_registry", async_get=lambda hass: types.SimpleNamespace(
+    async_get=lambda device_id: types.SimpleNamespace(model=DEVICE_MODELS[device_id]) if device_id in DEVICE_MODELS else None,
+))
+stub("homeassistant.helpers.aiohttp_client", async_get_clientsession=lambda hass: None)
 stub("homeassistant.helpers.storage", Store=FakeStore)
 
 helpers.issue_registry = sys.modules["homeassistant.helpers.issue_registry"]
@@ -122,13 +151,14 @@ helpers.event = sys.modules["homeassistant.helpers.event"]
 pkg = types.ModuleType("home_desk")
 pkg.__path__ = [str(PKG)]
 sys.modules["home_desk"] = pkg
-for mod in ("const", "storage", "repairs"):
+for mod in ("const", "storage", "repairs", "updates"):
     spec = importlib.util.spec_from_file_location(f"home_desk.{mod}", PKG / f"{mod}.py")
     m = importlib.util.module_from_spec(spec)
     sys.modules[f"home_desk.{mod}"] = m
     spec.loader.exec_module(m)
 s = sys.modules["home_desk.storage"]
 repairs = sys.modules["home_desk.repairs"]
+updates = sys.modules["home_desk.updates"]
 
 
 async def expect_error(coro_fn, fragment=None, what="call"):
@@ -901,6 +931,193 @@ async def main():
 
 
 asyncio.run(main())
+
+
+async def test_update_tickets():
+    FakeStore.saved = {}
+    hass = FakeHass()
+    eid = "update.office_router"
+    hass.states.values[eid] = FakeState(
+        eid, "on", friendly_name="Office router", installed_version="1.0", latest_version="1.1",
+        release_summary="Breaking change: the API changed", release_url="https://example.org/release",
+    )
+    stop = await updates.async_setup_updates(hass)
+    tickets = (await s.async_list_tickets(hass, status="all"))["tickets"]
+    assert len(tickets) == 1 and tickets[0]["priority"] == "high", tickets
+    assert "https://example.org/release" in (await s.async_get_ticket(hass, tickets[0]["id"]))["description"]
+    assert await s.async_open_update_entity_ids(hass) == [eid]
+
+    # A temporary off/on bounce must not resolve the ticket.
+    hass.states.values[eid] = FakeState(eid, "off")
+    for listener in list(hass.bus.listeners["state_changed"]):
+        listener(types.SimpleNamespace(data={"entity_id": eid, "new_state": hass.states.get(eid)}))
+    hass.states.values[eid] = FakeState(eid, "on", friendly_name="Office router", latest_version="1.1")
+    for listener in list(hass.bus.listeners["state_changed"]):
+        listener(types.SimpleNamespace(data={"entity_id": eid, "new_state": hass.states.get(eid)}))
+    await asyncio.gather(*hass.tasks)
+    await fire_timers()
+    assert (await s.async_get_ticket(hass, tickets[0]["id"]))["status"] == "new"
+
+    hass.states.values[eid] = FakeState(eid, "off")
+    for listener in list(hass.bus.listeners["state_changed"]):
+        listener(types.SimpleNamespace(data={"entity_id": eid, "new_state": hass.states.get(eid)}))
+    await fire_timers()
+    assert (await s.async_get_ticket(hass, tickets[0]["id"]))["status"] == "resolved"
+    assert await s.async_open_update_entity_ids(hass) == []
+
+    hass.states.values[eid] = FakeState(eid, "on", friendly_name="Office router", latest_version="1.2")
+    for listener in list(hass.bus.listeners["state_changed"]):
+        listener(types.SimpleNamespace(data={"entity_id": eid, "new_state": hass.states.get(eid)}))
+    await asyncio.gather(*hass.tasks)
+    again = (await s.async_list_tickets(hass, status="all"))["tickets"]
+    assert len(again) == 1 and again[0]["status"] == "new", again  # system reopens in the Inbox
+    hass.states.values.pop(eid)
+    for listener in list(hass.bus.listeners["state_changed"]):
+        listener(types.SimpleNamespace(data={"entity_id": eid, "new_state": None}))
+    await fire_timers()
+    assert (await s.async_get_ticket(hass, tickets[0]["id"]))["status"] == "resolved"
+    assert updates._breaking_note("No breaking changes") is False
+    assert updates._release_link("javascript:alert(1)") == ""
+    assert updates._release_link("https://[bad-ipv6/release") == ""
+    stop()
+    assert not hass.bus.listeners["state_changed"]
+    print("update tickets ok")
+
+
+asyncio.run(test_update_tickets())
+
+
+async def test_update_ticket_manual_close():
+    FakeStore.saved = {}
+    hass = FakeHass()
+    eid = "update.office_router"
+    await s.async_sync_update(
+        hass, entity_id=eid, available=True, title="Router update",
+        description="Version 1.1", version="1.1",
+    )
+    ticket_id = (await s.async_list_tickets(hass))["tickets"][0]["id"]
+    await s.async_close_ticket(hass, ticket_id, actor="User", resolution="Deferred", status="closed")
+    assert await s.async_sync_update(hass, entity_id=eid, available=True, version="1.1") is None
+    assert (await s.async_get_ticket(hass, ticket_id))["status"] == "closed"
+    assert await s.async_sync_update(hass, entity_id=eid, available=True, version="1.2") == "reopened"
+    assert (await s.async_get_ticket(hass, ticket_id))["status"] == "new"
+    assert len((await s.async_list_tickets(hass, status="all"))["tickets"]) == 1
+
+
+asyncio.run(test_update_ticket_manual_close())
+
+
+async def test_native_update_categories_and_release_notes():
+    FakeStore.saved = {}
+    hass = FakeHass()
+    for name in ("Apps", "Dashboards", "Integrations"):
+        await s.async_create_category(hass, name=name)
+
+    app_id = "update.piper_update"
+    card_id = "update.calendar_card_pro_update"
+    component_id = "update.example_integration_update"
+    for entity_id, model in ((app_id, "Home Assistant App"), (card_id, "plugin"), (component_id, "integration")):
+        ENTITY_DEVICES[entity_id] = entity_id
+        DEVICE_MODELS[entity_id] = model
+    notes = "## Breaking changes\n- Existing cards need a new setting before they load.\n## New features\n- Per-person calendars can now be shown.\n## Fixes\n- Fixed the blank card after reload."
+    hass.data["update_component"] = types.SimpleNamespace(get_entity=lambda entity_id: types.SimpleNamespace(
+        supported_features=16, async_release_notes=lambda: asyncio.sleep(0, result=notes),
+    ))
+    for entity_id in (app_id, card_id, component_id):
+        hass.states.values[entity_id] = FakeState(
+            entity_id, "on", friendly_name=entity_id, installed_version="1.0", latest_version="2.0",
+            release_url="https://github.com/example/project/releases/tag/2.0",
+        )
+    stop = await updates.async_setup_updates(hass)
+    tickets = (await s.async_list_tickets(hass, status="all"))["tickets"]
+    by_entity = {t["entities"][0]: t for t in tickets}
+    assert by_entity[app_id]["category"] == "apps"
+    assert by_entity[card_id]["category"] == "dashboards"
+    assert by_entity[component_id]["category"] == "integrations"
+    card = await s.async_get_ticket(hass, by_entity[card_id]["id"])
+    assert card["priority"] == "high"
+    assert all(heading in card["description"] for heading in ("### Breaking changes", "### New", "### Fixes")), card["description"]
+    assert "[GitHub release](https://github.com/example/project/releases/tag/2.0)" in card["description"]
+
+    piper_notes = "## Backups\n- Downloaded voice packs are no longer included in backups.\n## Fixes\n- Fixed a synthesis request that could hang."
+    piper_description = updates._details(hass.states.get(app_id), piper_notes)[1]
+    assert "### Other changes" in piper_description and "### Fixes" in piper_description
+
+    class FakeResponse:
+        status = 200
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def json(self):
+            return {"body": "## Fixes\n- Corrected a Home Assistant Core regression."}
+
+    class FakeSession:
+        def get(self, url, headers):
+            assert url == "https://api.github.com/repos/home-assistant/core/releases/tags/2026.11.2"
+            return FakeResponse()
+
+    original_session = updates.async_get_clientsession
+    updates.async_get_clientsession = lambda _hass: FakeSession()
+    component = hass.data.pop("update_component")
+    try:
+        core = FakeState(
+            "update.home_assistant_core_update", "on", latest_version="2026.11.2",
+            title="Home Assistant Core", friendly_name="Home Assistant Core Update",
+        )
+        assert "Corrected a Home Assistant Core regression" in await updates._release_notes(hass, core)
+        assert updates._details(core)[0] == "Update available: Home Assistant Core"
+        assert "https://github.com/home-assistant/core/releases/tag/2026.11.2" in updates._details(core)[1]
+    finally:
+        updates.async_get_clientsession = original_session
+        hass.data["update_component"] = component
+
+    # A person can override a category. Later updates must keep that choice.
+    card = await s.async_update_ticket(hass, card["id"], actor="User", category="Apps")
+    hass.states.values[card_id] = FakeState(card_id, "on", latest_version="2.1", friendly_name=card_id)
+    for listener in list(hass.bus.listeners["state_changed"]):
+        listener(types.SimpleNamespace(data={"entity_id": card_id, "new_state": hass.states.get(card_id)}))
+    await asyncio.gather(*hass.tasks)
+    assert (await s.async_get_ticket(hass, card["id"]))["category"] == "apps"
+    stop()
+    print("native update categories and release notes ok")
+
+
+asyncio.run(test_native_update_categories_and_release_notes())
+
+
+async def test_update_release_notes_retry():
+    FakeStore.saved = {}
+    TIMERS.clear()
+    hass = FakeHass()
+    eid = "update.office_router"
+    hass.states.values[eid] = FakeState(eid, "on", friendly_name="Office router", latest_version="1.1")
+    calls = 0
+    original = updates._release_notes
+
+    async def delayed_notes(_hass, _state):
+        nonlocal calls
+        calls += 1
+        return "" if calls == 1 else "## Fixes\n- Corrected intermittent startup failures."
+
+    updates._release_notes = delayed_notes
+    try:
+        stop = await updates.async_setup_updates(hass)
+        ticket_id = (await s.async_list_tickets(hass))["tickets"][0]["id"]
+        assert "### Fixes" not in (await s.async_get_ticket(hass, ticket_id))["description"]
+        assert any(delay == updates.EMPTY_NOTES_RETRY and not cancelled for delay, _action, cancelled in TIMERS)
+        await fire_timers()
+        ticket = await s.async_get_ticket(hass, ticket_id)
+        assert calls == 2 and "### Fixes" in ticket["description"], ticket
+        stop()
+    finally:
+        updates._release_notes = original
+
+
+asyncio.run(test_update_release_notes_retry())
 
 spec = importlib.util.spec_from_file_location("changelog", PKG / "changelog.py")
 cl = importlib.util.module_from_spec(spec); spec.loader.exec_module(cl)
