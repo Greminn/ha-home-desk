@@ -115,6 +115,7 @@ LEGACY_TYPE_LABELS = {
 # CONF_REPAIRS is only read once, to carry an older choice over.
 CONF_REPAIRS = "repairs_to_tickets"
 CONF_REPAIRS_IGNORE = "repairs_ignored_domains"
+CONF_UPDATES = "updates_to_tickets"
 # How an issue's severity becomes a ticket priority.
 REPAIR_PRIORITY = {"critical": "urgent", "error": "high", "warning": "normal"}
 
