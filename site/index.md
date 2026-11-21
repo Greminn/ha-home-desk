@@ -17,7 +17,7 @@ hero:
 features:
   - { icon: { src: /icons/tickets.svg, alt: "", width: 28, height: 28 }, title: Tickets for Your Home, details: "Something needs attention, so you open a ticket, work it through with comments, and resolve it. Everything that happened stays on the ticket." }
   - { icon: { src: /icons/repairs.svg, alt: "", width: 28, height: 28 }, title: Repairs as Tickets, details: "Each Home Assistant Repair becomes a ticket, grouped by kind. It resolves when the Repair clears and reopens if it returns." }
-  - { icon: { src: /icons/reports.svg, alt: "", width: 28, height: 28 }, title: Household Reports, details: "Everyone at home can report an issue or make a suggestion, with a line of detail, photos and a voice message. It arrives as a ticket for you to pick up." }
+  - { icon: { src: /icons/reports.svg, alt: "", width: 28, height: 28 }, title: Household Reports, details: "Everyone at home can report an issue or make a suggestion, with a line of detail, photos and a voice message. It arrives as a ticket for you to pick up, and they can follow it in My Reports and reply to your questions." }
   - { icon: { src: /icons/ai-agents.svg, alt: "", width: 28, height: 28 }, title: AI Agents, details: "Ask an AI to review a ticket and suggest what to do, or queue it for your own external AI agent to work. Either way, the answer lands on the ticket." }
 ---
 

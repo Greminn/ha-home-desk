@@ -17,6 +17,7 @@ Brewed over a magic: your household can now see what happened to their reports, 
 - **Reports now belong to a person, not to a name.** Tickets and their photos used to be matched to their owner by display name, so two accounts called the same thing could see each other's reports, and renaming an account lost its tickets. Tickets now record the Home Assistant user who raised them. Existing tickets are matched once, and only when the name belongs to exactly one user. Anything unclear (two people with one name, a deleted user, an automation's or a Repair's ticket) stays with administrators rather than being guessed at. **Action:** none.
 
 ### Changed
+- The AI agent guide now says that household members see comments from people only, never an AI agent's, so anything a requester must see goes through the manager.
 - The report form now says "Report a problem or make a suggestion", because you can't really "report an idea". It matches the two choices underneath.
 
 ## [1.0.0] - 2026-11-12
