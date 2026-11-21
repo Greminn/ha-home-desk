@@ -259,3 +259,21 @@ export interface HomeAssistant {
     ): Promise<() => void>;
   };
 }
+
+/** What a household member sees of their own report: plain words, no ticket internals. */
+export interface MyReport {
+  /** Only to ask for the report again; never shown. */
+  id: number;
+  kind: "problem" | "suggestion";
+  title: string;
+  status: "received" | "looking" | "resolved";
+  created_at: string;
+  updated_at: string;
+  /** A reply from someone else they have not read yet. */
+  unread: boolean;
+  resolution: string | null;
+  /** Only when a single report is opened. */
+  message?: string;
+  messages?: { mine: boolean; who: string; body: string; at: string }[];
+  attachments?: Pick<Attachment, "id" | "kind" | "name" | "seconds">[];
+}

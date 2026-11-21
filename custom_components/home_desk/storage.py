@@ -336,9 +336,35 @@ async def _load(hass: HomeAssistant) -> dict[str, Any]:
         legacy = await Store(hass, _STORE_VERSION, _LEGACY_STORE_KEY).async_load()
         data = legacy if legacy and "tickets" in legacy else {"next_id": 1, "tickets": {}}
         fresh = bool(legacy and "tickets" in legacy)
-    if _migrate(data) or fresh:
+    changed = await _adopt_requester_ids(hass, data)
+    if _migrate(data) or fresh or changed:
         await _save(hass, data)
     return data
+
+
+async def _adopt_requester_ids(hass: HomeAssistant, data: dict[str, Any]) -> bool:
+    """Give tickets from before `requester_id` the Home Assistant user they were raised by, once.
+
+    Only an exact name that belongs to exactly one user is adopted. Two people with the same name, or a name that
+    belongs to nobody now (a deleted user, a Repair, an automation), stay without an id and so are seen by
+    administrators only: never guess whose ticket it is.
+    """
+    old = [t for t in data["tickets"].values() if "requester_id" not in t]
+    if not old:
+        return False
+    names: dict[str, list[str]] = {}
+    for user in await hass.auth.async_get_users():
+        if user.name and not user.system_generated:
+            names.setdefault(user.name, []).append(user.id)
+    for ticket in old:
+        ids = names.get(ticket["requester"], [])
+        ticket["requester_id"] = ids[0] if len(ids) == 1 else None
+    return True
+
+
+def owns(ticket: dict[str, Any], user_id: str | None) -> bool:
+    """Was this ticket raised by this Home Assistant user? Matched by user id, never by display name."""
+    return bool(user_id) and ticket.get("requester_id") == user_id
 
 
 async def _save(hass: HomeAssistant, data: dict[str, Any]) -> None:
@@ -436,6 +462,7 @@ def _new_ticket(
     status: str = "new",
     priority: str = "normal",
     requester: str = "unknown",
+    requester_id: str | None = None,
     assignee: str | None = None,
     labels: list[str] | None = None,
     category: str | None = None,
@@ -473,6 +500,7 @@ def _new_ticket(
         "status": status,
         "priority": priority,
         "requester": requester,
+        "requester_id": requester_id,  # the Home Assistant user, so a rename or a shared name never moves a ticket
         "assignee": assignee or None,
         "labels": label_ids,
         "category": _resolve_category(data, category) if category else None,
@@ -644,6 +672,97 @@ async def async_get_ticket(hass: HomeAssistant, ticket_id: int, *, user_id: str 
         return out
 
 
+# ---------------------------------------------------------------- what a household member sees of their own reports
+
+# A closed report is no longer shown to them. Everything else is said in three plain words.
+HOUSEHOLD_STATUS = {"new": "received", "in_progress": "looking", "resolved": "resolved"}
+
+
+def _household_message(ticket: dict[str, Any], event: dict[str, Any], user_id: str) -> dict[str, Any] | None:
+    """One line of the conversation, or None if it is not for them: notes, status and field changes, the AI agent and
+    Home Assistant's own comments are all left out."""
+    actor = event["actor"]
+    if event["kind"] != "comment" or is_agent(actor) or actor in SYSTEM_ACTORS or not event.get("body"):
+        return None
+    mine = (event.get("data") or {}).get("by") == user_id
+    return {"mine": mine, "who": "You" if mine else actor, "body": event["body"], "at": event["created_at"]}
+
+
+def household_report(ticket: dict[str, Any], user_id: str, since: str, *, detail: bool = False) -> dict[str, Any]:
+    """A report as its sender sees it. Built from a short list of fields, so nothing else can leak: no ticket number is
+    shown, and no labels, priority, assignee, AI state, categories, links or internal notes."""
+    messages = [m for e in ticket["events"] if (m := _household_message(ticket, e, user_id))]
+    out: dict[str, Any] = {
+        "id": ticket["id"],  # only to ask for this report again; never shown
+        "kind": "suggestion" if ENHANCEMENT_LABEL_ID in ticket["labels"] else "problem",
+        "title": ticket["title"],
+        "status": HOUSEHOLD_STATUS[ticket["status"]],
+        "created_at": ticket["created_at"],
+        "updated_at": max([ticket["created_at"], *[m["at"] for m in messages]]),
+        "unread": any(not m["mine"] and m["at"] > since for m in messages),
+        "resolution": ticket.get("resolution") if ticket["status"] == "resolved" else None,
+    }
+    if detail:
+        out["message"] = ticket["description"]
+        out["messages"] = messages
+        out["attachments"] = [{"id": a["id"], "kind": a["kind"], "name": a["name"], "seconds": a.get("seconds")} for a in ticket.get("attachments", [])]
+    return out
+
+
+async def async_household_reports(hass: HomeAssistant, user_id: str) -> list[dict[str, Any]]:
+    """The signed-in person's own reports that are not closed, newest activity first."""
+    async with _lock(hass):
+        data = await _load(hass)
+        marks, fresh = _seen(data, user_id)
+        if fresh:
+            await _save(hass, data)  # remember when they first looked, or nothing would ever count as new to them
+        rows = [
+            household_report(t, user_id, _since(marks, t["id"]))
+            for t in data["tickets"].values()
+            if owns(t, user_id) and t["status"] in HOUSEHOLD_STATUS
+        ]
+    return sorted(rows, key=lambda r: r["updated_at"], reverse=True)
+
+
+async def async_household_report(hass: HomeAssistant, user_id: str, ticket_id: int) -> dict[str, Any]:
+    """One of their reports in full. Opening it marks the replies as read."""
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = data["tickets"].get(str(ticket_id))
+        if ticket is None or not owns(ticket, user_id) or ticket["status"] not in HOUSEHOLD_STATUS:
+            raise TicketError("Report not found")  # the same answer for someone else's, so ids can't be probed
+        marks, fresh = _seen(data, user_id)
+        out = household_report(ticket, user_id, _since(marks, ticket_id), detail=True)
+        if out["unread"] or fresh:
+            marks["tickets"][str(ticket_id)] = _now()
+            await _save(hass, data)
+    return out
+
+
+async def async_household_reply(hass: HomeAssistant, user_id: str, actor: str, ticket_id: int, body: str) -> None:
+    """Their reply on their own report. It is not 'work done on the ticket': a New report stays New, and it is never
+    taken for the AI agent answering. A reply on a Resolved report reopens it, so it reaches the inbox again."""
+    body = (body or "").strip()
+    if not body:
+        raise TicketError("Write something to send")
+    _limit(body, MAX_TEXT, "The reply")
+    async with _lock(hass):
+        data = await _load(hass)
+        ticket = data["tickets"].get(str(ticket_id))
+        if ticket is None or not owns(ticket, user_id) or ticket["status"] not in HOUSEHOLD_STATUS:
+            raise TicketError("Report not found")
+        ts = _now()
+        _event(ticket, actor, "comment", body, {"by": user_id}, ts)
+        if ticket["status"] == "resolved":
+            ticket["status"], ticket["closed_at"], ticket["resolution"] = "new", None, None
+            _event(ticket, "Home Desk", "status", None, {"field": "status", "from": "resolved", "to": "new"}, ts)
+        ticket["updated_at"] = ts
+        marks, _ = _seen(data, user_id)
+        marks["tickets"][str(ticket_id)] = ts  # their own reply is not unread to them
+        await _save(hass, data)
+    _fire(hass, ticket, "comment", actor)
+
+
 def _seen(data: dict[str, Any], user_id: str) -> tuple[dict[str, Any], bool]:
     """One person's read marks: everything up to `base` counts as read, plus each ticket opened since.
     A person seen for the first time starts with everything read. Returns the marks and whether they were just made."""
@@ -681,6 +800,7 @@ async def async_list_tickets(
     priority: str | None = None,
     assignee: str | None = None,
     requester: str | None = None,
+    requester_id: str | None = None,
     label: str | None = None,
     category: str | None = None,
     include_history: bool = True,
@@ -728,6 +848,8 @@ async def async_list_tickets(
         elif assignee and t["assignee"] != assignee:
             continue
         if requester and t["requester"] != requester:
+            continue
+        if requester_id and t.get("requester_id") != requester_id:
             continue
         if label_id and label_id not in t["labels"]:
             continue

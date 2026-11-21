@@ -3,6 +3,7 @@ import { property, state } from "lit/decorators.js";
 import { safeCustomElement } from "../define";
 import { sharedStyles } from "../styles";
 import type { HaClient } from "../ha-client";
+import "./my-reports";
 import { MAX_IMAGES, canRecord, clock, convertAudioFile, shrinkImage, startRecording, type Recorder } from "../media";
 
 interface Photo {
@@ -38,19 +39,16 @@ export class ReportForm extends LitElement {
         overflow-y: auto;
         background: var(--st-bg);
       }
-      /* The form is one Home Assistant card: lighter than the page, with its title inside. */
+      /* Just the form on the page, like the rest of Home Desk: no card around it. */
       .page {
         box-sizing: border-box;
         max-width: 560px;
-        margin: 24px auto 48px;
-        padding: 16px 16px 24px;
-        border: 1px solid var(--ha-card-border-color, var(--st-outline));
-        border-radius: var(--ha-card-border-radius, var(--ha-border-radius-xl, 12px));
-        background: var(--ha-card-background, var(--card-background-color, var(--st-surface)));
+        margin: 8px auto 16px;
+        padding: 16px 16px 8px;
       }
       @media (max-width: 600px) {
         .page {
-          margin: 16px;
+          margin: 0 auto 8px;
         }
       }
       h2 {
@@ -236,6 +234,10 @@ export class ReportForm extends LitElement {
   ];
 
   @property({ attribute: false }) client!: HaClient;
+  /** A household member also sees the reports they have sent. Administrators have the full list instead. */
+  @property({ type: Boolean }) mine = false;
+  @property({ attribute: false }) language = "en";
+  @state() private _version = 0;
 
   @state() private _message = "";
   @state() private _kind = "bug";
@@ -364,6 +366,7 @@ export class ReportForm extends LitElement {
       const sent = await this.client.report(form);
       this._sentWith = { photos: sent.photos, voice: sent.voice };
       this._sent = true;
+      this._version++;
       this._settleScreen();
       this._message = "";
       this._kind = "bug";
@@ -375,7 +378,17 @@ export class ReportForm extends LitElement {
     }
   }
 
+  private _mine() {
+    return this.mine
+      ? html`<st-my-reports .client=${this.client} .language=${this.language} .version=${this._version}></st-my-reports>`
+      : nothing;
+  }
+
   override render() {
+    return html`${this._form()}${this._mine()}`;
+  }
+
+  private _form() {
     if (this._sent) {
       return html`<div class="page thanks">
         <ha-icon icon="mdi:check-circle-outline"></ha-icon>
@@ -387,7 +400,7 @@ export class ReportForm extends LitElement {
       </div>`;
     }
     return html`<div class="page">
-      <h2>Report a problem or an idea</h2>
+      <h2>Report a problem or make a suggestion</h2>
       <p class="lead">Tell us what happened or what you'd like. Write it, record it or add a photo, whichever is easiest.</p>
 
       <div class="field">

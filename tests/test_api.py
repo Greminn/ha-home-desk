@@ -63,13 +63,16 @@ class FakeHass:
         self.services = FakeServices()
         self.config = types.SimpleNamespace(language="en", config_dir="/config", path=lambda p: "/config/" + p)
         self.tasks = []
-        self.auth = types.SimpleNamespace(async_get_user=self._user)
+        self.auth = types.SimpleNamespace(async_get_user=self._user, async_get_users=self._all_users)
         self.users = {}
         self.states = types.SimpleNamespace(get=lambda entity_id: self.entity_states.get(entity_id))
         self.entity_states = {}
 
     async def _user(self, user_id):
         return self.users.get(user_id)
+
+    async def _all_users(self):
+        return list(self.users.values())
 
     def async_create_task(self, coro):
         self.tasks.append(asyncio.ensure_future(coro))
@@ -204,17 +207,17 @@ async def main():
     wsapi.async_register_commands(hass)
     # The decorators wrap each handler, so they are matched to names by registration order (see async_register_commands).
     names = ["list", "get", "mark_read", "stats", "create", "update", "comment", "close", "link", "merge", "delete", "labels", "label_create", "label_update",
-             "label_delete", "categories", "category_create", "category_update", "category_delete", "settings", "settings_save", "proposal", "agent_run", "agent_stop", "agent_test", "suggest", "agent_run_now", "proceed", "users"]
+             "label_delete", "categories", "category_create", "category_update", "category_delete", "settings", "settings_save", "proposal", "agent_run", "agent_stop", "agent_test", "suggest", "agent_run_now", "proceed", "users", "my_reports", "my_report", "my_reply"]
     assert len(REGISTERED) == len(names), (len(REGISTERED), "commands registered")
     HANDLERS.update(dict(zip(names, REGISTERED)))
 
     # ---- who may call which websocket command
     FakeStore.saved = {}
-    t = await s.async_create_ticket(hass, title="Alex's ticket", requester="Alex")
-    mine, theirs = t["id"], (await s.async_create_ticket(hass, title="Someone else's", requester="Jo"))["id"]
+    t = await s.async_create_ticket(hass, title="Alex's ticket", requester="Alex", requester_id="alex")
+    mine, theirs = t["id"], (await s.async_create_ticket(hass, title="Someone else's", requester="Jo", requester_id="jo"))["id"]
     # What a household user may do: raise a ticket, and list their own. Everything else is for admins (they can't open a
     # ticket or comment on it, even their own: anything more is talked through in person).
-    open_to_household = {"list", "create", "labels", "categories"}
+    open_to_household = {"create", "labels", "categories", "my_reports", "my_report", "my_reply"}
     for name in names:
         if name in open_to_household:
             continue
@@ -232,15 +235,70 @@ async def main():
     await s.async_add_comment(hass, mine, actor="Simon", body="private working note", internal=True)
     assert (await call(hass, "get", ADMIN(), ticket_id=mine)).result["events"][-1]["kind"] in ("note", "status")
     # ...and can raise a ticket, but can't set what a manager sets
-    conn = await call(hass, "list", HOUSEHOLD(), status="all")
-    assert [x["title"] for x in conn.result["tickets"]] == ["Alex's ticket"], conn.result
+    conn = await call(hass, "my_reports", HOUSEHOLD())
+    assert [x["title"] for x in conn.result["reports"]] == ["Alex's ticket"], conn.result
     assert (await call(hass, "list", ADMIN(), status="all")).result["total"] == 2, "a manager sees everyone's tickets"
     conn = await call(hass, "create", HOUSEHOLD(), title="Door code", priority="urgent", labels=["bug", "task", "garden"], category="home-assistant")
     made = conn.result
     assert made["priority"] == "normal", "a household user can't set the priority"
     assert made["labels"] == ["bug"], made["labels"]  # only Bug, Enhancement and Question are open to them
     assert made["category"] is None, "...or the category"
-    assert made["requester"] == "Alex"
+    assert made["requester"] == "Alex" and made["requester_id"] == "alex"
+    # ownership is the user id, not the display name: a second Alex, or a renamed one, is not the same person
+    other_alex = Conn("Alex", False, user_id="alex-2")
+    assert (await call(hass, "my_reports", other_alex)).result["reports"] == [], "same name, different user"
+    assert (await call(hass, "my_report", other_alex, ticket_id=mine)).error[0] == "not_found"
+    renamed = Conn("Alexandra", False, user_id="alex")
+    assert len((await call(hass, "my_reports", renamed)).result["reports"]) == 2, "a rename keeps their tickets"
+    # a ticket with no user id (an automation's, or an old one nobody matched) is for administrators only
+    await s.async_create_ticket(hass, title="From an automation", requester="Alex")
+    assert "From an automation" not in [x["title"] for x in (await call(hass, "my_reports", HOUSEHOLD())).result["reports"]]
+    # tickets from before user ids: adopted once, only by a name that belongs to exactly one user
+    hass.users.update({"alex": types.SimpleNamespace(id="alex", name="Alex", system_generated=False),
+                       "sam-1": types.SimpleNamespace(id="sam-1", name="Sam", system_generated=False),
+                       "sam-2": types.SimpleNamespace(id="sam-2", name="Sam", system_generated=False)})
+    data = await s._load(hass)
+    for who in ("Alex", "Sam", "Gone"):
+        old = s._new_ticket(data, title=f"Old {who}", requester=who)
+        del old["requester_id"]
+        data["tickets"][str(old["id"])] = old
+    await s._save(hass, data)
+    data = await s._load(hass)
+    ids = {t["requester"]: t["requester_id"] for t in data["tickets"].values() if t["title"].startswith("Old ")}
+    assert ids == {"Alex": "alex", "Sam": None, "Gone": None}, ids
+    print("ownership by user id ok")
+
+    # ---- what a household member sees of their own report: plain words, no internals
+    marks = await s._load(hass)
+    marks["seen"]["alex"]["base"] = "2000-01-01T00:00:00+00:00"  # they last looked long ago (timestamps are whole seconds)
+    await s._save(hass, marks)
+    await s.async_add_comment(hass, mine, actor="Simon", body="Which light is it?")
+    await s.async_add_comment(hass, mine, actor="ai:Claude", body="AI review: probably the zigbee bulb")
+    await s.async_update_ticket(hass, mine, actor="Simon", labels=["bug"], priority="high")
+    row = (await call(hass, "my_reports", HOUSEHOLD())).result["reports"][0]
+    assert set(row) == {"id", "kind", "title", "status", "created_at", "updated_at", "unread", "resolution"}, set(row)
+    assert row["status"] == "looking" and row["kind"] == "problem", row
+    assert row["unread"] is True, row
+    full = (await call(hass, "my_report", HOUSEHOLD(), ticket_id=mine)).result
+    assert [(m["who"], m["body"]) for m in full["messages"]] == [("Simon", "Which light is it?")], full["messages"]
+    assert "priority" not in full and "labels" not in full and "events" not in full and "assignee" not in full
+    assert (await call(hass, "my_reports", HOUSEHOLD())).result["reports"][0]["unread"] is False, "opening it reads the reply"
+    # their reply: shown as 'You', does not move a New report, and a New one stays New
+    fresh = (await call(hass, "create", HOUSEHOLD(), title="Garage door", labels=["bug"])).result["id"]
+    reply = (await call(hass, "my_reply", HOUSEHOLD(), ticket_id=fresh, body="It sticks halfway.")).result
+    assert reply["status"] == "received" and reply["messages"][-1]["who"] == "You" and reply["unread"] is False
+    assert (await call(hass, "my_reply", HOUSEHOLD(), ticket_id=fresh, body="  ")).error
+    assert (await call(hass, "my_reply", other_alex, ticket_id=fresh, body="hi")).error[0] == "invalid", "not their report"
+    # Resolved shows with the note and reopens on a reply; Closed is gone
+    await s.async_close_ticket(hass, fresh, actor="Simon", resolution="Adjusted the sensor.")
+    shown = (await call(hass, "my_report", HOUSEHOLD(), ticket_id=fresh)).result
+    assert shown["status"] == "resolved" and shown["resolution"] == "Adjusted the sensor."
+    again = (await call(hass, "my_reply", HOUSEHOLD(), ticket_id=fresh, body="Still sticking.")).result
+    assert again["status"] == "received" and again["resolution"] is None
+    await s.async_close_ticket(hass, fresh, actor="Simon", resolution="Done", status="closed")
+    assert fresh not in [r["id"] for r in (await call(hass, "my_reports", HOUSEHOLD())).result["reports"]]
+    assert (await call(hass, "my_report", HOUSEHOLD(), ticket_id=fresh)).error[0] == "not_found"
+    print("household reports ok")
     conn = await call(hass, "create", ADMIN(), title="Planned work", priority="urgent", labels=["task"], category="home-assistant")
     assert conn.result["priority"] == "urgent" and conn.result["category"] == "home-assistant" and conn.result["labels"] == ["task"]
     print("household create ok")

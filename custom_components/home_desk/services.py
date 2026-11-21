@@ -176,6 +176,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             description=d.get("description", ""),
             priority=d.get("priority", "normal"),
             requester=d.get("requester", actor),
+            requester_id=None if d.get("requester") else call.context.user_id,
             assignee=d.get("assignee"),
             labels=d.get("labels"),
             category=d.get("category"),

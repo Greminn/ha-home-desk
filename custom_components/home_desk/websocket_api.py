@@ -19,6 +19,10 @@ from .agent import async_run_now, async_stop_turn, async_test_agent
 from .suggest import async_guess
 from .storage import (
     AI_OFF,
+    async_household_reply,
+    async_household_report,
+    async_household_reports,
+    owns,
     async_apply_proposal,
     async_decide_run,
     async_dismiss_proposal,
@@ -81,7 +85,7 @@ def _is_admin(connection: websocket_api.ActiveConnection) -> bool:
 
 
 def _can_see(connection: websocket_api.ActiveConnection, ticket: dict[str, Any]) -> bool:
-    return _is_admin(connection) or ticket["requester"] == _actor(connection)
+    return _is_admin(connection) or owns(ticket, connection.user.id if connection.user else None)
 
 
 def _viewer(connection: websocket_api.ActiveConnection) -> dict[str, Any] | None:
@@ -114,6 +118,7 @@ def _fail(connection: websocket_api.ActiveConnection, msg: dict, code: str, text
         vol.Optional("include_history"): bool,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_list(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
     try:
@@ -125,7 +130,6 @@ async def ws_list(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
             assignee=msg.get("assignee"),
             label=msg.get("label"),
             category=msg.get("category"),
-            requester=None if _is_admin(connection) else _actor(connection),
             include_history=msg.get("include_history", True),
             viewer=_viewer(connection),
         )
@@ -198,6 +202,7 @@ async def ws_create(hass: HomeAssistant, connection: websocket_api.ActiveConnect
             # Non-admins can't set priority or most labels; the manager triages those.
             priority=msg.get("priority", "normal") if admin else "normal",
             requester=actor,
+            requester_id=connection.user.id if connection.user else None,
             labels=msg.get("labels") if admin else [x for x in msg.get("labels", []) if x in HOUSEHOLD_LABELS] or None,
             category=msg.get("category") if admin else None,
             entities=msg.get("entities"),
@@ -238,6 +243,47 @@ async def ws_update(hass: HomeAssistant, connection: websocket_api.ActiveConnect
         _fail(connection, msg, "invalid", str(err))
         return
     connection.send_result(msg["id"], ticket)
+
+
+def _me(connection: websocket_api.ActiveConnection, msg: dict) -> str | None:
+    """The signed-in user's id, or an error sent and None."""
+    if not connection.user:
+        _fail(connection, msg, "unauthorized", "Sign in first")
+        return None
+    return connection.user.id
+
+
+@websocket_api.websocket_command({vol.Required("type"): "home_desk/my_reports"})
+@websocket_api.async_response
+async def ws_my_reports(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Your own reports, in the short form a household member sees. Open to everyone who is signed in."""
+    if (me := _me(connection, msg)) is not None:
+        connection.send_result(msg["id"], {"reports": await async_household_reports(hass, me)})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "home_desk/my_report", vol.Required("ticket_id"): int})
+@websocket_api.async_response
+async def ws_my_report(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    if (me := _me(connection, msg)) is None:
+        return
+    try:
+        connection.send_result(msg["id"], await async_household_report(hass, me, msg["ticket_id"]))
+    except TicketError as err:
+        _fail(connection, msg, "not_found", str(err))
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "home_desk/my_reply", vol.Required("ticket_id"): int, vol.Required("body"): _LONG}
+)
+@websocket_api.async_response
+async def ws_my_reply(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    if (me := _me(connection, msg)) is None:
+        return
+    try:
+        await async_household_reply(hass, me, _actor(connection), msg["ticket_id"], msg["body"])
+        connection.send_result(msg["id"], await async_household_report(hass, me, msg["ticket_id"]))
+    except TicketError as err:
+        _fail(connection, msg, "invalid", str(err))
 
 
 @websocket_api.websocket_command(
@@ -656,6 +702,6 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_labels, ws_label_create, ws_label_update, ws_label_delete,
         ws_categories, ws_category_create, ws_category_update, ws_category_delete,
         ws_settings, ws_settings_save, ws_proposal, ws_agent_run, ws_agent_stop, ws_agent_test, ws_suggest,
-        ws_agent_run_now, ws_proceed, ws_users,
+        ws_agent_run_now, ws_proceed, ws_users, ws_my_reports, ws_my_report, ws_my_reply,
     ):
         websocket_api.async_register_command(hass, command)

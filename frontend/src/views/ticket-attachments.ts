@@ -84,7 +84,7 @@ export class TicketAttachments extends LitElement {
 
   @property({ attribute: false }) client!: HaClient;
   @property({ type: Number }) ticketId = 0;
-  @property({ attribute: false }) items: Attachment[] = [];
+  @property({ attribute: false }) items: Pick<Attachment, "id" | "kind" | "name" | "seconds">[] = [];
 
   /** Signed links by attachment id; each is good for an hour, so they are fetched again when the ticket changes. */
   @state() private _urls: Record<string, string> = {};
