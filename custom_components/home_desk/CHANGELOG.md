@@ -6,6 +6,8 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-22
+
 Brewed over a magic: your household can now see what happened to their reports, and nobody else's.
 
 ### Added
