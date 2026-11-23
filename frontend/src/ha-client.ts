@@ -5,6 +5,7 @@ import type {
   HomeDeskSettings,
   Label,
   LabelColor,
+  MyReport,
   Ticket,
   TicketPatch,
   TicketSummary,
@@ -205,6 +206,20 @@ export class HaClient {
     const body = (await res.json().catch(() => ({}))) as { message?: string };
     if (!res.ok) throw new Error(body.message || `The report couldn't be sent (${res.status})`);
     return body as { id: number; photos: number; voice: boolean };
+  }
+
+  /** The signed-in person's own reports (a household member's view). */
+  async myReports(): Promise<MyReport[]> {
+    return (await this.send<{ reports: MyReport[] }>("my_reports")).reports;
+  }
+
+  async myReport(ticketId: number): Promise<MyReport> {
+    return this.send("my_report", { ticket_id: ticketId });
+  }
+
+  /** Replies to one of their own reports. Answers with the report as it now stands. */
+  async myReply(ticketId: number, body: string): Promise<MyReport> {
+    return this.send("my_reply", { ticket_id: ticketId, body });
   }
 
   /** A link to an attachment the browser can load directly (images, audio), good for a while. */

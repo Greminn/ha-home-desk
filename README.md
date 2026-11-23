@@ -13,7 +13,7 @@ Something in the house stops working, a household member has a request, or you h
 - **An interface that looks like part of Home Assistant.** A Home page (what needs you, recent activity), tabs for Inbox, Working, Ideas and Completed (plus Queued for AI when AI is on), a searchable, sortable list and a full-width ticket page.
 - **A lifecycle that moves by itself.** New, In Progress, Resolved and Closed, with GitHub-style labels and categories for which part of the home a ticket is about.
 - **Tickets from Home Assistant Repairs.** Each repair becomes a ticket, and closes itself when the repair clears. Anything else that fires an event can raise one too.
-- **A simple report form for household users**, with photos and a voice message that Home Assistant's speech-to-text writes out.
+- **A simple report form for household users**, with photos and a voice message that Home Assistant's speech-to-text writes out, and a **My Reports** list so they can see where each report is up to and reply.
 - **AI that advises first.** **Review With AI** asks the AI you chose in Settings to look at a ticket and say what it thinks, and it can't change anything. **Queue** hands a ticket to an AI agent you run yourself.
 - **AI is optional and has a master switch.** Turn off **Use AI** in Settings and every AI control disappears and Home Desk refuses what an AI would do.
 

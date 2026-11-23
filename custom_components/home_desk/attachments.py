@@ -36,6 +36,7 @@ from .const import (
 from .media import safe_name, sniff, speech_ready, wav_info
 from .storage import (
     TicketError,
+    owns,
     async_add_attachments,
     async_create_ticket,
     async_find_attachment,
@@ -225,6 +226,7 @@ async def async_handle_report(hass: HomeAssistant, user: Any, report: Report) ->
             description=report.details,
             priority="normal",
             requester=user.name or "unknown",
+            requester_id=user.id,
             labels=[report.kind],
             actor=user.name or "unknown",
         )
@@ -318,7 +320,7 @@ class AttachmentView(HomeAssistantView):
             ticket, attachment = await async_find_attachment(hass, int(ticket_id), attachment_id)
         except TicketError:
             return self.json_message("Not found", 404)
-        if not (user.is_admin or ticket["requester"] == user.name):
+        if not (user.is_admin or owns(ticket, user.id)):
             return self.json_message("Not yours to see", 403)
         # A file that came with a merged ticket stays in that ticket's folder.
         path = _root(hass) / str(attachment.get("ticket", ticket["id"])) / f"{attachment['id']}.{attachment['ext']}"

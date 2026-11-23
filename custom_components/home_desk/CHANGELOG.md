@@ -6,6 +6,20 @@ Agents: call `home_desk.get_changelog` (optionally with `since` set to the last 
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-22
+
+Brewed over a magic: your household can now see what happened to their reports, and nobody else's.
+
+### Added
+- **My Reports: "did anyone read that?" answered** (#6). Under the report form, a **My Reports** list shows everything the person has sent, as a Problem or a Suggestion, with where it is up to: Received, Being Looked At or Resolved. Open one to see what they wrote and added, any replies from you, and the note you wrote when you resolved it. They can reply right there (a reply on a Resolved report reopens it, so it lands back in your Inbox), and a dot marks a reply they haven't read. They never see ticket numbers, labels, priorities, internal notes or anything from the AI agent, and Closed reports quietly drop off the list. Three new commands back it (`home_desk/my_reports`, `my_report`, `my_reply`); `home_desk/list` is now for administrators only. **Action:** none.
+
+### Fixed
+- **Reports now belong to a person, not to a name.** Tickets and their photos used to be matched to their owner by display name, so two accounts called the same thing could see each other's reports, and renaming an account lost its tickets. Tickets now record the Home Assistant user who raised them. Existing tickets are matched once, and only when the name belongs to exactly one user. Anything unclear (two people with one name, a deleted user, an automation's or a Repair's ticket) stays with administrators rather than being guessed at. **Action:** none.
+
+### Changed
+- The AI agent guide now says that household members see comments from people only, never an AI agent's, so anything a requester must see goes through the manager.
+- The report form now says "Report a problem or make a suggestion", because you can't really "report an idea". It matches the two choices underneath.
+
 ## [1.0.0] - 2026-11-12
 
 The first stable release, and the first one offered in the HACS default repository. It is the same code as 1.0.0-beta.3.

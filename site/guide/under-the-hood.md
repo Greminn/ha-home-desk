@@ -9,7 +9,7 @@ The technical details behind the other pages.
 ## Who Can Do What
 
 - Services other than `get_guide` and `get_changelog`, and the Settings, need an administrator. The one exception is the AI agent's own Home Assistant user, which gets a few services, and only while a run lets it.
-- Non-administrators see only the report form.
+- Non-administrators see only the report form and their own reports (**My Reports**). A report is theirs by Home Assistant user, never by display name, so two accounts with the same name never see each other's reports or photos, and a rename loses nothing. What they are sent is a short fixed list of fields: no ticket numbers, labels, priority, internal notes or anything from an AI agent. Tickets raised by an automation or a Repair have no user, so only administrators see them.
 - Deleting a ticket is in the panel for administrators only. There is deliberately no service for it, so an AI agent cannot delete tickets.
 - Every ticket has its own address, `/home-desk/<id>`, so it can be linked and bookmarked. A refresh keeps you on the page you were on, except Settings.
 

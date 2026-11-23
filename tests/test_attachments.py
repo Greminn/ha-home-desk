@@ -140,8 +140,8 @@ def wav(seconds, rate=16000, channels=1, bits=16, fmt=1):
 
 
 class Person:
-    def __init__(self, name, admin=False):
-        self.name, self.is_admin, self.id = name, admin, name.lower()
+    def __init__(self, name, admin=False, user_id=None):
+        self.name, self.is_admin, self.id = name, admin, user_id or name.lower()
 
 
 def test_pure():
@@ -231,6 +231,11 @@ async def main():
         assert r.headers["X-Content-Type-Options"] == "nosniff" and r.headers["Content-Security-Policy"] == "sandbox"
         who["user"] = Person("Jo")
         assert (await client.get(url(first))).status == 403, "another household member"
+        # owned by the user id, not the name: a second account with the same name is a stranger, a renamed owner is still the owner
+        who["user"] = Person("Alex", user_id="alex-2")
+        assert (await client.get(url(first))).status == 403, "same display name, different user"
+        who["user"] = Person("Alexandra", user_id="alex")
+        assert (await client.get(url(first))).status == 200, "the owner after a rename"
         who["user"] = Person("Simon", admin=True)
         assert (await client.get(url(first))).status == 200, "an administrator"
         who["user"] = None

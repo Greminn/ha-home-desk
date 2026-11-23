@@ -867,7 +867,7 @@ export class HomeDeskPanel extends LitElement {
         @mark-all-read=${() => void this._markRead()}></st-app-header>
       ${this._error ? html`<div class="banner">${this._error}</div>` : nothing}
       ${!this._admin && this._client
-        ? html`<st-report-form .client=${this._client}></st-report-form>`
+        ? html`<st-report-form .client=${this._client} .language=${this.hass.language} mine></st-report-form>`
         : this._page === "home" && this._client && this._compact
           ? this._homeTemplate(true)
         : this._page === "report" && this._client

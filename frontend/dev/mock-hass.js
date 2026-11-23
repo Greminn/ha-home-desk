@@ -127,6 +127,13 @@ function seed() {
       transcript: "I tried the new code a few times this morning and it just beeps." },
   ];
   door.events.push({ id: door.events.length + 1, actor: "Alex", kind: "attachment", body: null, data: { field: "attachments", to: "2 photos and a voice message" }, created_at: iso(12 * MIN) });
+  // What Alex sees in My Reports: a question from the manager, a report being looked at, and one that was sorted.
+  door.events.push({ id: door.events.length + 1, actor: "Sam", kind: "comment", body: "Is that the keypad on the door, or the code in the app?", data: null, created_at: iso(3 * MIN) });
+  const garage = add({ title: "The garage light stays on", status: "in_progress", requester: "Alex", labels: ["bug"], ago: 2 * DAY, description: "It stays on all night after we close the door." });
+  garage.events.push({ id: garage.events.length + 1, actor: "Sam", kind: "note", body: "Probably the door sensor battery. Check Thursday.", data: null, created_at: iso(1 * DAY) });
+  garage.events.push({ id: garage.events.length + 1, actor: "ai:Claude", kind: "comment", body: "Review: the door sensor reports closed late.", data: null, created_at: iso(1 * DAY) });
+  add({ title: "Why does the hallway light flicker?", status: "resolved", requester: "Alex", labels: ["bug"], ago: 6 * DAY, updated: 4 * DAY, description: "It flickers when the heating comes on.", resolution: "Replaced the bulb with one that works with the dimmer. It should be steady now." });
+  add({ title: "Old report that was closed", status: "closed", requester: "Alex", labels: ["bug"], ago: 20 * DAY, updated: 18 * DAY, resolution: "Duplicate." });
   // A ticket with a long description (paragraphs, lists, a quote and a code block) for the description's collapse and scrolling.
   const heating = add({ title: "Upstairs heating keeps overriding manual changes", status: "in_progress", priority: "high", requester: "Sam", labels: ["bug", "home-assistant"], ago: 5 * DAY, updated: 3 * HOUR,
     description: [
@@ -236,6 +243,22 @@ export function createMock() {
     agentRuns.set(t.id, timers);
   };
 
+  // What a household member sees of one of their own reports (mirrors storage.household_report).
+  const HOUSEHOLD_WORDS = { new: "received", in_progress: "looking", resolved: "resolved" };
+  const mine = (t) => t.requester === state.user.name && HOUSEHOLD_WORDS[t.status];
+  const householdRow = (t, detail = false) => {
+    const since = db.seen.tickets[t.id] > db.seen.base ? db.seen.tickets[t.id] : db.seen.base;
+    const msgs = t.events
+      .filter((e) => e.kind === "comment" && e.body && !/^ai:/i.test(e.actor) && !["Home Assistant", "Home Desk", "import"].includes(e.actor))
+      .map((e) => ({ mine: e.actor === state.user.name, who: e.actor === state.user.name ? "You" : e.actor, body: e.body, at: e.created_at }));
+    return {
+      id: t.id, kind: t.labels.includes("enhancement") ? "suggestion" : "problem", title: t.title, status: HOUSEHOLD_WORDS[t.status],
+      created_at: t.created_at, updated_at: [t.created_at, ...msgs.map((x) => x.at)].sort().pop(),
+      unread: msgs.some((x) => !x.mine && x.at > since), resolution: t.status === "resolved" ? t.resolution : null,
+      ...(detail ? { message: t.description, messages: msgs, attachments: (t.attachments ?? []).map((x) => ({ id: x.id, kind: x.kind, name: x.name, seconds: x.seconds })) } : {}),
+    };
+  };
+
   const handlers = {
     proposal: (m) => {
       const t = get(m.ticket_id);
@@ -340,6 +363,26 @@ export function createMock() {
         return e ? { unread: true, activity: { actor: e.actor, kind: e.kind, at: e.created_at } } : { unread: false };
       };
       return { total: rows.length, tickets: rows.map((t) => ({ ...summary(t), ...mark(t) })) };
+    },
+    // A household member's own reports, in the short form the real backend gives (no ticket internals).
+    my_reports: () => ({ reports: Object.values(db.tickets).filter(mine).map((t) => householdRow(t)).sort((a, b) => b.updated_at.localeCompare(a.updated_at)) }),
+    my_report: (m) => {
+      const t = db.tickets[m.ticket_id];
+      if (!t || !mine(t)) throw { code: "not_found", message: "Report not found" };
+      const row = householdRow(t, true);
+      db.seen.tickets[t.id] = iso(0); // opening it reads the replies
+      return row;
+    },
+    my_reply: (m) => {
+      const t = db.tickets[m.ticket_id];
+      if (!t || !mine(t)) throw { message: "Report not found" };
+      if (!String(m.body ?? "").trim()) throw { message: "Write something to send" };
+      t.events.push({ id: t.events.length + 1, actor: state.user.name, kind: "comment", body: m.body.trim(), data: { by: state.user.id }, created_at: iso(0) });
+      if (t.status === "resolved") { t.status = "new"; t.resolution = null; t.closed_at = null; }
+      t.updated_at = iso(0);
+      db.seen.tickets[t.id] = iso(0);
+      fire(t, "comment", state.user.name);
+      return householdRow(t, true);
     },
     mark_read: (m) => {
       const now = iso(0);

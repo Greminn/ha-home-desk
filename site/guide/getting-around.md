@@ -83,6 +83,6 @@ A phone shows one pane at a time, laid out for a thumb:
 
 ## Permissions
 
-Administrators see and change everything. Other users see only the [report form](/guide/household-reports).
+Administrators see and change everything. Other users see only the [report form](/guide/household-reports) and their own reports, listed under it as **My Reports**.
 
 Home Desk updates live, including changes made by automations and AI agents.

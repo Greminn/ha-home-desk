@@ -9,7 +9,7 @@ Home Desk is a helpdesk integration for Home Assistant. It stores tickets that y
 Tickets are raised by:
 
 - **Administrators**, for anything in or around the home.
-- **Household users**, through a report form that accepts photos and a voice message.
+- **Household users**, through a report form that accepts photos and a voice message. They can follow their reports and reply in **My Reports**.
 - **Home Assistant**, from [Repairs](/guide/repairs). The ticket resolves when the Repair clears.
 - **AI agents** you connect. See [AI Agents](/ai/using-ai).
 

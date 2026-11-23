@@ -11,13 +11,15 @@ from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parents[1] / "custom_components" / "home_desk" / "websocket_api.py"
 
-# What a household (non-admin) user may call, and why. The handlers themselves narrow it further: `list` returns only the
-# caller's own tickets, and `create` drops the priority and most labels. Everything else needs require_admin.
+# What a household (non-admin) user may call, and why. The handlers themselves narrow it further: `my_*` touch only the caller's
+# own tickets, and `create` drops the priority and most labels. Everything else needs require_admin.
 OPEN_TO_HOUSEHOLD = {
-    "home_desk/list": "their own tickets only",
     "home_desk/create": "raise a ticket (the report form); priority and most labels are stripped",
     "home_desk/labels": "the report form offers the labels a household user may pick",
     "home_desk/categories": "read-only; the report form can show the categories",
+    "home_desk/my_reports": "the caller's own reports, as a short fixed list of fields (no ticket internals)",
+    "home_desk/my_report": "one of the caller's own reports; anyone else's is 'not found'",
+    "home_desk/my_reply": "a reply on the caller's own report",
 }
 
 
