@@ -231,7 +231,7 @@ export interface HomeDeskSettings {
   agent_prompt_outdated?: boolean;
   agent_prompt_fixed: string;
   notify: {
-    /** Notify services to send to, e.g. "mobile_app_simons_iphone" or "persistent_notification". */
+    /** Explicit notify services to send to, e.g. "mobile_app_simons_iphone". */
     targets: string[];
     new_ticket: boolean;
     comment: boolean;

@@ -24,6 +24,7 @@ from .const import CONF_REPAIRS, DOMAIN
 from .storage import async_auto_close, async_get_settings, async_save_settings, storage_file
 from .attachments import async_register_views
 from .frontend import async_register_sidebar_panel, async_register_static_paths
+from .notifications import setup_notifications
 from .repairs import async_setup_repairs
 from .services import async_setup_services
 from .websocket_api import async_register_commands
@@ -61,6 +62,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Mirror Home Assistant Repairs into tickets and close resolved tickets on time, until unloaded."""
     entry.async_on_unload(entry.add_update_listener(_options_updated))
+    entry.async_on_unload(setup_notifications(hass))
 
     # "Tickets from Repairs" used to be an option on the entry; it is a setting now. Carry an older "off" across once.
     if entry.options.get(CONF_REPAIRS) is False and (await async_get_settings(hass))["repairs"]:

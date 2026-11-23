@@ -88,7 +88,7 @@ export class HaClient {
         agent_prompt: "",
         agent_prompt_default: "",
         agent_prompt_fixed: "",
-        notify: { targets: [], new_ticket: true, comment: true, resolved: false },
+        notify: { targets: [], new_ticket: false, comment: false, resolved: false },
       };
     }
   }

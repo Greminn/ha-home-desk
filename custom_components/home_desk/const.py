@@ -94,7 +94,7 @@ DEFAULT_SETTINGS = {
 MAX_PROMPT = 6000
 AGENT_TIMEOUT = 150  # seconds a turn may take before it is given up on
 AGENT_CONTEXT_CHARS = 24000  # the most context sent in one turn
-DEFAULT_NOTIFY = {"targets": [], "new_ticket": True, "comment": True, "resolved": False}
+DEFAULT_NOTIFY = {"targets": [], "new_ticket": False, "comment": False, "resolved": False}
 
 # Colours handed out automatically to new labels: no red (reads as an alarm) and no greys (low contrast).
 LABEL_AUTO_COLORS = [

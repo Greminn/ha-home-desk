@@ -323,9 +323,10 @@ async def main():
     conn = await call(hass, "category_delete", ADMIN(), category_id="network")
     assert conn.result == {"removed_from": 1}
     conn = await call(hass, "settings", ADMIN())
-    assert conn.result["auto_close"] == "7d" and conn.result["notify"]["new_ticket"] is True
-    conn = await call(hass, "settings_save", ADMIN(), auto_close="1d", notify={"targets": ["mobile_app_x"]})
+    assert conn.result["auto_close"] == "7d" and conn.result["notify"]["new_ticket"] is False
+    conn = await call(hass, "settings_save", ADMIN(), auto_close="1d", notify={"targets": ["mobile_app_x"], "new_ticket": True})
     assert conn.result["auto_close"] == "1d" and conn.result["notify"]["targets"] == ["mobile_app_x"]
+    assert conn.result["notify"]["new_ticket"] is True
     conn = await call(hass, "settings_save", ADMIN(), auto_close="1d", **{"agent": "ai_task.claude"})
     assert conn.result["agent"] == "ai_task.claude"
     conn = await call(hass, "settings", Conn("Jo", True))

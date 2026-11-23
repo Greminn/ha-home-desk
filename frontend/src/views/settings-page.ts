@@ -27,9 +27,6 @@ const AUTO_CLOSE = [
  */
 const REPO = "https://github.com/Greminn/ha-home-desk";
 
-/** The notification options are saved but nothing sends yet (see "Phone notifications" in docs/development.md), so the card stays hidden until it does. */
-const NOTIFICATIONS_SEND = false;
-
 /** The keyboard shortcuts: the keys, what they do, and a line of detail. Keep in step with the key handlers in ticket-detail.ts and top-bar.ts. */
 const SHORTCUTS: [string[], string, string][] = [
   [["R"], "Reply", "Opens the comment box and puts the cursor in it. With the cursor outside the box it closes it again."],
@@ -206,6 +203,17 @@ export class SettingsPage extends LitElement {
       .srow.pick {
         cursor: pointer;
       }
+      .target-search {
+        width: calc(100% - 32px);
+        box-sizing: border-box;
+        margin: 8px 16px;
+        padding: 10px 12px;
+        border: 1px solid var(--divider-color);
+        border-radius: var(--ha-border-radius-md, 8px);
+        background: var(--st-surface);
+        color: var(--st-fg);
+        font: inherit;
+      }
       .note {
         padding: 12px 16px;
         font-size: var(--st-fs-small);
@@ -282,6 +290,7 @@ export class SettingsPage extends LitElement {
 
   @state() private _s: HomeDeskSettings | null = null;
   @state() private _error = "";
+  @state() private _targetQuery = "";
   @state() private _test: { busy: boolean; reply?: string; error?: string } | null = null;
   /** The Test button sends a (tiny) request to the AI provider, so it asks first. */
   @state() private _confirmTest = false;
@@ -322,7 +331,6 @@ export class SettingsPage extends LitElement {
 
   /** "mobile_app_simons_iphone" -> "Simons Iphone (mobile app)". */
   private _targetName(key: string): string {
-    if (key === "persistent_notification") return "Home Assistant notifications (the bell)";
     const phone = key.startsWith("mobile_app_");
     const words = key.replace(/^mobile_app_/, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     return phone ? `${words} (mobile app)` : words;
@@ -331,7 +339,10 @@ export class SettingsPage extends LitElement {
   private get _targets(): string[] {
     const keys = Object.keys(this.hass.services?.["notify"] ?? {});
     const mine = this._s?.notify.targets ?? [];
-    return [...new Set([...keys, ...mine])].filter((k) => k !== "notify").sort();
+    return [...new Set([...keys, ...mine])]
+      .filter((k) => !["notify", "send_message", "persistent_notification"].includes(k))
+      .filter((k) => this._targetName(k).toLowerCase().includes(this._targetQuery.trim().toLowerCase()))
+      .sort((a, b) => Number(mine.includes(b)) - Number(mine.includes(a)) || a.localeCompare(b));
   }
 
   /** The AI agents Home Assistant has: AI Task and conversation entities. */
@@ -537,34 +548,28 @@ export class SettingsPage extends LitElement {
       </div>
 ` : nothing}
 
-      ${NOTIFICATIONS_SEND
-        ? html`      <div class="card">
+      <div class="card">
         <h2>Notifications</h2>
-        <p class="help">These are your own settings. Each manager chooses where their notifications go and what they hear about.</p>
-        <div class="sub">Notify me when</div>
+        <p class="help">Your own administrator settings. Notifications stay off until you switch them on and choose a destination.</p>
         <div class="srow">
-          <div class="text"><div class="name">A new ticket is raised</div><div class="desc">From a household member, an AI agent or a repair.</div></div>
+          <div class="text"><div class="name">New tickets</div><div class="desc">Send a notification for every new ticket. Choose a personal notify service if ticket details should stay private.</div></div>
           ${this._switch(s.notify.new_ticket, "New ticket raised", (v) => void this._save({ notify: { new_ticket: v } }))}
         </div>
-        <div class="srow">
-          <div class="text"><div class="name">Someone else comments</div><div class="desc">Including the AI Agent replying to a ticket.</div></div>
-          ${this._switch(s.notify.comment, "Someone else comments", (v) => void this._save({ notify: { comment: v } }))}
-        </div>
-        <div class="srow">
-          <div class="text"><div class="name">A ticket is resolved</div></div>
-          ${this._switch(s.notify.resolved, "A ticket is resolved", (v) => void this._save({ notify: { resolved: v } }))}
-        </div>
         <div class="sub">Send notifications to</div>
+        <input class="target-search" type="search" placeholder="Find a notify service" aria-label="Find a notify service"
+          .value=${this._targetQuery} @input=${(e: Event) => { this._targetQuery = (e.target as HTMLInputElement).value; }} />
         ${this._targets.length
-          ? this._targets.map(
+          ? this._targets.slice(0, this._targetQuery.trim() ? undefined : 12).map(
               (k) => html`<label class="srow pick">
                 <input class="check" type="checkbox" .checked=${s.notify.targets.includes(k)} @change=${() => this._toggleTarget(k)} />
                 <div class="text"><div class="name">${this._targetName(k)}</div></div>
               </label>`,
             )
-          : html`<div class="note">Home Assistant has no notify services yet. Install the Companion app on a phone to get one.</div>`}
-      </div>`
-        : nothing}
+          : html`<div class="note">No matching notify service. Check your search or connect a phone in the Companion app.</div>`}
+        ${!this._targetQuery.trim() && this._targets.length > 12
+          ? html`<div class="note">Search to see the other ${this._targets.length - 12} notify services.</div>`
+          : nothing}
+      </div>
       <div class="card keys">
         <h2>Keyboard Shortcuts</h2>
         <p class="help">They work anywhere in Home Desk except while you are typing in a box.</p>

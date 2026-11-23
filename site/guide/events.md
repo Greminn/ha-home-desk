@@ -4,7 +4,7 @@ title: Events and Automations
 
 # Events and Automations
 
-Home Desk fires `home_desk_event` on the event bus for every ticket change. Built-in push notifications are not available yet. Use an automation.
+Home Desk fires `home_desk_event` on the event bus for every ticket change. Administrators can opt in to new-ticket notifications in [Settings](/guide/settings); automations can still handle other ticket events.
 
 ## Event Data
 
