@@ -86,7 +86,7 @@ AUTO_CLOSE_SECONDS = {
 # assigning a ticket to an AI agent and the calls an AI agent makes (see storage.AI_OFF).
 DEFAULT_SETTINGS = {
     "ai_enabled": True,
-    "auto_close": "7d", "agent": "", "repairs": True, "repairs_ignored": False, "stt": "", "transcribe": True,
+    "auto_close": "7d", "agent": "", "repairs": True, "repairs_ignored": False, "updates": False, "stt": "", "transcribe": True,
     "agent_states": True, "agent_config": True, "agent_related": True, "agent_daily_cap": 30, "agent_prompt": "",
     "agent_prompt_base": "",  # which default a saved prompt was written against ("" = unknown), so a changed default can be noticed
     "agent_dispatcher": False, "agent_user": "",  # Run AI Agent Now is offered; the Home Assistant user the AI Dispatcher signs in as. Experimental: the AI Dispatcher is not part of the first release

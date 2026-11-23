@@ -76,6 +76,7 @@ export class HaClient {
         auto_close: "7d",
         agent: "",
         repairs: true,
+        updates: false,
         repairs_ignored: false,
         stt: "",
         transcribe: true,

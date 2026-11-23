@@ -395,6 +395,13 @@ export class SettingsPage extends LitElement {
           </div>
           ${this._switch(s.repairs, "Tickets from Repairs", (v) => void this._save({ repairs: v }))}
         </div>
+        <div class="srow">
+          <div class="text">
+            <div class="name">Tickets from Updates</div>
+            <div class="desc">Open and reconcile tickets for available Home Assistant updates. This never installs updates.</div>
+          </div>
+          ${this._switch(s.updates, "Tickets from Updates", (v) => void this._save({ updates: v }))}
+        </div>
         ${s.repairs
           ? html`<div class="srow">
               <div class="text">

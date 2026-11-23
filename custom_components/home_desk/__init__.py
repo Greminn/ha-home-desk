@@ -25,6 +25,7 @@ from .storage import async_auto_close, async_get_settings, async_save_settings, 
 from .attachments import async_register_views
 from .frontend import async_register_sidebar_panel, async_register_static_paths
 from .repairs import async_setup_repairs
+from .updates import async_setup_updates
 from .services import async_setup_services
 from .websocket_api import async_register_commands
 
@@ -80,8 +81,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             stop = await async_setup_repairs(hass, dict(entry.options))
         except Exception:  # noqa: BLE001 - never block setup over the repairs feature
             _LOGGER.warning("Could not start Repairs-to-tickets", exc_info=True)
-            return
-        entry.async_on_unload(stop)
+        else:
+            entry.async_on_unload(stop)
+        if (await async_get_settings(hass))["updates"]:
+            try:
+                stop_updates = await async_setup_updates(hass)
+            except Exception:  # noqa: BLE001 - never block Home Desk over update ticketing
+                _LOGGER.warning("Could not start Updates-to-tickets", exc_info=True)
+            else:
+                entry.async_on_unload(stop_updates)
 
     # Issues are registered as integrations load, so wait until HA has finished starting
     # (this runs straight away if it already has).
