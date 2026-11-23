@@ -371,12 +371,15 @@ async def main():
 
     # ---- settings
     cfg = await s.async_get_settings(hass, "u1")
-    assert cfg["auto_close"] == "7d" and cfg["repairs"] is True and cfg["agent"] == ""
+    assert cfg["auto_close"] == "7d" and cfg["repairs"] is True and cfg["updates"] is False and cfg["agent"] == ""
     assert cfg["notify"] == {"targets": [], "new_ticket": True, "comment": True, "resolved": False}
     cfg = await s.async_save_settings(hass, {"auto_close": "1d", "agent": "ai_task.claude", "notify": {"targets": ["mobile_app_x"], "resolved": True}}, user_id="u1")
     assert cfg["auto_close"] == "1d" and cfg["agent"] == "ai_task.claude" and cfg["notify"]["targets"] == ["mobile_app_x"] and cfg["notify"]["resolved"]
     assert (await s.async_get_settings(hass, "u2"))["notify"]["targets"] == [], "notifications are per manager"
     assert (await s.async_get_settings(hass, "u2"))["auto_close"] == "1d", "the rest is shared"
+    assert (await s.async_save_settings(hass, {"updates": True}))["updates"] is True
+    assert (await s.async_get_settings(hass, "u2"))["updates"] is True
+    assert (await s.async_save_settings(hass, {"updates": False}))["updates"] is False
     for bad in ({"auto_close": "soon"}, {"nope": 1}, {"notify": {"nope": 1}}):
         await expect_error(lambda b=bad: s.async_save_settings(hass, b), what=f"settings {bad}")
     print("settings ok")
@@ -965,6 +968,14 @@ async def test_update_tickets():
     assert (await s.async_get_ticket(hass, tickets[0]["id"]))["status"] == "resolved"
     assert await s.async_open_update_entity_ids(hass) == []
 
+    # A skipped update may become visible again at the same version after a
+    # reload. The person's resolved ticket must stay resolved.
+    hass.states.values[eid] = FakeState(eid, "on", friendly_name="Office router", latest_version="1.1")
+    for listener in list(hass.bus.listeners["state_changed"]):
+        listener(types.SimpleNamespace(data={"entity_id": eid, "new_state": hass.states.get(eid)}))
+    await asyncio.gather(*hass.tasks)
+    assert (await s.async_get_ticket(hass, tickets[0]["id"]))["status"] == "resolved"
+
     hass.states.values[eid] = FakeState(eid, "on", friendly_name="Office router", latest_version="1.2")
     for listener in list(hass.bus.listeners["state_changed"]):
         listener(types.SimpleNamespace(data={"entity_id": eid, "new_state": hass.states.get(eid)}))
@@ -1007,11 +1018,39 @@ async def test_update_ticket_manual_close():
 asyncio.run(test_update_ticket_manual_close())
 
 
+async def test_update_ticket_resolved_skip():
+    FakeStore.saved = {}
+    hass = FakeHass()
+    eid = "update.office_router"
+    await s.async_sync_update(
+        hass, entity_id=eid, available=True, title="Router update",
+        description="Version 1.1", version="1.1",
+    )
+    ticket_id = (await s.async_list_tickets(hass))["tickets"][0]["id"]
+    await s.async_close_ticket(
+        hass, ticket_id, actor="User", resolution="Skipping version 1.1", status="resolved",
+    )
+    resolved = await s.async_get_ticket(hass, ticket_id)
+    assert resolved["status"] == "resolved"
+    assert await s.async_sync_update(hass, entity_id=eid, available=True, version="1.1") is None
+    same_version = await s.async_get_ticket(hass, ticket_id)
+    assert same_version["status"] == "resolved"
+    assert same_version["resolution"] == "Skipping version 1.1"
+    assert len(same_version["events"]) == len(resolved["events"])
+    assert await s.async_sync_update(hass, entity_id=eid, available=True, version="1.2") == "reopened"
+    new_version = await s.async_get_ticket(hass, ticket_id)
+    assert new_version["status"] == "new"
+    assert new_version["update_version"] == "1.2"
+    assert len((await s.async_list_tickets(hass, status="all"))["tickets"]) == 1
+
+
+asyncio.run(test_update_ticket_resolved_skip())
+
+
 async def test_native_update_categories_and_release_notes():
     FakeStore.saved = {}
     hass = FakeHass()
-    for name in ("Apps", "Dashboards", "Integrations"):
-        await s.async_create_category(hass, name=name)
+    await s.async_create_category(hass, name="Apps", icon="mdi:star")
 
     app_id = "update.piper_update"
     card_id = "update.calendar_card_pro_update"
@@ -1029,50 +1068,34 @@ async def test_native_update_categories_and_release_notes():
             release_url="https://github.com/example/project/releases/tag/2.0",
         )
     stop = await updates.async_setup_updates(hass)
+    categories = {c["id"]: c for c in await s.async_list_categories(hass)}
+    assert {"home-assistant", "apps", "dashboards", "integrations"} <= categories.keys()
+    assert categories["apps"]["icon"] == "mdi:star", "existing categories must be preserved"
     tickets = (await s.async_list_tickets(hass, status="all"))["tickets"]
     by_entity = {t["entities"][0]: t for t in tickets}
     assert by_entity[app_id]["category"] == "apps"
     assert by_entity[card_id]["category"] == "dashboards"
     assert by_entity[component_id]["category"] == "integrations"
+    assert all(t["labels"] == ["update"] for t in tickets)
     card = await s.async_get_ticket(hass, by_entity[card_id]["id"])
     assert card["priority"] == "high"
     assert all(heading in card["description"] for heading in ("### Breaking changes", "### New", "### Fixes")), card["description"]
-    assert "[GitHub release](https://github.com/example/project/releases/tag/2.0)" in card["description"]
+    assert "[Full release notes](https://github.com/example/project/releases/tag/2.0)" in card["description"]
 
     piper_notes = "## Backups\n- Downloaded voice packs are no longer included in backups.\n## Fixes\n- Fixed a synthesis request that could hang."
     piper_description = updates._details(hass.states.get(app_id), piper_notes)[1]
     assert "### Other changes" in piper_description and "### Fixes" in piper_description
 
-    class FakeResponse:
-        status = 200
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            return None
-
-        async def json(self):
-            return {"body": "## Fixes\n- Corrected a Home Assistant Core regression."}
-
-    class FakeSession:
-        def get(self, url, headers):
-            assert url == "https://api.github.com/repos/home-assistant/core/releases/tags/2026.11.2"
-            return FakeResponse()
-
-    original_session = updates.async_get_clientsession
-    updates.async_get_clientsession = lambda _hass: FakeSession()
     component = hass.data.pop("update_component")
     try:
         core = FakeState(
             "update.home_assistant_core_update", "on", latest_version="2026.11.2",
             title="Home Assistant Core", friendly_name="Home Assistant Core Update",
         )
-        assert "Corrected a Home Assistant Core regression" in await updates._release_notes(hass, core)
+        assert await updates._release_notes(hass, core) == ""
         assert updates._details(core)[0] == "Update available: Home Assistant Core"
-        assert "https://github.com/home-assistant/core/releases/tag/2026.11.2" in updates._details(core)[1]
+        assert "api.github.com" not in updates._details(core)[1]
     finally:
-        updates.async_get_clientsession = original_session
         hass.data["update_component"] = component
 
     # A person can override a category. Later updates must keep that choice.
