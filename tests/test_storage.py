@@ -988,6 +988,7 @@ async def test_update_tickets():
     await fire_timers()
     assert (await s.async_get_ticket(hass, tickets[0]["id"]))["status"] == "resolved"
     assert updates._breaking_note("No breaking changes") is False
+    assert updates._breaking_note("No known breaking changes") is False
     assert updates._release_link("javascript:alert(1)") == ""
     assert updates._release_link("https://[bad-ipv6/release") == ""
     stop()
