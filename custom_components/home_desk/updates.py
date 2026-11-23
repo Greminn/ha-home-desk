@@ -112,7 +112,7 @@ def _highlights(notes: str) -> tuple[dict[str, list[str]], bool]:
 
 def _breaking_note(summary: str) -> bool:
     """Treat release text as a hint, not a verified compatibility verdict."""
-    lowered = re.sub(r"\bno breaking changes?\b", "", summary.lower())
+    lowered = re.sub(r"\bno(?: known)? breaking changes?\b", "", summary.lower())
     return bool(re.search(r"\b(breaking changes?|action required|manual migration)\b", lowered))
 
 
