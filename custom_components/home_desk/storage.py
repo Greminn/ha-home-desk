@@ -1764,7 +1764,7 @@ async def async_sync_update(
     """Keep one ticket per update entity in step with Home Assistant's update state.
 
     An unavailable/unknown entity must not call this function: it says nothing
-    about whether the update was installed. A manually closed ticket remains
+    about whether the update was installed. A resolved or closed ticket remains
     closed for the same version, but a later version opens it again.
     """
     key = f"{UPDATE_PREFIX}{entity_id}"
@@ -1790,7 +1790,7 @@ async def async_sync_update(
             kind = "created"
         elif available and ticket is not None:
             previous_version = ticket.get("update_version", "")
-            if ticket["status"] == "closed" and previous_version == version:
+            if ticket["status"] in ("resolved", "closed") and previous_version == version:
                 return None
             fields: dict[str, Any] = {}
             # Preserve a person's category choice when reconciling the update.
@@ -2094,6 +2094,27 @@ async def async_list_categories(hass: HomeAssistant) -> list[dict[str, Any]]:
         return _category_list(await _load(hass))
 
 
+async def async_ensure_update_categories(hass: HomeAssistant) -> None:
+    """Add the update watcher's categories once without changing existing ones."""
+    categories = (
+        ("apps", "Apps", "mdi:apps"),
+        ("dashboards", "Dashboards", "mdi:view-dashboard"),
+        ("integrations", "Integrations", "mdi:puzzle"),
+    )
+    async with _lock(hass):
+        data = await _load(hass)
+        changed = False
+        for category_id, name, icon in categories:
+            if category_id in data["category_registry"]:
+                continue
+            data["category_registry"][category_id] = {
+                "id": category_id, "name": name, "icon": icon, "builtin": False,
+            }
+            changed = True
+        if changed:
+            await _save(hass, data)
+
+
 def _category_exists(data: dict[str, Any], name: str, except_id: str | None = None) -> bool:
     return any(
         c["id"] != except_id and (c["name"].lower() == name.lower() or c["id"] == _slug(name))
@@ -2217,7 +2238,7 @@ async def async_save_settings(
     unknown = set(patch) - set(DEFAULT_SETTINGS)
     if unknown:
         raise TicketError(f"Unknown setting(s) {sorted(unknown)}")
-    for key in ("repairs", "repairs_ignored"):
+    for key in ("repairs", "repairs_ignored", "updates"):
         if key in patch:
             patch[key] = bool(patch[key])
     if "transcribe" in patch:

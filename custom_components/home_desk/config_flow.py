@@ -8,7 +8,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 
-from .const import CONF_REPAIRS_IGNORE, CONF_UPDATES, DOMAIN
+from .const import CONF_REPAIRS_IGNORE, DOMAIN
 
 
 class HomeDeskConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -42,7 +42,6 @@ class HomeDeskOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_REPAIRS_IGNORE, default=options.get(CONF_REPAIRS_IGNORE, [])
                 ): selector.TextSelector(selector.TextSelectorConfig(multiple=True)),
-                vol.Optional(CONF_UPDATES, default=options.get(CONF_UPDATES, False)): selector.BooleanSelector(),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

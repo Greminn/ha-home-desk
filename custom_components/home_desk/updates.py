@@ -13,16 +13,15 @@ import time
 import asyncio
 from collections.abc import Callable
 from typing import Any
-from urllib.parse import quote, urlsplit
+from urllib.parse import urlsplit
 
 from homeassistant.components.update import DATA_COMPONENT, UpdateEntityFeature
 from homeassistant.const import EVENT_STATE_CHANGED
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later
 
-from .storage import async_open_update_entity_ids, async_sync_update
+from .storage import async_ensure_update_categories, async_open_update_entity_ids, async_sync_update
 
 _LOGGER = logging.getLogger(__name__)
 START_GRACE = 15 * 60
@@ -51,27 +50,8 @@ def _category(hass: HomeAssistant, state: Any) -> str:
     return "integrations"
 
 
-def _github_release(state: Any) -> tuple[str, str] | None:
-    """Return a known GitHub repository and tag; never fetch a supplied host."""
-    version = str(state.attributes.get("latest_version") or "").strip()
-    if not version or len(version) > 100:
-        return None
-    if state.entity_id == "update.home_assistant_core_update":
-        return "home-assistant/core", version
-    if state.entity_id == "update.piper_update":
-        return "home-assistant/app-piper", version
-    link = _release_link(state.attributes.get("release_url"))
-    parsed = urlsplit(link)
-    if parsed.hostname != "github.com":
-        return None
-    match = re.fullmatch(r"/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/releases/tag/([^/]+)", parsed.path)
-    if not match:
-        return None
-    return f"{match[1]}/{match[2]}", match[3]
-
-
 async def _release_notes(hass: HomeAssistant, state: Any) -> str:
-    """Prefer the same release notes the HA update dialog displays."""
+    """Read only the release notes exposed by Home Assistant's update entity."""
     component = hass.data.get(DATA_COMPONENT)
     entity = component.get_entity(state.entity_id) if component else None
     if entity and entity.supported_features & UpdateEntityFeature.RELEASE_NOTES:
@@ -82,24 +62,7 @@ async def _release_notes(hass: HomeAssistant, state: Any) -> str:
                 return notes[:MAX_NOTES]
         except Exception:  # noqa: BLE001 - ticket still gets the release link
             _LOGGER.debug("Release notes unavailable for %s", state.entity_id, exc_info=True)
-    github = _github_release(state)
-    if github is None:
-        return ""
-    repo, tag = github
-    url = f"https://api.github.com/repos/{repo}/releases/tags/{quote(tag, safe='')}"
-    try:
-        async with asyncio.timeout(NOTES_TIMEOUT):
-            async with async_get_clientsession(hass).get(
-                url, headers={"Accept": "application/vnd.github+json", "User-Agent": "Home-Desk-Update-Tickets"}
-            ) as response:
-                if response.status != 200:
-                    return ""
-                payload = await response.json()
-        notes = payload.get("body") if isinstance(payload, dict) else None
-        return notes[:MAX_NOTES] if isinstance(notes, str) else ""
-    except Exception:  # noqa: BLE001 - a transient GitHub failure must not stop ticketing
-        _LOGGER.debug("GitHub release unavailable for %s", state.entity_id, exc_info=True)
-        return ""
+    return ""
 
 
 def _highlights(notes: str) -> tuple[dict[str, list[str]], bool]:
@@ -183,13 +146,8 @@ def _details(state: Any, notes: str = "") -> tuple[str, str, str, str]:
             lines.append(f"### {section}\n" + "\n".join(f"- {item}" for item in items))
     if not any(highlights.values()) and summary:
         lines.append(f"**Release summary:** {summary}")
-    github = _github_release(state)
-    if github:
-        repo, tag = github
-        lines.append(f"[GitHub release]({f'https://github.com/{repo}/releases/tag/{quote(tag, safe="")}'})")
     if link:
-        if not github or link != f"https://github.com/{github[0]}/releases/tag/{quote(github[1], safe='')}":
-            lines.append(f"[Full release notes]({link})")
+        lines.append(f"[Full release notes]({link})")
     lines.append(
         "Release notes mention a possible breaking change. Review the full notes before updating."
         if breaking else "Review the full release notes before updating; this summary is not a compatibility verdict."
@@ -202,6 +160,7 @@ def _details(state: Any, notes: str = "") -> tuple[str, str, str, str]:
 
 async def async_setup_updates(hass: HomeAssistant) -> Callable[[], None]:
     """Watch update state changes and reconcile currently pending updates."""
+    await async_ensure_update_categories(hass)
     started = _clock()
     pending: dict[str, Callable[[], None]] = {}
     notes_retry: dict[str, Callable[[], None]] = {}

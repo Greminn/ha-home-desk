@@ -526,6 +526,7 @@ async def ws_settings(hass: HomeAssistant, connection: websocket_api.ActiveConne
         vol.Optional("agent_user"): _SHORT,
         vol.Optional("repairs"): bool,
         vol.Optional("repairs_ignored"): bool,
+        vol.Optional("updates"): bool,
         vol.Optional("stt"): _SHORT,
         vol.Optional("transcribe"): bool,
         vol.Optional("agent_states"): bool,
@@ -562,6 +563,9 @@ async def ws_settings_save(hass: HomeAssistant, connection: websocket_api.Active
     if "auto_close" in patch:
         hass.async_create_task(async_auto_close(hass))
     connection.send_result(msg["id"], result)
+    if "updates" in patch and result["updates"] != before["updates"]:
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            hass.async_create_task(hass.config_entries.async_reload(entry.entry_id))
 
 
 @websocket_api.websocket_command(

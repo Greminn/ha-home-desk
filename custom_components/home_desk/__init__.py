@@ -20,7 +20,7 @@ from homeassistant.helpers.start import async_at_started
 from homeassistant.loader import async_get_integration
 
 from .backup import safe_backup
-from .const import CONF_REPAIRS, CONF_UPDATES, DOMAIN
+from .const import CONF_REPAIRS, DOMAIN
 from .storage import async_auto_close, async_get_settings, async_save_settings, storage_file
 from .attachments import async_register_views
 from .frontend import async_register_sidebar_panel, async_register_static_paths
@@ -83,7 +83,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.warning("Could not start Repairs-to-tickets", exc_info=True)
         else:
             entry.async_on_unload(stop)
-        if entry.options.get(CONF_UPDATES, False):
+        if (await async_get_settings(hass))["updates"]:
             try:
                 stop_updates = await async_setup_updates(hass)
             except Exception:  # noqa: BLE001 - never block Home Desk over update ticketing
