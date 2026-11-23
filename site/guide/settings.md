@@ -33,5 +33,5 @@ If you edit the instructions, your text is kept even when a new version of Home 
 **Keyboard Shortcuts** lists every key. **About** shows the version and links to the release notes, this documentation, the issue tracker and the repository, and to the author's page for anyone who wants to say thanks.
 
 ::: info Notifications
-Each manager's notification options are stored, but nothing sends yet, so they are hidden. Use an [automation](/guide/events) for now.
+Each administrator can turn on notifications for every new ticket and choose one or more Home Assistant notify services. Notifications are off by default. If an existing automation also sends new-ticket alerts, turn it off before enabling this option to avoid duplicates.
 :::

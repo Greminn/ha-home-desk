@@ -342,9 +342,10 @@ async def main():
     # ---- settings
     cfg = await s.async_get_settings(hass, "u1")
     assert cfg["auto_close"] == "7d" and cfg["repairs"] is True and cfg["agent"] == ""
-    assert cfg["notify"] == {"targets": [], "new_ticket": True, "comment": True, "resolved": False}
-    cfg = await s.async_save_settings(hass, {"auto_close": "1d", "agent": "ai_task.claude", "notify": {"targets": ["mobile_app_x"], "resolved": True}}, user_id="u1")
-    assert cfg["auto_close"] == "1d" and cfg["agent"] == "ai_task.claude" and cfg["notify"]["targets"] == ["mobile_app_x"] and cfg["notify"]["resolved"]
+    assert cfg["notify"] == {"targets": [], "new_ticket": False, "comment": False, "resolved": False}
+    cfg = await s.async_save_settings(hass, {"auto_close": "1d", "agent": "ai_task.claude", "notify": {"targets": ["mobile_app_x"], "new_ticket": True}}, user_id="u1")
+    assert cfg["auto_close"] == "1d" and cfg["agent"] == "ai_task.claude"
+    assert cfg["notify"]["targets"] == ["mobile_app_x"] and cfg["notify"]["new_ticket"]
     assert (await s.async_get_settings(hass, "u2"))["notify"]["targets"] == [], "notifications are per manager"
     assert (await s.async_get_settings(hass, "u2"))["auto_close"] == "1d", "the rest is shared"
     for bad in ({"auto_close": "soon"}, {"nope": 1}, {"notify": {"nope": 1}}):

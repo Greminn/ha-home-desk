@@ -408,9 +408,11 @@ def _fire(hass: HomeAssistant, ticket: dict[str, Any], kind: str, actor: str) ->
             "status": ticket["status"],
             "priority": ticket["priority"],
             "requester": ticket["requester"],
+            "requester_id": ticket.get("requester_id"),
             "assignee": ticket["assignee"],
             "with_agent": is_agent(ticket["assignee"]),
             "category": ticket.get("category"),
+            "labels": list(ticket.get("labels", [])),
         },
     )
 
@@ -2068,7 +2070,8 @@ async def async_delete_category(hass: HomeAssistant, category_id: str, *, only_i
 
 def _user_notify(data: dict[str, Any], user_id: str | None) -> dict[str, Any]:
     mine = data.get("notify", {}).get(user_id or "", {})
-    return {**DEFAULT_NOTIFY, **mine, "targets": list(mine.get("targets", DEFAULT_NOTIFY["targets"]))}
+    return {**DEFAULT_NOTIFY, **{key: mine[key] for key in DEFAULT_NOTIFY if key in mine},
+            "targets": list(mine.get("targets", []))}
 
 
 def _panel_settings(data: dict[str, Any], user_id: str | None) -> dict[str, Any]:
@@ -2162,7 +2165,7 @@ async def async_save_settings(
             for key, value in notify.items():
                 if key not in DEFAULT_NOTIFY:
                     raise TicketError(f"Unknown notification setting {key!r}")
-                mine[key] = [str(v) for v in value] if key == "targets" else bool(value)
+                mine[key] = list(dict.fromkeys(str(v) for v in value)) if key == "targets" else bool(value)
             data.setdefault("notify", {})[user_id or ""] = mine
         await _save(hass, data)
         merged = _panel_settings(data, user_id)
